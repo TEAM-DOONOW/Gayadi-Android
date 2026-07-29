@@ -1,0 +1,78 @@
+package com.gayadi.android.navigation
+
+import androidx.compose.runtime.Composable
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import com.gayadi.android.ui.screens.LoginScreen
+import com.gayadi.android.ui.screens.BasicInfoScreen
+import com.gayadi.android.ui.screens.SurveyScreen
+import com.gayadi.android.ui.screens.SurveyResultScreen
+import com.gayadi.android.ui.screens.FriendAddScreen
+import com.gayadi.android.ui.screens.PlaceSearchScreen
+import com.gayadi.android.ui.screens.PlaceDetailScreen
+import com.gayadi.android.ui.screens.MyTripScreen
+import com.gayadi.android.ui.screens.RealtimeHomeScreen
+import com.gayadi.android.ui.screens.MyPageScreen
+import com.gayadi.android.ui.screens.SettingsScreen
+
+@Composable
+fun GayadiNavHost() {
+    val navController = rememberNavController()
+
+    NavHost(navController = navController, startDestination = Routes.LOGIN) {
+        composable(Routes.LOGIN) {
+            LoginScreen(
+                onKakaoLogin = { navController.navigate(Routes.BASIC_INFO) },
+                onGoogleLogin = { navController.navigate(Routes.BASIC_INFO) },
+            )
+        }
+        composable(Routes.BASIC_INFO) {
+            BasicInfoScreen(
+                onStartSurvey = { navController.navigate(Routes.SURVEY) },
+            )
+        }
+        composable(Routes.SURVEY) {
+            SurveyScreen(
+                onComplete = { navController.navigate(Routes.SURVEY_RESULT) { popUpTo(Routes.SURVEY) { inclusive = true } } },
+            )
+        }
+        composable(Routes.SURVEY_RESULT) {
+            SurveyResultScreen(
+                onStart = { navController.navigate(Routes.REALTIME_HOME) { popUpTo(Routes.LOGIN) { inclusive = true } } },
+            )
+        }
+        composable(Routes.FRIEND_ADD) {
+            FriendAddScreen(onBack = { navController.popBackStack() })
+        }
+        composable(Routes.PLACE_SEARCH) {
+            PlaceSearchScreen(
+                onBack = { navController.popBackStack() },
+                onPlaceClick = { id -> navController.navigate(Routes.placeDetail(id)) },
+            )
+        }
+        composable(Routes.PLACE_DETAIL) {
+            PlaceDetailScreen(onBack = { navController.popBackStack() })
+        }
+        composable(Routes.MY_TRIP) {
+            MyTripScreen(
+                onNavigateHome = { navController.navigate(Routes.REALTIME_HOME) { popUpTo(Routes.REALTIME_HOME) { inclusive = true } } },
+            )
+        }
+        composable(Routes.REALTIME_HOME) {
+            RealtimeHomeScreen(
+                onNavigateMyTrip = { navController.navigate(Routes.MY_TRIP) { popUpTo(Routes.REALTIME_HOME) { inclusive = true } } },
+                onNavigateMyPage = { navController.navigate(Routes.MY_PAGE) { popUpTo(Routes.REALTIME_HOME) { inclusive = true } } },
+            )
+        }
+        composable(Routes.MY_PAGE) {
+            MyPageScreen(
+                onNavigateHome = { navController.navigate(Routes.REALTIME_HOME) { popUpTo(Routes.REALTIME_HOME) { inclusive = true } } },
+                onNavigateSettings = { navController.navigate(Routes.SETTINGS) },
+            )
+        }
+        composable(Routes.SETTINGS) {
+            SettingsScreen(onBack = { navController.popBackStack() })
+        }
+    }
+}
