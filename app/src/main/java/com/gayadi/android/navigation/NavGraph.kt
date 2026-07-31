@@ -23,8 +23,7 @@ fun GayadiNavHost() {
     NavHost(navController = navController, startDestination = Routes.LOGIN) {
         composable(Routes.LOGIN) {
             LoginScreen(
-                onKakaoLogin = { navController.navigate(Routes.BASIC_INFO) },
-                onGoogleLogin = { navController.navigate(Routes.BASIC_INFO) },
+                onStart = { navController.navigate(Routes.BASIC_INFO) },
             )
         }
         composable(Routes.BASIC_INFO) {

@@ -22,13 +22,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gayadi.android.ui.theme.GayadiTheme
-import com.gayadi.android.ui.theme.PrimaryBlue
+import com.gayadi.android.ui.theme.PretendardSemiBoldFontFamily
 import com.gayadi.android.ui.theme.TextPrimary
 
 @Composable
@@ -47,31 +47,37 @@ fun BasicInfoScreen(onStartSurvey: () -> Unit) {
 
         Text(
             text = "기본 정보 입력",
-            fontSize = 20.sp,
-            fontWeight = FontWeight.SemiBold,
+            fontSize = 26.sp,
+            fontFamily = PretendardSemiBoldFontFamily,
             color = TextPrimary,
+            modifier = Modifier.fillMaxWidth(),
         )
 
         Spacer(modifier = Modifier.height(48.dp))
 
         Text(
-            text = "이름",
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium,
+            text = "닉네임",
+            fontSize = 18.sp,
+            fontFamily = PretendardSemiBoldFontFamily,
             color = TextPrimary,
             modifier = Modifier.fillMaxWidth(),
         )
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(6.dp))
         OutlinedTextField(
             value = name,
             onValueChange = { name = it },
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(8.dp),
+            shape = RoundedCornerShape(12.dp),
             singleLine = true,
+            textStyle = TextStyle(
+                fontFamily = PretendardSemiBoldFontFamily,
+                fontSize = 13.sp,
+            ),
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = PrimaryBlue,
+                focusedBorderColor = Color(0xFF8E8E93),
                 unfocusedBorderColor = Color(0xFFD1D1D6),
+                cursorColor = Color.Black,
             ),
         )
 
@@ -79,21 +85,26 @@ fun BasicInfoScreen(onStartSurvey: () -> Unit) {
 
         Text(
             text = "한 줄 소개",
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium,
+            fontSize = 18.sp,
+            fontFamily = PretendardSemiBoldFontFamily,
             color = TextPrimary,
             modifier = Modifier.fillMaxWidth(),
         )
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(6.dp))
         OutlinedTextField(
             value = intro,
             onValueChange = { intro = it },
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(8.dp),
+            shape = RoundedCornerShape(12.dp),
             singleLine = true,
+            textStyle = TextStyle(
+                fontFamily = PretendardSemiBoldFontFamily,
+                fontSize = 13.sp,
+            ),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = PrimaryBlue,
+                focusedBorderColor = Color(0xFF8E8E93),
                 unfocusedBorderColor = Color(0xFFD1D1D6),
+                cursorColor = Color.Black,
             ),
         )
 
@@ -105,9 +116,13 @@ fun BasicInfoScreen(onStartSurvey: () -> Unit) {
                 .fillMaxWidth()
                 .height(52.dp),
             shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
+            colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
         ) {
-            Text("여행 유형 검사하러 가기", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            Text(
+                text = "여행 유형 검사하러 가기",
+                fontSize = 16.sp,
+                fontFamily = PretendardSemiBoldFontFamily,
+            )
         }
 
         Spacer(modifier = Modifier.height(32.dp))
