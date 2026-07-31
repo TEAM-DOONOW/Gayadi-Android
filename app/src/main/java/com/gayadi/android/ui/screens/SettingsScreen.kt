@@ -114,8 +114,6 @@ fun SettingsScreen(onBack: () -> Unit) {
 
             SettingsRow("알림 설정", trailing = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = TextTertiary) })
             HorizontalDivider(color = Color(0xFFF0F0F0))
-            SettingsRow("연결된 계정", trailing = { Text("Kakao", fontSize = 14.sp, color = TextSecondary) })
-            HorizontalDivider(color = Color(0xFFF0F0F0))
             SettingsRow("위치 권한", trailing = {
                 Switch(
                     checked = locationPermission,

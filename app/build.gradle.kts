@@ -27,8 +27,6 @@ android {
         versionName = "1.0.0"
 
         buildConfigField("String", "API_BASE_URL", "\"${env("API_BASE_URL", "http://10.0.2.2:8080")}\"")
-        buildConfigField("String", "KAKAO_NATIVE_APP_KEY", "\"${env("KAKAO_NATIVE_APP_KEY")}\"")
-        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"${env("GOOGLE_WEB_CLIENT_ID")}\"")
         buildConfigField("boolean", "DEBUG_LOGGING", env("DEBUG_LOGGING", "true"))
     }
 
