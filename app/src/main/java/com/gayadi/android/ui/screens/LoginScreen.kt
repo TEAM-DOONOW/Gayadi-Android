@@ -2,6 +2,7 @@ package com.gayadi.android.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
@@ -38,29 +40,39 @@ fun LoginScreen(onStart: () -> Unit) {
             .padding(horizontal = 24.dp, vertical = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Spacer(modifier = Modifier.height(44.dp))
-
-        Image(
-            painter = painterResource(R.drawable.gayadi_text),
-            contentDescription = "Gayadi",
-            modifier = Modifier
-                .fillMaxWidth(0.75f)
-                .height(160.dp),
-            contentScale = ContentScale.Fit,
-        )
-
-        Spacer(modifier = Modifier.height(30.dp))
-
-        Image(
-            painter = painterResource(R.drawable.ganadi),
-            contentDescription = "가야디 캐릭터",
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(280.dp),
-            contentScale = ContentScale.Crop,
-        )
+                .weight(1f)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Spacer(modifier = Modifier.height(44.dp))
 
-        Spacer(modifier = Modifier.weight(0.5f))
+            Image(
+                painter = painterResource(R.drawable.gayadi_text),
+                contentDescription = "Gayadi",
+                modifier = Modifier
+                    .fillMaxWidth(0.75f)
+                    .height(160.dp),
+                contentScale = ContentScale.Fit,
+            )
+
+            Spacer(modifier = Modifier.height(30.dp))
+
+            Image(
+                painter = painterResource(R.drawable.ganadi),
+                contentDescription = "가야디 캐릭터",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(280.dp),
+                contentScale = ContentScale.Crop,
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         Button(
             onClick = onStart,
