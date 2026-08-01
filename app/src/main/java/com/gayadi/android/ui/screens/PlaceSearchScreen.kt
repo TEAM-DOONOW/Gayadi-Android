@@ -94,8 +94,10 @@ fun PlaceSearchScreen(
             IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로")
             }
-            Text("장소 찾기", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+            Text("장소 찾기", fontSize = 23.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
         }
+
+        androidx.compose.material3.HorizontalDivider(color = Color(0xFFE5E5E5))
 
         Column(modifier = Modifier.padding(horizontal = 20.dp)) {
             Row(
