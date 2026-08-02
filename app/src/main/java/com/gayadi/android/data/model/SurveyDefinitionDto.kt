@@ -1,0 +1,21 @@
+package com.gayadi.android.data.model
+
+/** Raw survey aggregate returned by Firestore or a local test source. */
+data class SurveyDefinitionDto(
+    val id: String,
+    val title: String,
+    val resultCodeOrder: List<String>,
+    val questions: List<SurveyQuestionDto>,
+    val results: List<SurveyResultDto>,
+)
+
+/** Raw travel-style result returned by a survey data source. */
+data class SurveyResultDto(
+    val code: String,
+    val emoji: String,
+    val name: String,
+    val summary: String,
+    val traits: String?,
+    val compatibleCode: String?,
+    val oppositeCode: String?,
+)

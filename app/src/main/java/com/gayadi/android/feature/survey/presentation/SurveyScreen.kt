@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -41,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gayadi.android.R
+import com.gayadi.android.domain.model.SurveyOption
 import com.gayadi.android.domain.model.SurveyQuestion
 import com.gayadi.android.ui.theme.GayadiTheme
 import com.gayadi.android.ui.theme.PretendardSemiBoldFontFamily
@@ -55,7 +57,7 @@ private val DisabledButtonText = Color(0xFF9C9C9C)
 /** Connects the survey ViewModel to its stateless Compose screen. */
 fun SurveyRoute(
     viewModel: SurveyViewModel,
-    onComplete: () -> Unit,
+    onComplete: (String) -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     SurveyScreen(
@@ -64,7 +66,7 @@ fun SurveyRoute(
         onOptionSelected = { viewModel.onEvent(SurveyUiEvent.OptionSelected(it)) },
         onRetry = { viewModel.onEvent(SurveyUiEvent.Retry) },
         onNext = {
-            if (viewModel.onEvent(SurveyUiEvent.Next)) onComplete()
+            viewModel.onEvent(SurveyUiEvent.Next)?.let(onComplete)
         },
     )
 }
@@ -78,8 +80,16 @@ internal fun SurveyScreen(
     onRetry: () -> Unit,
     onNext: () -> Unit,
 ) {
+    if (uiState.isLoading) {
+        SurveyLoadingScreen()
+        return
+    }
+
     if (uiState.isEmpty) {
-        SurveyEmptyScreen(onRetry = onRetry)
+        SurveyEmptyScreen(
+            message = uiState.errorMessage ?: "잠시 후 다시 시도해주세요.",
+            onRetry = onRetry,
+        )
         return
     }
 
@@ -143,11 +153,20 @@ internal fun SurveyScreen(
         ) {
             question.options.forEachIndexed { index, option ->
                 SurveyOptionCard(
-                    text = option,
+                    text = option.text,
                     isSelected = uiState.selectedOption == index,
                     onClick = { onOptionSelected(index) },
                 )
             }
+        }
+        uiState.resultErrorMessage?.let { message ->
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(horizontal = 20.dp),
+            )
         }
         Spacer(modifier = Modifier.weight(1f))
         Box(modifier = Modifier.fillMaxWidth().height(300.dp)) {
@@ -183,9 +202,24 @@ internal fun SurveyScreen(
     }
 }
 
+/** Displays progress while the Firestore survey is loading. */
+@Composable
+private fun SurveyLoadingScreen() {
+    Box(
+        modifier = Modifier.fillMaxSize().background(Color.White),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            CircularProgressIndicator(color = SurveyBlack)
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(text = "여행 성향 질문을 불러오고 있어요", color = TextSecondary)
+        }
+    }
+}
+
 /** Displays a recoverable state when survey content is unavailable. */
 @Composable
-private fun SurveyEmptyScreen(onRetry: () -> Unit) {
+private fun SurveyEmptyScreen(message: String, onRetry: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -204,7 +238,7 @@ private fun SurveyEmptyScreen(onRetry: () -> Unit) {
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "잠시 후 다시 시도해주세요.",
+            text = message,
             style = MaterialTheme.typography.bodyMedium,
             color = TextSecondary,
         )
@@ -302,7 +336,25 @@ private fun SurveyPreview() {
     GayadiTheme {
         SurveyScreen(
             uiState = SurveyUiState(
-                questions = listOf(SurveyQuestion(1, "여행을 가게 된다면?", listOf("계획한다", "즉흥적으로 떠난다"))),
+                definition = com.gayadi.android.domain.model.SurveyDefinition(
+                    id = "travel-personality-v1",
+                    title = "여행 성향 판단 설문조사",
+                    resultCodeOrder = listOf("preparation", "place", "energy"),
+                    questions = listOf(
+                        SurveyQuestion(
+                            id = "q01",
+                            order = 1,
+                            dimension = "preparation",
+                            title = "여행을 가게 된다면?",
+                            options = listOf(
+                                SurveyOption("a", "계획한다", "P"),
+                                SurveyOption("b", "즉흥적으로 떠난다", "S"),
+                            ),
+                        ),
+                    ),
+                    results = emptyMap(),
+                ),
+                isLoading = false,
                 hasStarted = true,
             ),
             onStart = {},

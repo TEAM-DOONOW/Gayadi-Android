@@ -4,7 +4,7 @@ object Routes {
     const val LOGIN = "login"
     const val BASIC_INFO = "basic_info"
     const val SURVEY = "survey"
-    const val SURVEY_RESULT = "survey_result"
+    const val SURVEY_RESULT = "survey_result/{resultCode}"
     const val FRIEND_ADD = "friend_add"
     const val PLACE_SEARCH = "place_search"
     const val PLACE_DETAIL = "place_detail/{placeId}"
@@ -14,4 +14,5 @@ object Routes {
     const val SETTINGS = "settings"
 
     fun placeDetail(placeId: String) = "place_detail/$placeId"
+    fun surveyResult(resultCode: String) = "survey_result/$resultCode"
 }

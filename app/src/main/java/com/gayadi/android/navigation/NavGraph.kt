@@ -1,23 +1,26 @@
 package com.gayadi.android.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.navArgument
 import com.gayadi.android.di.AppContainer
-import com.gayadi.android.ui.screens.LoginScreen
 import com.gayadi.android.feature.basicinfo.presentation.BasicInfoRoute
 import com.gayadi.android.feature.basicinfo.presentation.BasicInfoViewModel
 import com.gayadi.android.feature.survey.presentation.SurveyRoute
 import com.gayadi.android.feature.survey.presentation.SurveyViewModel
-import com.gayadi.android.ui.screens.SurveyResultScreen
+import com.gayadi.android.feature.surveyresult.presentation.SurveyResultRoute
+import com.gayadi.android.feature.surveyresult.presentation.SurveyResultViewModel
 import com.gayadi.android.ui.screens.FriendAddScreen
-import com.gayadi.android.ui.screens.PlaceSearchScreen
-import com.gayadi.android.ui.screens.PlaceDetailScreen
-import com.gayadi.android.ui.screens.MyTripScreen
-import com.gayadi.android.ui.screens.RealtimeHomeScreen
+import com.gayadi.android.ui.screens.LoginScreen
 import com.gayadi.android.ui.screens.MyPageScreen
+import com.gayadi.android.ui.screens.MyTripScreen
+import com.gayadi.android.ui.screens.PlaceDetailScreen
+import com.gayadi.android.ui.screens.PlaceSearchScreen
+import com.gayadi.android.ui.screens.RealtimeHomeScreen
 import com.gayadi.android.ui.screens.SettingsScreen
 
 @Composable
@@ -41,15 +44,33 @@ fun GayadiNavHost(appContainer: AppContainer) {
         }
         composable(Routes.SURVEY) {
             val surveyViewModel: SurveyViewModel = viewModel(
-                factory = SurveyViewModel.factory(appContainer.getSurveyQuestionsUseCase),
+                factory = SurveyViewModel.factory(
+                    appContainer.getSurveyUseCase,
+                    appContainer.calculateSurveyResultUseCase,
+                ),
             )
             SurveyRoute(
                 viewModel = surveyViewModel,
-                onComplete = { navController.navigate(Routes.SURVEY_RESULT) { popUpTo(Routes.SURVEY) { inclusive = true } } },
+                onComplete = { resultCode ->
+                    navController.navigate(Routes.surveyResult(resultCode)) {
+                        popUpTo(Routes.SURVEY) { inclusive = true }
+                    }
+                },
             )
         }
-        composable(Routes.SURVEY_RESULT) {
-            SurveyResultScreen(
+        composable(
+            route = Routes.SURVEY_RESULT,
+            arguments = listOf(navArgument("resultCode") { type = NavType.StringType }),
+        ) { backStackEntry ->
+            val resultCode = requireNotNull(backStackEntry.arguments?.getString("resultCode"))
+            val resultViewModel: SurveyResultViewModel = viewModel(
+                factory = SurveyResultViewModel.factory(
+                    resultCode,
+                    appContainer.getSurveyResultUseCase,
+                ),
+            )
+            SurveyResultRoute(
+                viewModel = resultViewModel,
                 onStart = { navController.navigate(Routes.REALTIME_HOME) { popUpTo(Routes.LOGIN) { inclusive = true } } },
             )
         }
