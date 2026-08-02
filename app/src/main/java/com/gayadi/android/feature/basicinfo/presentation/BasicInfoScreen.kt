@@ -28,6 +28,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
@@ -41,6 +43,7 @@ import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary
 
 @Composable
+/** Connects the basic information ViewModel to its stateless screen. */
 fun BasicInfoRoute(
     viewModel: BasicInfoViewModel,
     onStartSurvey: () -> Unit,
@@ -48,10 +51,10 @@ fun BasicInfoRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     BasicInfoScreen(
         uiState = uiState,
-        onNicknameChanged = viewModel::onNicknameChanged,
-        onIntroductionChanged = viewModel::onIntroductionChanged,
+        onNicknameChanged = { viewModel.onEvent(BasicInfoUiEvent.NicknameChanged(it)) },
+        onIntroductionChanged = { viewModel.onEvent(BasicInfoUiEvent.IntroductionChanged(it)) },
         onSubmit = {
-            if (viewModel.submit()) onStartSurvey()
+            if (viewModel.onEvent(BasicInfoUiEvent.Submit)) onStartSurvey()
         },
     )
 }
@@ -92,6 +95,7 @@ private fun BasicInfoScreen(
         )
         Spacer(modifier = Modifier.height(6.dp))
         CompactTextField(
+            label = "닉네임",
             value = uiState.nickname,
             onValueChange = onNicknameChanged,
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
@@ -114,6 +118,7 @@ private fun BasicInfoScreen(
         )
         Spacer(modifier = Modifier.height(6.dp))
         CompactTextField(
+            label = "한 줄 소개",
             value = uiState.introduction,
             onValueChange = onIntroductionChanged,
         )
@@ -151,6 +156,7 @@ private fun BasicInfoScreen(
 
 @Composable
 private fun CompactTextField(
+    label: String,
     value: String,
     onValueChange: (String) -> Unit,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
@@ -162,6 +168,7 @@ private fun CompactTextField(
         modifier = Modifier
             .fillMaxWidth()
             .height(44.dp)
+            .semantics { contentDescription = label }
             .onFocusChanged { isFocused = it.isFocused },
         singleLine = true,
         textStyle = TextStyle(

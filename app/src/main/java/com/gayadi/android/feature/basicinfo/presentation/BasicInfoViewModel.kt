@@ -9,28 +9,33 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
+/** Owns basic information form state and delegates persistence to the domain layer. */
 class BasicInfoViewModel(
     private val saveBasicInfo: SaveBasicInfoUseCase,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(BasicInfoUiState())
+    /** Observable immutable state consumed by the Compose route. */
     val uiState: StateFlow<BasicInfoUiState> = _uiState.asStateFlow()
 
-    fun onNicknameChanged(value: String) {
-        _uiState.update { it.copy(nickname = value.take(10)) }
-    }
-
-    fun onIntroductionChanged(value: String) {
-        _uiState.update { it.copy(introduction = value.take(20)) }
-    }
-
-    fun submit(): Boolean {
-        val state = _uiState.value
-        if (!state.canSubmit) return false
-        saveBasicInfo(state.nickname, state.introduction)
-        return true
+    /** Handles a UI event and returns true only when submission succeeds. */
+    fun onEvent(event: BasicInfoUiEvent): Boolean {
+        when (event) {
+            is BasicInfoUiEvent.NicknameChanged ->
+                _uiState.update { it.copy(nickname = event.value.take(10)) }
+            is BasicInfoUiEvent.IntroductionChanged ->
+                _uiState.update { it.copy(introduction = event.value.take(20)) }
+            BasicInfoUiEvent.Submit -> {
+                val state = _uiState.value
+                if (!state.canSubmit) return false
+                saveBasicInfo(state.nickname, state.introduction)
+                return true
+            }
+        }
+        return false
     }
 
     companion object {
+        /** Creates a ViewModel factory with the required use case. */
         fun factory(saveBasicInfo: SaveBasicInfoUseCase) = viewModelFactory {
             initializer { BasicInfoViewModel(saveBasicInfo) }
         }

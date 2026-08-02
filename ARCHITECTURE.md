@@ -16,13 +16,16 @@ presentation ──> domain <── data
 - `di`: 앱 시작 시 Data 구현체와 Domain UseCase를 조립하는 composition root
 - `navigation`: 화면 전환과 ViewModel 생명주기 관리
 
-Domain 계층은 Data 및 Presentation 계층을 참조하지 않습니다. Presentation 계층은 Repository 구현체가 아닌 UseCase에만 의존합니다.
+Domain 계층은 Data 및 Presentation 계층을 참조하지 않습니다. Presentation 계층은 Data Repository 구현체에 의존하지 않고, Domain Model 및 UseCase 같은 Domain 추상화에만 의존합니다.
 
 ## Package structure
 
 ```text
 com.gayadi.android
 ├── data
+│   ├── datasource
+│   ├── mapper
+│   ├── model
 │   └── repository
 ├── domain
 │   ├── model
@@ -43,7 +46,16 @@ com.gayadi.android
 
 ## State management
 
-각 기능의 ViewModel은 단일 `StateFlow<UiState>`를 외부에 노출합니다. Compose Route는 생명주기를 인식해 상태를 수집하고, 상태 없는 Screen 컴포저블에 이벤트와 상태를 전달합니다.
+각 기능의 ViewModel은 단일 `StateFlow<UiState>`를 외부에 노출하고 `UiEvent`를 통해 사용자 입력을 처리합니다. Compose Route는 생명주기를 인식해 상태를 수집하고, 상태 없는 Screen 컴포저블에 이벤트와 상태를 전달합니다.
+
+DataSource는 원본 DTO 또는 Entity를 반환하며 Repository 구현체가 Mapper를 이용해 Domain Model로 변환합니다. 따라서 외부 API나 로컬 DB가 추가되어도 Domain과 Presentation 계층은 영향을 받지 않습니다.
+
+## Tests
+
+- Mapper 및 Repository 변환 테스트
+- UseCase 단위 테스트
+- 기본 정보 입력 제한과 제출 상태 테스트
+- 설문 시작, 선택, 질문 전환, 완료 상태 테스트
 
 ## Migration status
 

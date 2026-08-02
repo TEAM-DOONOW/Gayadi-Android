@@ -52,6 +52,7 @@ private val DisabledButton = Color(0xFFEDEDED)
 private val DisabledButtonText = Color(0xFF9C9C9C)
 
 @Composable
+/** Connects the survey ViewModel to its stateless Compose screen. */
 fun SurveyRoute(
     viewModel: SurveyViewModel,
     onComplete: () -> Unit,
@@ -59,21 +60,29 @@ fun SurveyRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     SurveyScreen(
         uiState = uiState,
-        onStart = viewModel::startSurvey,
-        onOptionSelected = viewModel::selectOption,
+        onStart = { viewModel.onEvent(SurveyUiEvent.Start) },
+        onOptionSelected = { viewModel.onEvent(SurveyUiEvent.OptionSelected(it)) },
+        onRetry = { viewModel.onEvent(SurveyUiEvent.Retry) },
         onNext = {
-            if (viewModel.moveToNextQuestion()) onComplete()
+            if (viewModel.onEvent(SurveyUiEvent.Next)) onComplete()
         },
     )
 }
 
+/** Renders the survey for the supplied state without owning business state. */
 @Composable
-private fun SurveyScreen(
+internal fun SurveyScreen(
     uiState: SurveyUiState,
     onStart: () -> Unit,
     onOptionSelected: (Int) -> Unit,
+    onRetry: () -> Unit,
     onNext: () -> Unit,
 ) {
+    if (uiState.isEmpty) {
+        SurveyEmptyScreen(onRetry = onRetry)
+        return
+    }
+
     if (!uiState.hasStarted) {
         SurveyIntroScreen(
             questionCount = uiState.questions.size,
@@ -174,6 +183,46 @@ private fun SurveyScreen(
     }
 }
 
+/** Displays a recoverable state when survey content is unavailable. */
+@Composable
+private fun SurveyEmptyScreen(onRetry: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .padding(horizontal = 20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            text = "설문을 불러오지 못했어요",
+            fontSize = 20.sp,
+            fontFamily = PretendardSemiBoldFontFamily,
+            color = TextPrimary,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "잠시 후 다시 시도해주세요.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = TextSecondary,
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+        Button(
+            onClick = onRetry,
+            modifier = Modifier.fillMaxWidth().height(52.dp),
+            shape = RoundedCornerShape(0.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color.Black,
+                contentColor = Color.White,
+            ),
+        ) {
+            Text("다시 시도", fontFamily = PretendardSemiBoldFontFamily)
+        }
+    }
+}
+
 @Composable
 private fun SurveyIntroScreen(questionCount: Int, onStart: () -> Unit) {
     Column(
@@ -258,6 +307,7 @@ private fun SurveyPreview() {
             ),
             onStart = {},
             onOptionSelected = {},
+            onRetry = {},
             onNext = {},
         )
     }
