@@ -87,11 +87,13 @@ fun FriendAddScreen(onBack: () -> Unit) {
             }
             Text(
                 text = "함께할 여행메이트",
-                fontSize = 18.sp,
+                fontSize = 23.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = TextPrimary,
             )
         }
+
+        androidx.compose.material3.HorizontalDivider(color = Color(0xFFE5E5E5))
 
         Column(modifier = Modifier.padding(horizontal = 20.dp)) {
             SearchBar()
