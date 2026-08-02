@@ -3,62 +3,97 @@ package com.gayadi.android.feature.survey.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import com.gayadi.android.domain.usecase.GetSurveyQuestionsUseCase
+import com.gayadi.android.domain.usecase.CalculateSurveyResultUseCase
+import com.gayadi.android.domain.usecase.GetSurveyUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
-/** Owns survey flow state and exposes event-driven transitions. */
+/** Owns the Firestore-backed survey flow and result calculation. */
 class SurveyViewModel(
-    private val getSurveyQuestions: GetSurveyQuestionsUseCase,
+    private val getSurvey: GetSurveyUseCase,
+    private val calculateSurveyResult: CalculateSurveyResultUseCase,
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow(
-        SurveyUiState(questions = getSurveyQuestions()),
-    )
+    private val _uiState = MutableStateFlow(SurveyUiState())
     /** Observable immutable state consumed by the Compose route. */
     val uiState: StateFlow<SurveyUiState> = _uiState.asStateFlow()
 
-    /** Handles a survey event and returns true only when the survey completes. */
-    fun onEvent(event: SurveyUiEvent): Boolean {
+    init {
+        loadSurvey()
+    }
+
+    /** Handles a survey event and returns a result code only when the final answer is submitted. */
+    fun onEvent(event: SurveyUiEvent): String? {
         when (event) {
             SurveyUiEvent.Start -> {
-                if (!_uiState.value.isEmpty) {
+                if (_uiState.value.definition != null) {
                     _uiState.update { it.copy(hasStarted = true) }
                 }
             }
-            is SurveyUiEvent.OptionSelected -> {
-                if (event.index in _uiState.value.currentQuestion.orEmptyOptions().indices) {
-                    _uiState.update { it.copy(selectedOption = event.index) }
-                }
-            }
-            SurveyUiEvent.Next -> {
-                val state = _uiState.value
-                if (state.selectedOption == null) return false
-                if (state.isLastQuestion) return true
-                _uiState.update {
-                    it.copy(currentIndex = it.currentIndex + 1, selectedOption = null)
-                }
-            }
-            SurveyUiEvent.Retry -> _uiState.update {
-                it.copy(
-                    questions = getSurveyQuestions(),
-                    currentIndex = 0,
-                    selectedOption = null,
-                    hasStarted = false,
-                )
-            }
+
+            is SurveyUiEvent.OptionSelected -> selectOption(event.index)
+            SurveyUiEvent.Next -> return moveNextOrCalculate()
+            SurveyUiEvent.Retry -> loadSurvey()
         }
-        return false
+        return null
+    }
+
+    private fun selectOption(index: Int) {
+        val state = _uiState.value
+        val question = state.currentQuestion ?: return
+        val option = question.options.getOrNull(index) ?: return
+        _uiState.update {
+            it.copy(
+                selectedOption = index,
+                answers = it.answers + (question.id to option.code),
+            )
+        }
+    }
+
+    private fun moveNextOrCalculate(): String? {
+        val state = _uiState.value
+        if (state.selectedOption == null) return null
+        val definition = state.definition ?: return null
+        if (state.isLastQuestion) {
+            return calculateSurveyResult(definition, state.answers)
+        }
+        _uiState.update {
+            it.copy(
+                currentIndex = it.currentIndex + 1,
+                selectedOption = null,
+            )
+        }
+        return null
+    }
+
+    private fun loadSurvey() {
+        _uiState.value = SurveyUiState(isLoading = true)
+        getSurvey { result ->
+            result.fold(
+                onSuccess = { definition ->
+                    _uiState.value = SurveyUiState(
+                        definition = definition,
+                        isLoading = false,
+                    )
+                },
+                onFailure = { error ->
+                    _uiState.value = SurveyUiState(
+                        isLoading = false,
+                        errorMessage = error.message ?: "설문을 불러오지 못했습니다.",
+                    )
+                },
+            )
+        }
     }
 
     companion object {
-        /** Creates a ViewModel factory with the required use case. */
-        fun factory(getSurveyQuestions: GetSurveyQuestionsUseCase) = viewModelFactory {
-            initializer { SurveyViewModel(getSurveyQuestions) }
+        /** Creates a ViewModel factory with the required domain use cases. */
+        fun factory(
+            getSurvey: GetSurveyUseCase,
+            calculateSurveyResult: CalculateSurveyResultUseCase,
+        ) = viewModelFactory {
+            initializer { SurveyViewModel(getSurvey, calculateSurveyResult) }
         }
     }
 }
-
-private fun com.gayadi.android.domain.model.SurveyQuestion?.orEmptyOptions(): List<String> =
-    this?.options.orEmpty()

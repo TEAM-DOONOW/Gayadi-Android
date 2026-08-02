@@ -1,8 +1,9 @@
 package com.gayadi.android.feature.survey
 
-import com.gayadi.android.domain.model.SurveyQuestion
-import com.gayadi.android.domain.repository.SurveyRepository
-import com.gayadi.android.domain.usecase.GetSurveyQuestionsUseCase
+import com.gayadi.android.domain.FakeSurveyRepository
+import com.gayadi.android.domain.createSurveyDefinition
+import com.gayadi.android.domain.usecase.CalculateSurveyResultUseCase
+import com.gayadi.android.domain.usecase.GetSurveyUseCase
 import com.gayadi.android.feature.survey.presentation.SurveyUiEvent
 import com.gayadi.android.feature.survey.presentation.SurveyViewModel
 import org.junit.Assert.assertEquals
@@ -11,14 +12,18 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Verifies survey start, selection, transition, and completion state. */
+/** Verifies survey loading, selection, transition, and completion state. */
 class SurveyViewModelTest {
-    private val questions = listOf(
-        SurveyQuestion(1, "첫 질문", listOf("A", "B")),
-        SurveyQuestion(2, "둘째 질문", listOf("A", "B")),
-    )
+    private val definition = createSurveyDefinition()
 
-    /** Start and selection events update visible state. */
+    @Test
+    fun initialization_loadsSurvey() {
+        val viewModel = createViewModel()
+
+        assertFalse(viewModel.uiState.value.isLoading)
+        assertEquals(9, viewModel.uiState.value.questions.size)
+    }
+
     @Test
     fun events_startSurveyAndSelectOption() {
         val viewModel = createViewModel()
@@ -28,31 +33,34 @@ class SurveyViewModelTest {
 
         assertTrue(viewModel.uiState.value.hasStarted)
         assertEquals(1, viewModel.uiState.value.selectedOption)
+        assertEquals("S", viewModel.uiState.value.answers["q01"])
     }
 
-    /** Next clears selection and advances exactly one question. */
     @Test
     fun nextEvent_advancesAndResetsSelection() {
         val viewModel = createViewModel()
         viewModel.onEvent(SurveyUiEvent.OptionSelected(0))
 
-        assertFalse(viewModel.onEvent(SurveyUiEvent.Next))
+        assertNull(viewModel.onEvent(SurveyUiEvent.Next))
         assertEquals(1, viewModel.uiState.value.currentIndex)
         assertNull(viewModel.uiState.value.selectedOption)
     }
 
-    /** Next reports completion only after answering the last question. */
     @Test
-    fun nextEvent_completesLastQuestion() {
+    fun nextEvent_calculatesFinalResult() {
         val viewModel = createViewModel()
-        viewModel.onEvent(SurveyUiEvent.OptionSelected(0))
-        viewModel.onEvent(SurveyUiEvent.Next)
-        viewModel.onEvent(SurveyUiEvent.OptionSelected(1))
 
-        assertTrue(viewModel.onEvent(SurveyUiEvent.Next))
+        repeat(definition.questions.size) { index ->
+            viewModel.onEvent(SurveyUiEvent.OptionSelected(0))
+            val result = viewModel.onEvent(SurveyUiEvent.Next)
+            if (index < definition.questions.lastIndex) {
+                assertNull(result)
+            } else {
+                assertEquals("PNA", result)
+            }
+        }
     }
 
-    /** Invalid option indexes and unanswered transitions are ignored. */
     @Test
     fun invalidEvents_doNotChangeQuestion() {
         val viewModel = createViewModel()
@@ -60,33 +68,30 @@ class SurveyViewModelTest {
         viewModel.onEvent(SurveyUiEvent.OptionSelected(99))
 
         assertNull(viewModel.uiState.value.selectedOption)
-        assertFalse(viewModel.onEvent(SurveyUiEvent.Next))
+        assertNull(viewModel.onEvent(SurveyUiEvent.Next))
         assertEquals(0, viewModel.uiState.value.currentIndex)
     }
 
-    /** Empty question data blocks start and remains recoverable through retry. */
     @Test
-    fun emptyQuestions_blockStartAndRetryDataSource() {
-        var availableQuestions: List<SurveyQuestion> = emptyList()
+    fun failedLoad_showsErrorAndRetryRecovers() {
+        val repository = FakeSurveyRepository(Result.failure(IllegalStateException("network")))
         val viewModel = SurveyViewModel(
-            GetSurveyQuestionsUseCase(object : SurveyRepository {
-                override fun getQuestions() = availableQuestions
-            }),
+            GetSurveyUseCase(repository),
+            CalculateSurveyResultUseCase(),
         )
 
-        viewModel.onEvent(SurveyUiEvent.Start)
         assertTrue(viewModel.uiState.value.isEmpty)
-        assertFalse(viewModel.uiState.value.hasStarted)
+        assertEquals("network", viewModel.uiState.value.errorMessage)
 
-        availableQuestions = questions
+        repository.surveyResult = Result.success(definition)
         viewModel.onEvent(SurveyUiEvent.Retry)
+
         assertFalse(viewModel.uiState.value.isEmpty)
-        assertEquals(questions, viewModel.uiState.value.questions)
+        assertEquals(definition, viewModel.uiState.value.definition)
     }
 
     private fun createViewModel(): SurveyViewModel = SurveyViewModel(
-        GetSurveyQuestionsUseCase(object : SurveyRepository {
-            override fun getQuestions() = questions
-        }),
+        GetSurveyUseCase(FakeSurveyRepository(Result.success(definition))),
+        CalculateSurveyResultUseCase(),
     )
 }

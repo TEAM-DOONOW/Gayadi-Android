@@ -1,14 +1,22 @@
 package com.gayadi.android.feature.survey.presentation
 
+import com.gayadi.android.domain.model.SurveyDefinition
 import com.gayadi.android.domain.model.SurveyQuestion
 
 /** Immutable state for the survey introduction and question flow. */
 data class SurveyUiState(
-    val questions: List<SurveyQuestion> = emptyList(),
+    val definition: SurveyDefinition? = null,
+    val isLoading: Boolean = true,
+    val errorMessage: String? = null,
     val hasStarted: Boolean = false,
     val currentIndex: Int = 0,
     val selectedOption: Int? = null,
+    val answers: Map<String, String> = emptyMap(),
 ) {
+    /** Ordered questions from the loaded survey definition. */
+    val questions: List<SurveyQuestion>
+        get() = definition?.questions.orEmpty()
+
     /** Question displayed at the current survey index. */
     val currentQuestion: SurveyQuestion?
         get() = questions.getOrNull(currentIndex)
@@ -23,5 +31,5 @@ data class SurveyUiState(
 
     /** Whether no survey content is currently available. */
     val isEmpty: Boolean
-        get() = questions.isEmpty()
+        get() = !isLoading && definition == null
 }

@@ -1,4 +1,4 @@
-package com.gayadi.android.ui.screens
+package com.gayadi.android.feature.surveyresult.presentation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -16,17 +16,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Share
-import androidx.compose.material.icons.outlined.Upload
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,6 +33,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.gayadi.android.domain.model.SurveyResult
 import com.gayadi.android.ui.theme.GayadiTheme
 import com.gayadi.android.ui.theme.PrimaryBlue
 import com.gayadi.android.ui.theme.TagBlue
@@ -48,136 +47,142 @@ import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary
 
 @Composable
-fun SurveyResultScreen(onStart: () -> Unit) {
+fun SurveyResultRoute(
+    viewModel: SurveyResultViewModel,
+    onStart: () -> Unit,
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    SurveyResultScreen(
+        uiState = uiState,
+        onRetry = viewModel::retry,
+        onStart = onStart,
+    )
+}
+
+@Composable
+internal fun SurveyResultScreen(
+    uiState: SurveyResultUiState,
+    onRetry: () -> Unit,
+    onStart: () -> Unit,
+) {
+    when {
+        uiState.isLoading -> ResultLoadingScreen()
+        uiState.result == null -> ResultErrorScreen(
+            message = uiState.errorMessage ?: "결과를 불러오지 못했습니다.",
+            onRetry = onRetry,
+        )
+
+        else -> ResultContent(result = uiState.result, onStart = onStart)
+    }
+}
+
+@Composable
+private fun ResultContent(result: SurveyResult, onStart: () -> Unit) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White)
-            .verticalScroll(rememberScrollState()),
+        modifier = Modifier.fillMaxSize().background(Color.White).verticalScroll(rememberScrollState()),
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "나의 여행 캐릭터",
-                fontSize = 23.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = TextPrimary,
-            )
-            Row {
-                IconButton(onClick = {}) {
-                    Icon(Icons.Outlined.Upload, contentDescription = "공유", tint = TextSecondary)
-                }
-                IconButton(onClick = {}) {
-                    Icon(Icons.Outlined.Share, contentDescription = "공유", tint = TextSecondary)
-                }
-            }
-        }
-
+        Text(
+            text = "나의 여행 캐릭터",
+            fontSize = 23.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = TextPrimary,
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+        )
         androidx.compose.material3.HorizontalDivider(color = Color(0xFFE5E5E5))
-
         Column(
             modifier = Modifier.padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Spacer(modifier = Modifier.height(16.dp))
-
+            Spacer(modifier = Modifier.height(24.dp))
             Box(
-                modifier = Modifier
-                    .size(140.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFFF5F0E8)),
+                modifier = Modifier.size(140.dp).clip(CircleShape).background(Color(0xFFF5F0E8)),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(text = "🐶", fontSize = 72.sp)
+                Text(text = result.emoji, fontSize = 72.sp)
             }
-
             Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = "인수님의 여행 캐릭터는",
-                fontSize = 14.sp,
-                color = TextSecondary,
-            )
-
+            Text(text = "나의 여행 캐릭터는", fontSize = 14.sp, color = TextSecondary)
             Spacer(modifier = Modifier.height(4.dp))
-
             Text(
-                text = "계획 절대 지켜, 꼼꼼밍",
+                text = result.name,
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
                 color = PrimaryBlue,
             )
-
             Spacer(modifier = Modifier.height(8.dp))
-
             Text(
-                text = "한 번 세운 일정은 끝까지 지키는 든든함의 꼼꼼하게 챙기는 여행 스타일",
-                fontSize = 13.sp,
+                text = result.summary,
+                fontSize = 14.sp,
+                lineHeight = 21.sp,
                 color = TextSecondary,
                 textAlign = TextAlign.Center,
             )
-
             Spacer(modifier = Modifier.height(16.dp))
-
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TagChip("소확행탐험가", TagPink, TagPinkText)
-                TagChip("맛집블로그", TagGreen, TagGreenText)
-                TagChip("쇼핑중독자", TagBlue, TagBlueText)
+                TagChip(result.code, TagBlue, TagBlueText)
+                result.compatibleCode?.let { TagChip("잘 맞는 $it", TagGreen, TagGreenText) }
+                result.oppositeCode?.let { TagChip("정반대 $it", TagPink, TagPinkText) }
             }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            TraitCard(
-                title = "이런점이\n좋아요",
-                items = listOf(
-                    "여행 일정하는 데의 계획을 세워요.",
-                    "시간 낭비 없이 효율적으로 여행해요.",
-                    "예약, 동선, 준비물을 꼼꼼하게 챙겨요.",
-                    "변수까지 고려해 플랜 B도 준비해요.",
-                ),
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            TraitCard(
-                title = "이런점은\n보완해야해요",
-                items = listOf(
-                    "예상치 못한 상황에 스트레스를 받을 수 있어요.",
-                    "계획이 틀어지면 유연하게 대처하기 어려워요.",
-                    "즉흥적인 여행의 재미를 놓칠 수 있어요.",
-                    "일정에 집착해서 휴식을 잊기 쉬워요.",
-                ),
-            )
-
+            result.traits?.let { traits ->
+                Spacer(modifier = Modifier.height(24.dp))
+                TraitCard(title = "이 유형은", items = listOf(traits))
+            }
             Spacer(modifier = Modifier.height(32.dp))
-
             Button(
                 onClick = onStart,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
+                modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape = RoundedCornerShape(0.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
             ) {
                 Text("가야디 시작하기", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             }
-
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
 
 @Composable
-private fun TagChip(text: String, bg: Color, textColor: Color) {
+private fun ResultLoadingScreen() {
+    Box(
+        modifier = Modifier.fillMaxSize().background(Color.White),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            CircularProgressIndicator(color = PrimaryBlue)
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(text = "여행 캐릭터를 찾고 있어요", color = TextSecondary)
+        }
+    }
+}
+
+@Composable
+private fun ResultErrorScreen(message: String, onRetry: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxSize().background(Color.White).padding(horizontal = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            text = "결과를 불러오지 못했어요",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = TextPrimary,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(text = message, color = TextSecondary, textAlign = TextAlign.Center)
+        Spacer(modifier = Modifier.height(20.dp))
+        Button(onClick = onRetry, colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)) {
+            Text("다시 시도")
+        }
+    }
+}
+
+@Composable
+private fun TagChip(text: String, background: Color, textColor: Color) {
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(20.dp))
-            .background(bg)
+            .background(background)
             .padding(horizontal = 12.dp, vertical = 6.dp),
     ) {
         Text(text = text, fontSize = 12.sp, color = textColor, fontWeight = FontWeight.Medium)
@@ -216,5 +221,18 @@ private fun TraitCard(title: String, items: List<String>) {
 @Preview(showBackground = true)
 @Composable
 private fun SurveyResultPreview() {
-    GayadiTheme { SurveyResultScreen(onStart = {}) }
+    GayadiTheme {
+        ResultContent(
+            result = SurveyResult(
+                code = "SCA",
+                emoji = "🔥",
+                name = "도심 순삭 인싸",
+                summary = "즉흥적으로 도시를 에너지 넘치게 누비는 인싸",
+                traits = "계획은 최소, 그날 끌리는 곳으로 직행. 몸 사리지 않고 하루를 꽉 채움.",
+                compatibleCode = "SNA",
+                oppositeCode = "PNR",
+            ),
+            onStart = {},
+        )
+    }
 }
