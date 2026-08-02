@@ -8,16 +8,19 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import com.gayadi.android.navigation.GayadiNavHost
+import com.gayadi.android.di.AppContainer
 import com.gayadi.android.ui.theme.GayadiTheme
 
 class MainActivity : ComponentActivity() {
+    private val appContainer = AppContainer()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             GayadiTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    GayadiNavHost()
+                    GayadiNavHost(appContainer = appContainer)
                 }
             }
         }

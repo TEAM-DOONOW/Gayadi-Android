@@ -1,10 +1,10 @@
-package com.gayadi.android.ui.screens
+package com.gayadi.android.feature.survey.presentation
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,10 +25,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,10 +35,13 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gayadi.android.R
+import com.gayadi.android.domain.model.SurveyQuestion
 import com.gayadi.android.ui.theme.GayadiTheme
 import com.gayadi.android.ui.theme.PretendardSemiBoldFontFamily
 import com.gayadi.android.ui.theme.TextPrimary
@@ -52,63 +51,52 @@ private val SurveyBlack = Color.Black
 private val DisabledButton = Color(0xFFEDEDED)
 private val DisabledButtonText = Color(0xFF9C9C9C)
 
-private data class SurveyQuestion(
-    val question: String,
-    val description: String,
-    val options: List<String>,
-)
-
-private val mockQuestions = listOf(
-    SurveyQuestion(
-        question = "여행을 가게 된다면\n가장 먼저 무엇을 하나요?",
-        description = "평소 여행을 준비하는 방식을 골라주세요.",
-        options = listOf(
-            "여행 일정과 동선을 꼼꼼하게 계획한다.",
-            "맛집이나 유명한 관광지를 먼저 찾아본다.",
-            "숙소만 예약하고 나머지는 즉흥적으로 결정한다.",
-            "같이 가는 사람들과 무엇을 할지 먼저 이야기한다.",
-        ),
-    ),
-    SurveyQuestion(
-        question = "여행 중 예상치 못한\n상황이 생기면 어떻게 하나요?",
-        description = "가장 나다운 대처 방법을 선택해주세요.",
-        options = listOf(
-            "미리 세워둔 대안 일정을 바로 꺼낸다.",
-            "현지인 추천이나 리뷰를 검색해 본다.",
-            "그냥 흐름에 맡기고 즐긴다.",
-            "동행들과 상의해서 함께 결정한다.",
-        ),
-    ),
-    SurveyQuestion(
-        question = "나에게 여행에서\n가장 중요한 것은 무엇인가요?",
-        description = "한 가지만 고른다면 무엇인지 알려주세요.",
-        options = listOf(
-            "계획대로 움직이는 안정감",
-            "새로운 경험과 발견",
-            "편안한 휴식과 여유",
-            "함께하는 사람들과의 시간",
-        ),
-    ),
-)
-
 @Composable
-fun SurveyScreen(onComplete: () -> Unit) {
-    var hasStarted by remember { mutableStateOf(false) }
-    var currentIndex by remember { mutableIntStateOf(0) }
-    var selectedOption by remember(currentIndex) { mutableStateOf<Int?>(null) }
+/** Connects the survey ViewModel to its stateless Compose screen. */
+fun SurveyRoute(
+    viewModel: SurveyViewModel,
+    onComplete: () -> Unit,
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    SurveyScreen(
+        uiState = uiState,
+        onStart = { viewModel.onEvent(SurveyUiEvent.Start) },
+        onOptionSelected = { viewModel.onEvent(SurveyUiEvent.OptionSelected(it)) },
+        onRetry = { viewModel.onEvent(SurveyUiEvent.Retry) },
+        onNext = {
+            if (viewModel.onEvent(SurveyUiEvent.Next)) onComplete()
+        },
+    )
+}
 
-    if (!hasStarted) {
-        SurveyIntroScreen(onStart = { hasStarted = true })
+/** Renders the survey for the supplied state without owning business state. */
+@Composable
+internal fun SurveyScreen(
+    uiState: SurveyUiState,
+    onStart: () -> Unit,
+    onOptionSelected: (Int) -> Unit,
+    onRetry: () -> Unit,
+    onNext: () -> Unit,
+) {
+    if (uiState.isEmpty) {
+        SurveyEmptyScreen(onRetry = onRetry)
         return
     }
 
-    val question = mockQuestions[currentIndex]
+    if (!uiState.hasStarted) {
+        SurveyIntroScreen(
+            questionCount = uiState.questions.size,
+            onStart = onStart,
+        )
+        return
+    }
+
+    val question = uiState.currentQuestion ?: return
     val progress by animateFloatAsState(
-        targetValue = (currentIndex + 1f) / mockQuestions.size,
+        targetValue = uiState.progress,
         animationSpec = tween(durationMillis = 450),
         label = "surveyProgress",
     )
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -117,7 +105,6 @@ fun SurveyScreen(onComplete: () -> Unit) {
             .navigationBarsPadding(),
     ) {
         Spacer(modifier = Modifier.height(16.dp))
-
         Text(
             text = "나의 여행 성향은?",
             fontSize = 21.sp,
@@ -125,41 +112,31 @@ fun SurveyScreen(onComplete: () -> Unit) {
             color = TextPrimary,
             modifier = Modifier.padding(horizontal = 20.dp),
         )
-
         Spacer(modifier = Modifier.height(18.dp))
-
         LinearProgressIndicator(
             progress = { progress },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(6.dp),
+            modifier = Modifier.fillMaxWidth().height(6.dp),
             color = SurveyBlack,
             trackColor = Color(0xFFF0F0F2),
         )
-
         Spacer(modifier = Modifier.height(44.dp))
-
         Text(
-            text = "${currentIndex + 1}/${mockQuestions.size}",
+            text = "${uiState.currentIndex + 1}/${uiState.questions.size}",
             fontSize = 22.sp,
             fontFamily = PretendardSemiBoldFontFamily,
             color = TextSecondary,
             modifier = Modifier.padding(horizontal = 20.dp),
         )
-
         Spacer(modifier = Modifier.height(8.dp))
-
         Text(
-            text = question.question.replace("\n", " "),
+            text = question.title.replace("\n", " "),
             fontSize = 20.sp,
             lineHeight = 28.sp,
             fontFamily = PretendardSemiBoldFontFamily,
             color = TextPrimary,
             modifier = Modifier.padding(horizontal = 20.dp),
         )
-
         Spacer(modifier = Modifier.height(30.dp))
-
         Column(
             modifier = Modifier.padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -167,19 +144,13 @@ fun SurveyScreen(onComplete: () -> Unit) {
             question.options.forEachIndexed { index, option ->
                 SurveyOptionCard(
                     text = option,
-                    isSelected = selectedOption == index,
-                    onClick = { selectedOption = index },
+                    isSelected = uiState.selectedOption == index,
+                    onClick = { onOptionSelected(index) },
                 )
             }
         }
-
         Spacer(modifier = Modifier.weight(1f))
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(300.dp),
-        ) {
+        Box(modifier = Modifier.fillMaxWidth().height(300.dp)) {
             Image(
                 painter = painterResource(R.drawable.thinking_ganadi),
                 contentDescription = null,
@@ -190,20 +161,10 @@ fun SurveyScreen(onComplete: () -> Unit) {
                 contentScale = ContentScale.Fit,
             )
         }
-
-        val isEnabled = selectedOption != null
         Button(
-            onClick = {
-                if (currentIndex < mockQuestions.lastIndex) {
-                    currentIndex++
-                } else {
-                    onComplete()
-                }
-            },
-            enabled = isEnabled,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(55.dp),
+            onClick = onNext,
+            enabled = uiState.selectedOption != null,
+            modifier = Modifier.fillMaxWidth().height(55.dp),
             shape = RoundedCornerShape(0.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = SurveyBlack,
@@ -214,17 +175,56 @@ fun SurveyScreen(onComplete: () -> Unit) {
             elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
         ) {
             Text(
-                text = if (currentIndex < mockQuestions.lastIndex) "다음" else "결과 보기",
+                text = if (uiState.isLastQuestion) "결과 보기" else "다음",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
             )
         }
+    }
+}
 
+/** Displays a recoverable state when survey content is unavailable. */
+@Composable
+private fun SurveyEmptyScreen(onRetry: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .padding(horizontal = 20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            text = "설문을 불러오지 못했어요",
+            fontSize = 20.sp,
+            fontFamily = PretendardSemiBoldFontFamily,
+            color = TextPrimary,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "잠시 후 다시 시도해주세요.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = TextSecondary,
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+        Button(
+            onClick = onRetry,
+            modifier = Modifier.fillMaxWidth().height(52.dp),
+            shape = RoundedCornerShape(0.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color.Black,
+                contentColor = Color.White,
+            ),
+        ) {
+            Text("다시 시도", fontFamily = PretendardSemiBoldFontFamily)
+        }
     }
 }
 
 @Composable
-private fun SurveyIntroScreen(onStart: () -> Unit) {
+private fun SurveyIntroScreen(questionCount: Int, onStart: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -234,10 +234,7 @@ private fun SurveyIntroScreen(onStart: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .padding(horizontal = 24.dp),
+            modifier = Modifier.fillMaxWidth().weight(1f).padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
@@ -247,9 +244,7 @@ private fun SurveyIntroScreen(onStart: () -> Unit) {
                 modifier = Modifier.size(260.dp),
                 contentScale = ContentScale.Fit,
             )
-
             Spacer(modifier = Modifier.height(30.dp))
-
             Text(
                 text = "여행을 할 때 우리는 어떤 모습일까?",
                 fontSize = 22.sp,
@@ -257,35 +252,23 @@ private fun SurveyIntroScreen(onStart: () -> Unit) {
                 fontFamily = PretendardSemiBoldFontFamily,
                 color = TextPrimary,
             )
-
             Spacer(modifier = Modifier.height(20.dp))
-
             Text(
-                text = "${mockQuestions.size}개의 질문으로\n나의 여행 유형을 찾아보세요",
+                text = "${questionCount}개의 질문으로\n나의 여행 유형을 찾아보세요",
                 fontSize = 16.sp,
                 lineHeight = 24.sp,
                 color = TextSecondary,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                textAlign = TextAlign.Center,
             )
         }
-
         Button(
             onClick = onStart,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(55.dp),
+            modifier = Modifier.fillMaxWidth().height(55.dp),
             shape = RoundedCornerShape(0.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color.Black,
-                contentColor = Color.White,
-            ),
+            colors = ButtonDefaults.buttonColors(containerColor = Color.Black, contentColor = Color.White),
             elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
         ) {
-            Text(
-                text = "테스트 시작하기",
-                fontSize = 18.sp,
-                fontFamily = PretendardSemiBoldFontFamily,
-            )
+            Text("테스트 시작하기", fontSize = 18.sp, fontFamily = PretendardSemiBoldFontFamily)
         }
     }
 }
@@ -308,7 +291,7 @@ private fun SurveyOptionCard(text: String, isSelected: Boolean, onClick: () -> U
             style = MaterialTheme.typography.bodyMedium,
             color = if (isSelected) Color.White else TextPrimary,
             fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            textAlign = TextAlign.Center,
         )
     }
 }
@@ -316,5 +299,16 @@ private fun SurveyOptionCard(text: String, isSelected: Boolean, onClick: () -> U
 @Preview(showBackground = true, heightDp = 800)
 @Composable
 private fun SurveyPreview() {
-    GayadiTheme { SurveyScreen(onComplete = {}) }
+    GayadiTheme {
+        SurveyScreen(
+            uiState = SurveyUiState(
+                questions = listOf(SurveyQuestion(1, "여행을 가게 된다면?", listOf("계획한다", "즉흥적으로 떠난다"))),
+                hasStarted = true,
+            ),
+            onStart = {},
+            onOptionSelected = {},
+            onRetry = {},
+            onNext = {},
+        )
+    }
 }

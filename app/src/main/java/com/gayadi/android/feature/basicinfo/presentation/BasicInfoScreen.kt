@@ -1,4 +1,4 @@
-package com.gayadi.android.ui.screens
+package com.gayadi.android.feature.basicinfo.presentation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -16,6 +16,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -27,23 +28,44 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gayadi.android.ui.theme.GayadiTheme
 import com.gayadi.android.ui.theme.PretendardSemiBoldFontFamily
 import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary
 
 @Composable
-fun BasicInfoScreen(onStartSurvey: () -> Unit) {
-    var name by remember { mutableStateOf("") }
-    var intro by remember { mutableStateOf("") }
-    val isFormValid = name.isNotBlank() && intro.isNotBlank()
+/** Connects the basic information ViewModel to its stateless screen. */
+fun BasicInfoRoute(
+    viewModel: BasicInfoViewModel,
+    onStartSurvey: () -> Unit,
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    BasicInfoScreen(
+        uiState = uiState,
+        onNicknameChanged = { viewModel.onEvent(BasicInfoUiEvent.NicknameChanged(it)) },
+        onIntroductionChanged = { viewModel.onEvent(BasicInfoUiEvent.IntroductionChanged(it)) },
+        onSubmit = {
+            if (viewModel.onEvent(BasicInfoUiEvent.Submit)) onStartSurvey()
+        },
+    )
+}
 
+@Composable
+private fun BasicInfoScreen(
+    uiState: BasicInfoUiState,
+    onNicknameChanged: (String) -> Unit,
+    onIntroductionChanged: (String) -> Unit,
+    onSubmit: () -> Unit,
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -54,7 +76,6 @@ fun BasicInfoScreen(onStartSurvey: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Spacer(modifier = Modifier.height(16.dp))
-
         Text(
             text = "기본 정보 입력",
             fontSize = 21.sp,
@@ -62,11 +83,9 @@ fun BasicInfoScreen(onStartSurvey: () -> Unit) {
             color = TextPrimary,
             modifier = Modifier.fillMaxWidth(),
         )
-
         Spacer(modifier = Modifier.height(16.dp))
-        androidx.compose.material3.HorizontalDivider(color = Color(0xFFE5E5E5))
+        HorizontalDivider(color = Color(0xFFE5E5E5))
         Spacer(modifier = Modifier.height(31.dp))
-
         Text(
             text = "닉네임",
             fontSize = 17.sp,
@@ -76,21 +95,20 @@ fun BasicInfoScreen(onStartSurvey: () -> Unit) {
         )
         Spacer(modifier = Modifier.height(6.dp))
         CompactTextField(
-            value = name,
-            onValueChange = { name = it.take(10) },
+            label = "닉네임",
+            value = uiState.nickname,
+            onValueChange = onNicknameChanged,
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text = "${name.length}/10",
+            text = "${uiState.nickname.length}/10",
             modifier = Modifier.fillMaxWidth(),
             color = TextSecondary,
             fontSize = 12.sp,
             textAlign = TextAlign.End,
         )
-
         Spacer(modifier = Modifier.height(6.dp))
-
         Text(
             text = "한 줄 소개",
             fontSize = 17.sp,
@@ -100,26 +118,23 @@ fun BasicInfoScreen(onStartSurvey: () -> Unit) {
         )
         Spacer(modifier = Modifier.height(6.dp))
         CompactTextField(
-            value = intro,
-            onValueChange = { intro = it.take(20) },
+            label = "한 줄 소개",
+            value = uiState.introduction,
+            onValueChange = onIntroductionChanged,
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text = "${intro.length}/20",
+            text = "${uiState.introduction.length}/20",
             modifier = Modifier.fillMaxWidth(),
             color = TextSecondary,
             fontSize = 12.sp,
             textAlign = TextAlign.End,
         )
-
         Spacer(modifier = Modifier.weight(1f))
-
         Button(
-            onClick = onStartSurvey,
-            enabled = isFormValid,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp),
+            onClick = onSubmit,
+            enabled = uiState.canSubmit,
+            modifier = Modifier.fillMaxWidth().height(52.dp),
             shape = RoundedCornerShape(0.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color.Black,
@@ -135,25 +150,25 @@ fun BasicInfoScreen(onStartSurvey: () -> Unit) {
                 fontFamily = PretendardSemiBoldFontFamily,
             )
         }
-
         Spacer(modifier = Modifier.height(32.dp))
     }
 }
 
 @Composable
 private fun CompactTextField(
+    label: String,
     value: String,
     onValueChange: (String) -> Unit,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
 ) {
     var isFocused by remember { mutableStateOf(false) }
-
     BasicTextField(
         value = value,
         onValueChange = onValueChange,
         modifier = Modifier
             .fillMaxWidth()
             .height(44.dp)
+            .semantics { contentDescription = label }
             .onFocusChanged { isFocused = it.isFocused },
         singleLine = true,
         textStyle = TextStyle(
@@ -184,5 +199,7 @@ private fun CompactTextField(
 @Preview(showBackground = true)
 @Composable
 private fun BasicInfoPreview() {
-    GayadiTheme { BasicInfoScreen(onStartSurvey = {}) }
+    GayadiTheme {
+        BasicInfoScreen(BasicInfoUiState(), {}, {}, {})
+    }
 }
