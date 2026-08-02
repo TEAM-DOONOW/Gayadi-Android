@@ -69,8 +69,10 @@ fun SettingsScreen(onBack: () -> Unit) {
             IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로")
             }
-            Text("설정", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+            Text("설정", fontSize = 23.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
         }
+
+        androidx.compose.material3.HorizontalDivider(color = Color(0xFFE5E5E5))
 
         Column(modifier = Modifier.padding(horizontal = 20.dp)) {
             Spacer(modifier = Modifier.height(8.dp))

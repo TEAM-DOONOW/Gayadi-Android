@@ -63,11 +63,13 @@ fun MyPageScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("마이페이지", fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                Text("마이페이지", fontSize = 23.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
                 IconButton(onClick = onNavigateSettings) {
                     Icon(Icons.Outlined.Settings, contentDescription = "설정", tint = TextSecondary)
                 }
             }
+
+            androidx.compose.material3.HorizontalDivider(color = Color(0xFFE5E5E5))
 
             Spacer(modifier = Modifier.height(24.dp))
 
