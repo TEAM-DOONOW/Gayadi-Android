@@ -207,6 +207,6 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except (OSError, ValueError, RuntimeError, json.JSONDecodeError) as error:
+    except (OSError, ValueError, RuntimeError, KeyError, json.JSONDecodeError) as error:
         print(f"error: {error}", file=sys.stderr)
         raise SystemExit(1) from error

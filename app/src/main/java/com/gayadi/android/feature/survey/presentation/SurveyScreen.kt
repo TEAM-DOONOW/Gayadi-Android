@@ -159,6 +159,15 @@ internal fun SurveyScreen(
                 )
             }
         }
+        uiState.resultErrorMessage?.let { message ->
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(horizontal = 20.dp),
+            )
+        }
         Spacer(modifier = Modifier.weight(1f))
         Box(modifier = Modifier.fillMaxWidth().height(300.dp)) {
             Image(

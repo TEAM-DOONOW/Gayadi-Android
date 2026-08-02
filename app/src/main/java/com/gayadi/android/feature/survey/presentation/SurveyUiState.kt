@@ -8,6 +8,7 @@ data class SurveyUiState(
     val definition: SurveyDefinition? = null,
     val isLoading: Boolean = true,
     val errorMessage: String? = null,
+    val resultErrorMessage: String? = null,
     val hasStarted: Boolean = false,
     val currentIndex: Int = 0,
     val selectedOption: Int? = null,

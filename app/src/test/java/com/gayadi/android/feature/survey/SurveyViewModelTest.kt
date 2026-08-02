@@ -2,6 +2,9 @@ package com.gayadi.android.feature.survey
 
 import com.gayadi.android.domain.FakeSurveyRepository
 import com.gayadi.android.domain.createSurveyDefinition
+import com.gayadi.android.domain.model.SurveyDefinition
+import com.gayadi.android.domain.model.SurveyResult
+import com.gayadi.android.domain.repository.SurveyRepository
 import com.gayadi.android.domain.usecase.CalculateSurveyResultUseCase
 import com.gayadi.android.domain.usecase.GetSurveyUseCase
 import com.gayadi.android.feature.survey.presentation.SurveyUiEvent
@@ -62,6 +65,24 @@ class SurveyViewModelTest {
     }
 
     @Test
+    fun finalCalculationFailure_showsRecoverableError() {
+        val invalidDefinition = definition.copy(results = emptyMap())
+        val viewModel = SurveyViewModel(
+            GetSurveyUseCase(FakeSurveyRepository(Result.success(invalidDefinition))),
+            CalculateSurveyResultUseCase(),
+        )
+
+        repeat(invalidDefinition.questions.size) {
+            viewModel.onEvent(SurveyUiEvent.OptionSelected(0))
+            assertNull(viewModel.onEvent(SurveyUiEvent.Next))
+        }
+
+        assertEquals("결과 유형을 찾을 수 없습니다: PNA", viewModel.uiState.value.resultErrorMessage)
+        viewModel.onEvent(SurveyUiEvent.OptionSelected(1))
+        assertNull(viewModel.uiState.value.resultErrorMessage)
+    }
+
+    @Test
     fun invalidEvents_doNotChangeQuestion() {
         val viewModel = createViewModel()
 
@@ -90,8 +111,38 @@ class SurveyViewModelTest {
         assertEquals(definition, viewModel.uiState.value.definition)
     }
 
+    @Test
+    fun retry_ignoresStaleResponseFromPreviousRequest() {
+        val repository = DelayedSurveyRepository()
+        val viewModel = SurveyViewModel(
+            GetSurveyUseCase(repository),
+            CalculateSurveyResultUseCase(),
+        )
+
+        viewModel.onEvent(SurveyUiEvent.Retry)
+        repository.complete(1, Result.success(definition))
+        repository.complete(0, Result.failure(IllegalStateException("stale")))
+
+        assertEquals(definition, viewModel.uiState.value.definition)
+        assertNull(viewModel.uiState.value.errorMessage)
+    }
+
     private fun createViewModel(): SurveyViewModel = SurveyViewModel(
         GetSurveyUseCase(FakeSurveyRepository(Result.success(definition))),
         CalculateSurveyResultUseCase(),
     )
+}
+
+private class DelayedSurveyRepository : SurveyRepository {
+    private val callbacks = mutableListOf<(Result<SurveyDefinition>) -> Unit>()
+
+    override fun loadSurvey(callback: (Result<SurveyDefinition>) -> Unit) {
+        callbacks += callback
+    }
+
+    override fun loadResult(code: String, callback: (Result<SurveyResult>) -> Unit) = Unit
+
+    fun complete(index: Int, result: Result<SurveyDefinition>) {
+        callbacks[index](result)
+    }
 }

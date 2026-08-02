@@ -16,6 +16,7 @@ class SurveyViewModel(
     private val calculateSurveyResult: CalculateSurveyResultUseCase,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(SurveyUiState())
+    private var activeRequestGeneration = 0L
     /** Observable immutable state consumed by the Compose route. */
     val uiState: StateFlow<SurveyUiState> = _uiState.asStateFlow()
 
@@ -47,6 +48,7 @@ class SurveyViewModel(
             it.copy(
                 selectedOption = index,
                 answers = it.answers + (question.id to option.code),
+                resultErrorMessage = null,
             )
         }
     }
@@ -56,7 +58,15 @@ class SurveyViewModel(
         if (state.selectedOption == null) return null
         val definition = state.definition ?: return null
         if (state.isLastQuestion) {
-            return calculateSurveyResult(definition, state.answers)
+            return runCatching { calculateSurveyResult(definition, state.answers) }
+                .onFailure { error ->
+                    _uiState.update {
+                        it.copy(
+                            resultErrorMessage = error.message ?: "결과를 계산하지 못했습니다.",
+                        )
+                    }
+                }
+                .getOrNull()
         }
         _uiState.update {
             it.copy(
@@ -68,8 +78,10 @@ class SurveyViewModel(
     }
 
     private fun loadSurvey() {
+        val requestGeneration = ++activeRequestGeneration
         _uiState.value = SurveyUiState(isLoading = true)
-        getSurvey { result ->
+        getSurvey callback@{ result ->
+            if (requestGeneration != activeRequestGeneration) return@callback
             result.fold(
                 onSuccess = { definition ->
                     _uiState.value = SurveyUiState(
@@ -85,6 +97,11 @@ class SurveyViewModel(
                 },
             )
         }
+    }
+
+    override fun onCleared() {
+        activeRequestGeneration++
+        super.onCleared()
     }
 
     companion object {
