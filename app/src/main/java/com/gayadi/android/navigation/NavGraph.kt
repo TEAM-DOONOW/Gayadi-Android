@@ -4,9 +4,13 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.gayadi.android.di.AppContainer
 import com.gayadi.android.ui.screens.LoginScreen
-import com.gayadi.android.ui.screens.BasicInfoScreen
-import com.gayadi.android.ui.screens.SurveyScreen
+import com.gayadi.android.feature.basicinfo.presentation.BasicInfoRoute
+import com.gayadi.android.feature.basicinfo.presentation.BasicInfoViewModel
+import com.gayadi.android.feature.survey.presentation.SurveyRoute
+import com.gayadi.android.feature.survey.presentation.SurveyViewModel
 import com.gayadi.android.ui.screens.SurveyResultScreen
 import com.gayadi.android.ui.screens.FriendAddScreen
 import com.gayadi.android.ui.screens.PlaceSearchScreen
@@ -17,7 +21,7 @@ import com.gayadi.android.ui.screens.MyPageScreen
 import com.gayadi.android.ui.screens.SettingsScreen
 
 @Composable
-fun GayadiNavHost() {
+fun GayadiNavHost(appContainer: AppContainer) {
     val navController = rememberNavController()
 
     NavHost(navController = navController, startDestination = Routes.LOGIN) {
@@ -27,12 +31,20 @@ fun GayadiNavHost() {
             )
         }
         composable(Routes.BASIC_INFO) {
-            BasicInfoScreen(
+            val basicInfoViewModel: BasicInfoViewModel = viewModel(
+                factory = BasicInfoViewModel.factory(appContainer.saveBasicInfoUseCase),
+            )
+            BasicInfoRoute(
+                viewModel = basicInfoViewModel,
                 onStartSurvey = { navController.navigate(Routes.SURVEY) },
             )
         }
         composable(Routes.SURVEY) {
-            SurveyScreen(
+            val surveyViewModel: SurveyViewModel = viewModel(
+                factory = SurveyViewModel.factory(appContainer.getSurveyQuestionsUseCase),
+            )
+            SurveyRoute(
+                viewModel = surveyViewModel,
                 onComplete = { navController.navigate(Routes.SURVEY_RESULT) { popUpTo(Routes.SURVEY) { inclusive = true } } },
             )
         }
