@@ -64,7 +64,7 @@ fun SurveyResultScreen(onStart: () -> Unit) {
         ) {
             Text(
                 text = "나의 여행 캐릭터",
-                fontSize = 23.sp,
+                fontSize = 18.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = TextPrimary,
             )
@@ -77,8 +77,6 @@ fun SurveyResultScreen(onStart: () -> Unit) {
                 }
             }
         }
-
-        androidx.compose.material3.HorizontalDivider(color = Color(0xFFE5E5E5))
 
         Column(
             modifier = Modifier.padding(horizontal = 24.dp),
@@ -161,7 +159,7 @@ fun SurveyResultScreen(onStart: () -> Unit) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
-                shape = RoundedCornerShape(0.dp),
+                shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
             ) {
                 Text("가야디 시작하기", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)

@@ -388,7 +388,7 @@ private fun RescheduleBottomSheet(onDismiss: () -> Unit) {
                     modifier = Modifier
                         .weight(1f)
                         .height(48.dp),
-                    shape = RoundedCornerShape(0.dp),
+                    shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color.White,
                         contentColor = TextPrimary,
@@ -401,7 +401,7 @@ private fun RescheduleBottomSheet(onDismiss: () -> Unit) {
                     modifier = Modifier
                         .weight(1.5f)
                         .height(48.dp),
-                    shape = RoundedCornerShape(0.dp),
+                    shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
                 ) {
                     Text("AI 추천대로 변경", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)

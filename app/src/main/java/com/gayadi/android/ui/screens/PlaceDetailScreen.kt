@@ -217,7 +217,7 @@ fun PlaceDetailScreen(onBack: () -> Unit) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
-                shape = RoundedCornerShape(0.dp),
+                shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
             ) {
                 Text("일정에 추가", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
