@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -113,11 +114,9 @@ private val recommendations = listOf(
 fun LoginScreen(onStart: () -> Unit) {
     var currentRecommendation by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(3_500)
-            currentRecommendation = (currentRecommendation + 1) % recommendations.size
-        }
+    LaunchedEffect(currentRecommendation) {
+        delay(3_500)
+        currentRecommendation = (currentRecommendation + 1) % recommendations.size
     }
 
     Box(
@@ -186,7 +185,7 @@ fun LoginScreen(onStart: () -> Unit) {
                             .align(Alignment.TopStart)
                             .offset(x = 2.dp, y = 34.dp)
                             .width(128.dp)
-                            .height(100.dp)
+                            .heightIn(min = 100.dp)
                             .background(Color.White, CharacterSpeechBubbleShape)
                             .border(1.dp, Color(0xFF9C9C9C), CharacterSpeechBubbleShape)
                             .padding(start = 20.dp, top = 14.dp, end = 20.dp, bottom = 26.dp),
