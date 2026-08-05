@@ -4,10 +4,12 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,10 +19,13 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -40,11 +45,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Timer
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gayadi.android.R
 import com.gayadi.android.domain.model.SurveyOption
 import com.gayadi.android.domain.model.SurveyQuestion
 import com.gayadi.android.ui.theme.GayadiTheme
+import com.gayadi.android.ui.theme.PretendardFontFamily
 import com.gayadi.android.ui.theme.PretendardSemiBoldFontFamily
 import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary
@@ -52,6 +60,24 @@ import com.gayadi.android.ui.theme.TextSecondary
 private val SurveyBlack = Color.Black
 private val DisabledButton = Color(0xFFEDEDED)
 private val DisabledButtonText = Color(0xFF9C9C9C)
+
+private val SurveySpeechBubbleShape = GenericShape { size, _ ->
+    val bodyBottom = size.height * 0.78f
+    val radius = size.height * 0.18f
+    moveTo(radius, 0f)
+    lineTo(size.width - radius, 0f)
+    quadraticTo(size.width, 0f, size.width, radius)
+    lineTo(size.width, bodyBottom - radius)
+    quadraticTo(size.width, bodyBottom, size.width - radius, bodyBottom)
+    lineTo(size.width * 0.78f, bodyBottom)
+    lineTo(size.width * 0.88f, size.height)
+    lineTo(size.width * 0.62f, bodyBottom)
+    lineTo(radius, bodyBottom)
+    quadraticTo(0f, bodyBottom, 0f, bodyBottom - radius)
+    lineTo(0f, radius)
+    quadraticTo(0f, 0f, radius, 0f)
+    close()
+}
 
 @Composable
 /** Connects the survey ViewModel to its stateless Compose screen. */
@@ -179,6 +205,29 @@ internal fun SurveyScreen(
                     .offset(x = 60.dp),
                 contentScale = ContentScale.Fit,
             )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .offset(x = 100.dp, y = 84.dp)
+                    .width(200.dp)
+                    .height(100.dp)
+                    .background(Color.White, SurveySpeechBubbleShape)
+                    .border(1.dp, Color(0xFF9C9C9C), SurveySpeechBubbleShape),
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(78.dp).padding(horizontal = 18.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = surveyEncouragement(uiState.currentIndex, uiState.questions.size),
+                        fontSize = 14.sp,
+                        lineHeight = 20.sp,
+                        fontFamily = PretendardSemiBoldFontFamily,
+                        color = TextPrimary,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            }
         }
         Button(
             onClick = onNext,
@@ -294,6 +343,22 @@ private fun SurveyIntroScreen(questionCount: Int, onStart: () -> Unit) {
                 color = TextSecondary,
                 textAlign = TextAlign.Center,
             )
+            Spacer(modifier = Modifier.height(14.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Outlined.Timer,
+                    contentDescription = null,
+                    tint = TextSecondary,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "1~2분 소요",
+                    fontSize = 14.sp,
+                    fontFamily = PretendardFontFamily,
+                    color = TextSecondary,
+                )
+            }
         }
         Button(
             onClick = onStart,
@@ -304,6 +369,18 @@ private fun SurveyIntroScreen(questionCount: Int, onStart: () -> Unit) {
         ) {
             Text("테스트 시작하기", fontSize = 18.sp, fontFamily = PretendardSemiBoldFontFamily)
         }
+    }
+}
+
+private fun surveyEncouragement(currentIndex: Int, questionCount: Int): String {
+    if (questionCount <= 0) return "편하게 골라보세요!"
+    val progress = (currentIndex + 1f) / questionCount
+    return when {
+        currentIndex == questionCount - 1 -> "마지막 질문이에요!"
+        progress >= 0.75f -> "거의 다 왔어요!"
+        progress >= 0.5f -> "벌써 절반이나 왔어요!"
+        progress >= 0.25f -> "좋아요, 나를 알아가는 중이에요!"
+        else -> "편하게 골라보세요!"
     }
 }
 
