@@ -126,6 +126,7 @@ class FirestoreSurveyDataSource(
             traits = document.getString(TRAITS_FIELD),
             compatibleCode = document.getString(COMPATIBLE_CODE_FIELD),
             oppositeCode = document.getString(OPPOSITE_CODE_FIELD),
+            characterKey = document.getString(CHARACTER_KEY_FIELD)?.takeIf(String::isNotBlank),
         )
     }
 
@@ -158,6 +159,7 @@ class FirestoreSurveyDataSource(
         const val TRAITS_FIELD = "traits"
         const val COMPATIBLE_CODE_FIELD = "compatibleCode"
         const val OPPOSITE_CODE_FIELD = "oppositeCode"
+        const val CHARACTER_KEY_FIELD = "characterKey"
         const val EXPECTED_QUESTION_COUNT = 9
         const val EXPECTED_RESULT_COUNT = 8
         const val EXPECTED_DIMENSION_COUNT = 3

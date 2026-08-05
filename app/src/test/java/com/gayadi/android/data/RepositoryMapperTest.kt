@@ -26,7 +26,7 @@ class RepositoryMapperTest {
 
     @Test
     fun surveyRepository_mapsAggregateToDomainModel() {
-        val expectedResult = SurveyResultDto("PNA", "⛰️", "플래너", "소개", null, null, null)
+        val expectedResult = SurveyResultDto("PNA", "⛰️", "플래너", "소개", null, null, null, "character_pna")
         val dataSource = object : SurveyDataSource {
             override fun loadSurvey(callback: (Result<SurveyDefinitionDto>) -> Unit) {
                 callback(
@@ -57,11 +57,16 @@ class RepositoryMapperTest {
         val repository = DefaultSurveyRepository(dataSource)
         var questionTitle: String? = null
         var resultName: String? = null
+        var resultCharacterKey: String? = null
 
         repository.loadSurvey { questionTitle = it.getOrThrow().questions.single().title }
-        repository.loadResult("PNA") { resultName = it.getOrThrow().name }
+        repository.loadResult("PNA") {
+            resultName = it.getOrThrow().name
+            resultCharacterKey = it.getOrThrow().characterKey
+        }
 
         assertEquals("질문", questionTitle)
         assertEquals("플래너", resultName)
+        assertEquals("character_pna", resultCharacterKey)
     }
 }

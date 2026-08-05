@@ -12,6 +12,19 @@
 
 Android 앱은 `FirestoreSurveyDataSource`에서 데이터를 읽고 `DefaultSurveyRepository`와 Domain UseCase를 거쳐 설문·결과 ViewModel에 전달합니다. Presentation 계층은 Firebase SDK에 직접 의존하지 않습니다.
 
+## 캐릭터 이미지
+
+결과 유형 8종의 캐릭터 일러스트는 APK에 함께 배포합니다. Cloud Storage는 사용하지 않습니다.
+
+- 리소스: `app/src/main/res/drawable/character_{코드 소문자}.png`
+- Firestore 필드: `results/{코드}.characterKey` = `character_{코드 소문자}`
+
+`characterKey`는 URL이 아니라 리소스 키입니다. `SurveyResultScreen`이 `characterDrawableFor()`로 키를 drawable로 변환해 표시하고, 키가 비었거나 알 수 없는 값이면 `emoji`로 대체합니다. 따라서 Firestore에 키가 없어도 화면은 깨지지 않습니다.
+
+키와 drawable 매핑은 `CharacterDrawable.kt`에 명시적으로 나열합니다. 이름 기반 조회(`getIdentifier`)를 쓰지 않으므로 리소스 축소가 참조된 이미지를 지우지 않습니다.
+
+캐릭터를 교체할 때는 같은 파일명으로 drawable을 덮어쓰면 됩니다. 유형을 추가하면 drawable, `CharacterDrawable.kt` 매핑, `firebase-data/travel-personality-v1.json`의 `characterKey`를 함께 갱신하고 seed 스크립트를 다시 실행합니다.
+
 ## 결과 계산
 
 각 문항에서 선택한 `code`를 차원별로 집계합니다.

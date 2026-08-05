@@ -28,6 +28,7 @@ fun SurveyResultDto.toDomain(): SurveyResult = SurveyResult(
     traits = traits,
     compatibleCode = compatibleCode,
     oppositeCode = oppositeCode,
+    characterKey = characterKey,
 )
 
 fun SurveyDefinitionDto.toDomain(): SurveyDefinition = SurveyDefinition(

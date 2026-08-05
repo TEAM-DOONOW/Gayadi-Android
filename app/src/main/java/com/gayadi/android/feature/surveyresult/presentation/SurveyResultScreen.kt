@@ -1,5 +1,6 @@
 package com.gayadi.android.feature.surveyresult.presentation
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,6 +29,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -98,7 +101,17 @@ private fun ResultContent(result: SurveyResult, onStart: () -> Unit) {
                 modifier = Modifier.size(140.dp).clip(CircleShape).background(Color(0xFFF5F0E8)),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(text = result.emoji, fontSize = 72.sp)
+                val characterDrawable = characterDrawableFor(result.characterKey)
+                if (characterDrawable == null) {
+                    Text(text = result.emoji, fontSize = 72.sp)
+                } else {
+                    Image(
+                        painter = painterResource(characterDrawable),
+                        contentDescription = "${result.name} 캐릭터",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                    )
+                }
             }
             Spacer(modifier = Modifier.height(16.dp))
             Text(text = "나의 여행 캐릭터는", fontSize = 14.sp, color = TextSecondary)
@@ -231,6 +244,7 @@ private fun SurveyResultPreview() {
                 traits = "계획은 최소, 그날 끌리는 곳으로 직행. 몸 사리지 않고 하루를 꽉 채움.",
                 compatibleCode = "SNA",
                 oppositeCode = "PNR",
+                characterKey = "character_sca",
             ),
             onStart = {},
         )
