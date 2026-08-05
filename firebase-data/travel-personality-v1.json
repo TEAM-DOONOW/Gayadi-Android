@@ -5,7 +5,11 @@
   "version": 1,
   "status": "active",
   "sourceDocumentUrl": "https://docs.google.com/document/d/1ADZ_zH00kzYvUSaCVX8qm7ylME-6J8V2Dk_DNsQBi_k/edit",
-  "resultCodeOrder": ["preparation", "place", "energy"],
+  "resultCodeOrder": [
+    "preparation",
+    "place",
+    "energy"
+  ],
   "dimensions": [
     {
       "id": "preparation",
@@ -39,8 +43,16 @@
       "dimension": "preparation",
       "prompt": "여행이 정해졌다! 가장 먼저 하는 일은?",
       "options": [
-        {"id": "a", "text": "엑셀·노션에 일정표부터 짠다", "code": "P"},
-        {"id": "b", "text": "일단 항공권만 끊고 나머진 나중에", "code": "S"}
+        {
+          "id": "a",
+          "text": "엑셀·노션에 일정표부터 짠다",
+          "code": "P"
+        },
+        {
+          "id": "b",
+          "text": "일단 항공권만 끊고 나머진 나중에",
+          "code": "S"
+        }
       ]
     },
     {
@@ -49,8 +61,16 @@
       "dimension": "preparation",
       "prompt": "여행지에서 갑자기 비가 온다. 나는?",
       "options": [
-        {"id": "a", "text": "미리 짜둔 실내 플랜 B로 전환", "code": "P"},
-        {"id": "b", "text": "그때그때 즉흥으로 근처 아무 데나", "code": "S"}
+        {
+          "id": "a",
+          "text": "미리 짜둔 실내 플랜 B로 전환",
+          "code": "P"
+        },
+        {
+          "id": "b",
+          "text": "그때그때 즉흥으로 근처 아무 데나",
+          "code": "S"
+        }
       ]
     },
     {
@@ -59,8 +79,16 @@
       "dimension": "preparation",
       "prompt": "마음에 든 장소를 만났다.",
       "options": [
-        {"id": "a", "text": "아쉽지만 다음 일정이 있어 이동", "code": "P"},
-        {"id": "b", "text": "계획이고 뭐고 눌러앉아 즐긴다", "code": "S"}
+        {
+          "id": "a",
+          "text": "아쉽지만 다음 일정이 있어 이동",
+          "code": "P"
+        },
+        {
+          "id": "b",
+          "text": "계획이고 뭐고 눌러앉아 즐긴다",
+          "code": "S"
+        }
       ]
     },
     {
@@ -69,8 +97,16 @@
       "dimension": "place",
       "prompt": "여행 사진첩을 열면 더 많은 사진은?",
       "options": [
-        {"id": "a", "text": "바다·산·노을 같은 자연 풍경", "code": "N"},
-        {"id": "b", "text": "골목·건축물·카페·전시", "code": "C"}
+        {
+          "id": "a",
+          "text": "바다·산·노을 같은 자연 풍경",
+          "code": "N"
+        },
+        {
+          "id": "b",
+          "text": "골목·건축물·카페·전시",
+          "code": "C"
+        }
       ]
     },
     {
@@ -79,8 +115,16 @@
       "dimension": "place",
       "prompt": "다음 중 더 설레는 하루는?",
       "options": [
-        {"id": "a", "text": "숲길 걷고 계곡에 발 담그기", "code": "N"},
-        {"id": "b", "text": "오래된 도심 골목과 갤러리 탐방", "code": "C"}
+        {
+          "id": "a",
+          "text": "숲길 걷고 계곡에 발 담그기",
+          "code": "N"
+        },
+        {
+          "id": "b",
+          "text": "오래된 도심 골목과 갤러리 탐방",
+          "code": "C"
+        }
       ]
     },
     {
@@ -89,8 +133,16 @@
       "dimension": "place",
       "prompt": "여행지에서 ‘여기 오길 잘했다’ 싶은 순간은?",
       "options": [
-        {"id": "a", "text": "탁 트인 자연을 마주할 때", "code": "N"},
-        {"id": "b", "text": "도시의 분위기·야경에 빠질 때", "code": "C"}
+        {
+          "id": "a",
+          "text": "탁 트인 자연을 마주할 때",
+          "code": "N"
+        },
+        {
+          "id": "b",
+          "text": "도시의 분위기·야경에 빠질 때",
+          "code": "C"
+        }
       ]
     },
     {
@@ -99,8 +151,16 @@
       "dimension": "energy",
       "prompt": "이상적인 여행지 오후 3시는?",
       "options": [
-        {"id": "a", "text": "서핑·등산·자전거 등 몸 쓰는 활동", "code": "A"},
-        {"id": "b", "text": "카페·숙소에서 늘어지게 휴식", "code": "R"}
+        {
+          "id": "a",
+          "text": "서핑·등산·자전거 등 몸 쓰는 활동",
+          "code": "A"
+        },
+        {
+          "id": "b",
+          "text": "카페·숙소에서 늘어지게 휴식",
+          "code": "R"
+        }
       ]
     },
     {
@@ -109,8 +169,16 @@
       "dimension": "energy",
       "prompt": "여행에서 ‘잘 놀았다’의 기준은?",
       "options": [
-        {"id": "a", "text": "평소 못 하던 활동으로 에너지 발산", "code": "A"},
-        {"id": "b", "text": "아무것도 안 하고 푹 충전", "code": "R"}
+        {
+          "id": "a",
+          "text": "평소 못 하던 활동으로 에너지 발산",
+          "code": "A"
+        },
+        {
+          "id": "b",
+          "text": "아무것도 안 하고 푹 충전",
+          "code": "R"
+        }
       ]
     },
     {
@@ -119,8 +187,16 @@
       "dimension": "energy",
       "prompt": "하루 일정의 밀도는?",
       "options": [
-        {"id": "a", "text": "부지런히 여러 곳, 알차게", "code": "A"},
-        {"id": "b", "text": "한두 곳만 느긋하게", "code": "R"}
+        {
+          "id": "a",
+          "text": "부지런히 여러 곳, 알차게",
+          "code": "A"
+        },
+        {
+          "id": "b",
+          "text": "한두 곳만 느긋하게",
+          "code": "R"
+        }
       ]
     }
   ],
@@ -130,14 +206,14 @@
       "emoji": "⛰️",
       "name": "정상 정복 플래너",
       "summary": "자연 명소를 계획대로 알차게 정복하는 부지런파",
-      "characterKey": ""
+      "characterKey": "character_pna"
     },
     {
       "code": "PNR",
       "emoji": "🏞️",
       "name": "명소 힐링 큐레이터",
       "summary": "유명 자연 명소를 골라 여유롭게 힐링",
-      "characterKey": "",
+      "characterKey": "character_pnr",
       "traits": "사람 많은 곳은 피하고, 미리 알아둔 한적한 자연에서 느긋하게 재충전.",
       "compatibleCode": "PNA",
       "oppositeCode": "SCA"
@@ -147,35 +223,35 @@
       "emoji": "🏙️",
       "name": "도심 정복 스케줄러",
       "summary": "명소를 시간표대로 꽉 채우는 도시 여행러",
-      "characterKey": ""
+      "characterKey": "character_pca"
     },
     {
       "code": "PCR",
       "emoji": "🎨",
       "name": "감성 명소 수집가",
       "summary": "전시·카페를 계획적으로 즐기는 감성파",
-      "characterKey": ""
+      "characterKey": "character_pcr"
     },
     {
       "code": "SNA",
       "emoji": "🏄",
       "name": "자연 액티비티 헌터",
       "summary": "즉흥적으로 자연 액티비티에 뛰어드는 에너자이저",
-      "characterKey": ""
+      "characterKey": "character_sna"
     },
     {
       "code": "SNR",
       "emoji": "🌅",
       "name": "노을 쫓는 방랑자",
       "summary": "발길 닿는 대로 자연 명소에서 힐링",
-      "characterKey": ""
+      "characterKey": "character_snr"
     },
     {
       "code": "SCA",
       "emoji": "🔥",
       "name": "도심 순삭 인싸",
       "summary": "즉흥적으로 도시를 에너지 넘치게 누비는 인싸",
-      "characterKey": "",
+      "characterKey": "character_sca",
       "traits": "계획은 최소, 그날 끌리는 곳으로 직행. 몸 사리지 않고 하루를 꽉 채움.",
       "compatibleCode": "SNA",
       "oppositeCode": "PNR"
@@ -185,7 +261,7 @@
       "emoji": "☕",
       "name": "감성 카페 유랑자",
       "summary": "계획 없이 도시 감성 스팟을 떠도는 낭만파",
-      "characterKey": ""
+      "characterKey": "character_scr"
     }
   ]
 }

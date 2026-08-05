@@ -18,4 +18,5 @@ data class SurveyResultDto(
     val traits: String?,
     val compatibleCode: String?,
     val oppositeCode: String?,
+    val characterKey: String?,
 )
