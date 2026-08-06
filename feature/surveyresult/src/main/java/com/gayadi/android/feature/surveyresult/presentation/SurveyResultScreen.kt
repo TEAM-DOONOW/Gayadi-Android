@@ -5,6 +5,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -18,9 +19,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -28,7 +29,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -46,6 +47,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gayadi.android.domain.model.SurveyResult
+import com.gayadi.android.ui.components.GayadiLoadingScreen
+import com.gayadi.android.ui.components.rememberMinimumLoadingVisibility
 import com.gayadi.android.ui.theme.GayadiTheme
 import com.gayadi.android.ui.theme.PretendardFontFamily
 import com.gayadi.android.ui.theme.PretendardSemiBoldFontFamily
@@ -77,8 +80,9 @@ internal fun SurveyResultScreen(
     onRetry: () -> Unit,
     onStart: () -> Unit,
 ) {
+    val showLoading = rememberMinimumLoadingVisibility(uiState.isLoading)
     when {
-        uiState.isLoading -> ResultLoadingScreen()
+        showLoading -> GayadiLoadingScreen()
         uiState.result == null -> ResultErrorScreen(
             message = uiState.errorMessage ?: "결과를 불러오지 못했습니다.",
             onRetry = onRetry,
@@ -125,8 +129,9 @@ private fun ResultContent(result: SurveyResult, nickname: String?, onStart: () -
             Spacer(modifier = Modifier.height(28.dp))
             Box(
                 modifier = Modifier
-                    .size(208.dp)
-                    .clip(RoundedCornerShape(0.dp))
+                    .width(260.dp)
+                    .aspectRatio(1.08f)
+                    .clip(RoundedCornerShape(18.dp))
                     .background(Color(0xFFF6F6F8)),
                 contentAlignment = Alignment.Center,
             ) {
@@ -152,19 +157,22 @@ private fun ResultContent(result: SurveyResult, nickname: String?, onStart: () -
             Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = result.name,
-                fontSize = 24.sp,
+                fontSize = 22.sp,
+                lineHeight = 30.sp,
                 fontFamily = PretendardSemiBoldFontFamily,
                 color = TextPrimary,
                 textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
             )
             Spacer(modifier = Modifier.height(12.dp))
             Text(
-                text = result.summary,
+                text = result.summary.asBalancedTwoLines(),
                 fontSize = 14.sp,
                 lineHeight = 22.sp,
                 fontFamily = PretendardFontFamily,
                 color = TextSecondary,
                 textAlign = TextAlign.Center,
+                modifier = Modifier.widthIn(max = 270.dp),
             )
             if (result.hashtags.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(20.dp))
@@ -192,7 +200,7 @@ private fun ResultContent(result: SurveyResult, nickname: String?, onStart: () -
         Button(
             onClick = onStart,
             modifier = Modifier.fillMaxWidth().height(55.dp),
-            shape = RoundedCornerShape(0.dp),
+            shape = RectangleShape,
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color.Black,
                 contentColor = Color.White,
@@ -200,20 +208,6 @@ private fun ResultContent(result: SurveyResult, nickname: String?, onStart: () -
             elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
         ) {
             Text("가야디 시작하기", fontSize = 18.sp, fontFamily = PretendardSemiBoldFontFamily)
-        }
-    }
-}
-
-@Composable
-private fun ResultLoadingScreen() {
-    Box(
-        modifier = Modifier.fillMaxSize().background(Color.White),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            CircularProgressIndicator(color = Color.Black)
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(text = "여행 캐릭터를 찾고 있어요", color = TextSecondary)
         }
     }
 }
@@ -234,7 +228,11 @@ private fun ResultErrorScreen(message: String, onRetry: () -> Unit) {
         Spacer(modifier = Modifier.height(8.dp))
         Text(text = message, color = TextSecondary, textAlign = TextAlign.Center)
         Spacer(modifier = Modifier.height(20.dp))
-        Button(onClick = onRetry, colors = ButtonDefaults.buttonColors(containerColor = Color.Black)) {
+        Button(
+            onClick = onRetry,
+            shape = RectangleShape,
+            colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
+        ) {
             Text("다시 시도")
         }
     }
@@ -243,6 +241,16 @@ private fun ResultErrorScreen(message: String, onRetry: () -> Unit) {
 /** Greets the user by nickname, falling back to a neutral line before onboarding is filled in. */
 private fun greetingFor(nickname: String?): String =
     if (nickname.isNullOrBlank()) "나의 여행 유형은" else "${nickname}님의 여행 유형은"
+
+/** Breaks a single-sentence summary at the word boundary closest to its midpoint. */
+private fun String.asBalancedTwoLines(): String {
+    val midpoint = length / 2
+    val breakAt = indices
+        .filter { this[it].isWhitespace() }
+        .minByOrNull { kotlin.math.abs(it - midpoint) }
+        ?: return this
+    return replaceRange(breakAt, breakAt + 1, "\n")
+}
 
 /** Cycles the three hashtag colours so each chip in a row reads as a distinct trait. */
 private fun hashtagPalette(index: Int): Pair<Color, Color> = when (index % 3) {
@@ -253,17 +261,17 @@ private fun hashtagPalette(index: Int): Pair<Color, Color> = when (index % 3) {
 
 @Composable
 private fun HashtagChip(text: String, background: Color, textColor: Color) {
-    val shape = RoundedCornerShape(20.dp)
+    val shape = RoundedCornerShape(8.dp)
     Box(
         modifier = Modifier
             .clip(shape)
             .background(background)
             .border(1.dp, textColor.copy(alpha = 0.35f), shape)
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            .padding(horizontal = 6.dp, vertical = 2.dp),
     ) {
         Text(
             text = text,
-            fontSize = 12.sp,
+            fontSize = 11.sp,
             fontFamily = PretendardFontFamily,
             color = textColor,
         )
@@ -275,7 +283,7 @@ private fun HashtagChip(text: String, background: Color, textColor: Color) {
 private fun InsightCard(title: String, items: List<String>) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
+        shape = RectangleShape,
         colors = CardDefaults.cardColors(containerColor = Color(0xFFFDFCFA)),
         border = BorderStroke(1.dp, Color(0xFFEDEDED)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),

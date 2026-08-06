@@ -24,7 +24,6 @@ import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -51,6 +50,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gayadi.android.feature.survey.R
 import com.gayadi.android.domain.model.SurveyOption
 import com.gayadi.android.domain.model.SurveyQuestion
+import com.gayadi.android.ui.components.GayadiLoadingScreen
+import com.gayadi.android.ui.components.rememberMinimumLoadingVisibility
 import com.gayadi.android.ui.theme.GayadiTheme
 import com.gayadi.android.ui.theme.PretendardFontFamily
 import com.gayadi.android.ui.theme.PretendardSemiBoldFontFamily
@@ -114,8 +115,8 @@ internal fun SurveyScreen(
         return
     }
 
-    if (uiState.isLoading) {
-        SurveyLoadingScreen()
+    if (rememberMinimumLoadingVisibility(uiState.isLoading)) {
+        GayadiLoadingScreen()
         return
     }
 
@@ -247,21 +248,6 @@ internal fun SurveyScreen(
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
             )
-        }
-    }
-}
-
-/** Displays progress while the Firestore survey is loading. */
-@Composable
-private fun SurveyLoadingScreen() {
-    Box(
-        modifier = Modifier.fillMaxSize().background(Color.White),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            CircularProgressIndicator(color = SurveyBlack)
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(text = "여행 성향 질문을 불러오고 있어요", color = TextSecondary)
         }
     }
 }
