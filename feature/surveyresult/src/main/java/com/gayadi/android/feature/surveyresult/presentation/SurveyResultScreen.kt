@@ -6,7 +6,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -75,6 +76,7 @@ internal fun SurveyResultScreen(
 }
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 private fun ResultContent(result: SurveyResult, onStart: () -> Unit) {
     Column(
         modifier = Modifier
@@ -147,7 +149,11 @@ private fun ResultContent(result: SurveyResult, onStart: () -> Unit) {
                 textAlign = TextAlign.Center,
             )
             Spacer(modifier = Modifier.height(20.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 TagChip(result.code)
                 result.compatibleCode?.let { TagChip("잘 맞는 유형 · $it") }
                 result.oppositeCode?.let { TagChip("반대 유형 · $it") }
