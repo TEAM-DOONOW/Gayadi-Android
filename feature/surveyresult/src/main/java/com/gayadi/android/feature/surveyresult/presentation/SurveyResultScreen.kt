@@ -156,22 +156,23 @@ private fun ResultContent(result: SurveyResult, nickname: String?, onStart: () -
             )
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = result.name.replaceFirst(", ", ",\n"),
-                fontSize = 24.sp,
-                lineHeight = 32.sp,
+                text = result.name,
+                fontSize = 22.sp,
+                lineHeight = 30.sp,
                 fontFamily = PretendardSemiBoldFontFamily,
                 color = TextPrimary,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.widthIn(max = 280.dp),
+                modifier = Modifier.fillMaxWidth(),
             )
             Spacer(modifier = Modifier.height(12.dp))
             Text(
-                text = result.summary,
+                text = result.summary.asBalancedTwoLines(),
                 fontSize = 14.sp,
                 lineHeight = 22.sp,
                 fontFamily = PretendardFontFamily,
                 color = TextSecondary,
                 textAlign = TextAlign.Center,
+                maxLines = 2,
                 modifier = Modifier.widthIn(max = 270.dp),
             )
             if (result.hashtags.isNotEmpty()) {
@@ -241,6 +242,16 @@ private fun ResultErrorScreen(message: String, onRetry: () -> Unit) {
 /** Greets the user by nickname, falling back to a neutral line before onboarding is filled in. */
 private fun greetingFor(nickname: String?): String =
     if (nickname.isNullOrBlank()) "나의 여행 유형은" else "${nickname}님의 여행 유형은"
+
+/** Breaks a single-sentence summary at the word boundary closest to its midpoint. */
+private fun String.asBalancedTwoLines(): String {
+    val midpoint = length / 2
+    val breakAt = indices
+        .filter { this[it].isWhitespace() }
+        .minByOrNull { kotlin.math.abs(it - midpoint) }
+        ?: return this
+    return replaceRange(breakAt, breakAt + 1, "\n")
+}
 
 /** Cycles the three hashtag colours so each chip in a row reads as a distinct trait. */
 private fun hashtagPalette(index: Int): Pair<Color, Color> = when (index % 3) {
