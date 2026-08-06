@@ -28,7 +28,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -46,6 +45,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gayadi.android.domain.model.SurveyResult
+import com.gayadi.android.ui.components.GayadiLoadingScreen
+import com.gayadi.android.ui.components.rememberMinimumLoadingVisibility
 import com.gayadi.android.ui.theme.GayadiTheme
 import com.gayadi.android.ui.theme.PretendardFontFamily
 import com.gayadi.android.ui.theme.PretendardSemiBoldFontFamily
@@ -77,8 +78,9 @@ internal fun SurveyResultScreen(
     onRetry: () -> Unit,
     onStart: () -> Unit,
 ) {
+    val showLoading = rememberMinimumLoadingVisibility(uiState.isLoading)
     when {
-        uiState.isLoading -> ResultLoadingScreen()
+        showLoading -> GayadiLoadingScreen()
         uiState.result == null -> ResultErrorScreen(
             message = uiState.errorMessage ?: "결과를 불러오지 못했습니다.",
             onRetry = onRetry,
@@ -200,20 +202,6 @@ private fun ResultContent(result: SurveyResult, nickname: String?, onStart: () -
             elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
         ) {
             Text("가야디 시작하기", fontSize = 18.sp, fontFamily = PretendardSemiBoldFontFamily)
-        }
-    }
-}
-
-@Composable
-private fun ResultLoadingScreen() {
-    Box(
-        modifier = Modifier.fillMaxSize().background(Color.White),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            CircularProgressIndicator(color = Color.Black)
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(text = "여행 캐릭터를 찾고 있어요", color = TextSecondary)
         }
     }
 }
