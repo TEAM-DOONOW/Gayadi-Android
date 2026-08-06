@@ -2,6 +2,7 @@ package com.gayadi.android.feature.surveyresult.presentation
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,18 +11,17 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -39,13 +39,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gayadi.android.domain.model.SurveyResult
 import com.gayadi.android.ui.theme.GayadiTheme
-import com.gayadi.android.ui.theme.PrimaryBlue
-import com.gayadi.android.ui.theme.TagBlue
-import com.gayadi.android.ui.theme.TagBlueText
-import com.gayadi.android.ui.theme.TagGreen
-import com.gayadi.android.ui.theme.TagGreenText
-import com.gayadi.android.ui.theme.TagPink
-import com.gayadi.android.ui.theme.TagPinkText
+import com.gayadi.android.ui.theme.PretendardFontFamily
+import com.gayadi.android.ui.theme.PretendardSemiBoldFontFamily
 import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary
 
@@ -82,23 +77,38 @@ internal fun SurveyResultScreen(
 @Composable
 private fun ResultContent(result: SurveyResult, onStart: () -> Unit) {
     Column(
-        modifier = Modifier.fillMaxSize().background(Color.White).verticalScroll(rememberScrollState()),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+            .statusBarsPadding()
+            .navigationBarsPadding(),
     ) {
+        Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "나의 여행 캐릭터",
-            fontSize = 23.sp,
-            fontWeight = FontWeight.SemiBold,
+            text = "여행 유형 검사 결과",
+            fontSize = 21.sp,
+            fontFamily = PretendardSemiBoldFontFamily,
             color = TextPrimary,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+            modifier = Modifier.padding(horizontal = 20.dp),
         )
-        androidx.compose.material3.HorizontalDivider(color = Color(0xFFE5E5E5))
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider(
+            color = Color(0xFFE5E5E5),
+            modifier = Modifier.padding(horizontal = 20.dp),
+        )
         Column(
-            modifier = Modifier.padding(horizontal = 24.dp),
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(28.dp))
             Box(
-                modifier = Modifier.size(140.dp).clip(CircleShape).background(Color(0xFFF5F0E8)),
+                modifier = Modifier
+                    .size(208.dp)
+                    .clip(RoundedCornerShape(0.dp))
+                    .background(Color(0xFFF6F6F8)),
                 contentAlignment = Alignment.Center,
             ) {
                 val characterDrawable = characterDrawableFor(result.characterKey)
@@ -109,47 +119,56 @@ private fun ResultContent(result: SurveyResult, onStart: () -> Unit) {
                         painter = painterResource(characterDrawable),
                         contentDescription = "${result.name} 캐릭터",
                         modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
+                        contentScale = ContentScale.Fit,
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(text = "나의 여행 캐릭터는", fontSize = 14.sp, color = TextSecondary)
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(24.dp))
+            Text(
+                text = "나의 여행 유형은",
+                fontSize = 14.sp,
+                fontFamily = PretendardFontFamily,
+                color = TextSecondary,
+            )
+            Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = result.name,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-                color = PrimaryBlue,
+                fontSize = 24.sp,
+                fontFamily = PretendardSemiBoldFontFamily,
+                color = TextPrimary,
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             Text(
                 text = result.summary,
                 fontSize = 14.sp,
-                lineHeight = 21.sp,
+                lineHeight = 22.sp,
+                fontFamily = PretendardFontFamily,
                 color = TextSecondary,
                 textAlign = TextAlign.Center,
             )
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TagChip(result.code, TagBlue, TagBlueText)
-                result.compatibleCode?.let { TagChip("잘 맞는 $it", TagGreen, TagGreenText) }
-                result.oppositeCode?.let { TagChip("정반대 $it", TagPink, TagPinkText) }
+                TagChip(result.code)
+                result.compatibleCode?.let { TagChip("잘 맞는 유형 · $it") }
+                result.oppositeCode?.let { TagChip("반대 유형 · $it") }
             }
             result.traits?.let { traits ->
-                Spacer(modifier = Modifier.height(24.dp))
-                TraitCard(title = "이 유형은", items = listOf(traits))
+                Spacer(modifier = Modifier.height(28.dp))
+                TraitCard(text = traits)
             }
-            Spacer(modifier = Modifier.height(32.dp))
-            Button(
-                onClick = onStart,
-                modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape = RoundedCornerShape(0.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
-            ) {
-                Text("가야디 시작하기", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-            }
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(28.dp))
+        }
+        Button(
+            onClick = onStart,
+            modifier = Modifier.fillMaxWidth().height(55.dp),
+            shape = RoundedCornerShape(0.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color.Black,
+                contentColor = Color.White,
+            ),
+            elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
+        ) {
+            Text("가야디 시작하기", fontSize = 18.sp, fontFamily = PretendardSemiBoldFontFamily)
         }
     }
 }
@@ -161,7 +180,7 @@ private fun ResultLoadingScreen() {
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            CircularProgressIndicator(color = PrimaryBlue)
+            CircularProgressIndicator(color = Color.Black)
             Spacer(modifier = Modifier.height(16.dp))
             Text(text = "여행 캐릭터를 찾고 있어요", color = TextSecondary)
         }
@@ -184,50 +203,50 @@ private fun ResultErrorScreen(message: String, onRetry: () -> Unit) {
         Spacer(modifier = Modifier.height(8.dp))
         Text(text = message, color = TextSecondary, textAlign = TextAlign.Center)
         Spacer(modifier = Modifier.height(20.dp))
-        Button(onClick = onRetry, colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)) {
+        Button(onClick = onRetry, colors = ButtonDefaults.buttonColors(containerColor = Color.Black)) {
             Text("다시 시도")
         }
     }
 }
 
 @Composable
-private fun TagChip(text: String, background: Color, textColor: Color) {
+private fun TagChip(text: String) {
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(20.dp))
-            .background(background)
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            .border(1.dp, Color(0xFFD1D1D6), RoundedCornerShape(0.dp))
+            .padding(horizontal = 10.dp, vertical = 7.dp),
     ) {
-        Text(text = text, fontSize = 12.sp, color = textColor, fontWeight = FontWeight.Medium)
+        Text(
+            text = text,
+            fontSize = 12.sp,
+            color = TextPrimary,
+            fontFamily = PretendardFontFamily,
+        )
     }
 }
 
 @Composable
-private fun TraitCard(title: String, items: List<String>) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FB)),
+private fun TraitCard(text: String) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFFF6F6F8))
+            .padding(18.dp),
     ) {
-        Row(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = title,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
-                color = TextPrimary,
-                modifier = Modifier.width(72.dp),
-            )
-            Column(modifier = Modifier.weight(1f)) {
-                items.forEach { item ->
-                    Text(
-                        text = "• $item",
-                        fontSize = 12.sp,
-                        color = TextSecondary,
-                        lineHeight = 20.sp,
-                    )
-                }
-            }
-        }
+        Text(
+            text = "이 유형은",
+            fontSize = 15.sp,
+            fontFamily = PretendardSemiBoldFontFamily,
+            color = TextPrimary,
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        Text(
+            text = text,
+            fontSize = 13.sp,
+            lineHeight = 21.sp,
+            fontFamily = PretendardFontFamily,
+            color = TextSecondary,
+        )
     }
 }
 
