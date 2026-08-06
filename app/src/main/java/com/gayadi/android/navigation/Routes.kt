@@ -9,6 +9,7 @@ object Routes {
     const val PLACE_SEARCH = "place_search"
     const val PLACE_DETAIL = "place_detail/{placeId}"
     const val MY_TRIP = "my_trip"
+    const val TRIP_CREATE = "trip_create"
     const val REALTIME_HOME = "realtime_home"
     const val MY_PAGE = "my_page"
     const val SETTINGS = "settings"

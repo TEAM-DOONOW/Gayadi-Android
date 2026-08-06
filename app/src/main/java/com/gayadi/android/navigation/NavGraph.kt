@@ -1,6 +1,8 @@
 package com.gayadi.android.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.remember
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -18,6 +20,8 @@ import com.gayadi.android.ui.screens.FriendAddScreen
 import com.gayadi.android.ui.screens.LoginScreen
 import com.gayadi.android.ui.screens.MyPageScreen
 import com.gayadi.android.ui.screens.MyTripScreen
+import com.gayadi.android.ui.screens.TripCreateScreen
+import com.gayadi.android.ui.screens.TripSummary
 import com.gayadi.android.ui.screens.PlaceDetailScreen
 import com.gayadi.android.ui.screens.PlaceSearchScreen
 import com.gayadi.android.ui.screens.RealtimeHomeScreen
@@ -26,6 +30,7 @@ import com.gayadi.android.ui.screens.SettingsScreen
 @Composable
 fun GayadiNavHost(appContainer: AppContainer) {
     val navController = rememberNavController()
+    val trips = remember { mutableStateListOf<TripSummary>() }
 
     NavHost(navController = navController, startDestination = Routes.LOGIN) {
         composable(Routes.LOGIN) {
@@ -72,7 +77,11 @@ fun GayadiNavHost(appContainer: AppContainer) {
             )
             SurveyResultRoute(
                 viewModel = resultViewModel,
-                onStart = { navController.navigate(Routes.REALTIME_HOME) { popUpTo(Routes.LOGIN) { inclusive = true } } },
+                onStart = {
+                    navController.navigate(Routes.MY_TRIP) {
+                        popUpTo(Routes.LOGIN) { inclusive = true }
+                    }
+                },
             )
         }
         composable(Routes.FRIEND_ADD) {
@@ -89,7 +98,18 @@ fun GayadiNavHost(appContainer: AppContainer) {
         }
         composable(Routes.MY_TRIP) {
             MyTripScreen(
+                trips = trips,
+                onAddTrip = { navController.navigate(Routes.TRIP_CREATE) },
                 onNavigateHome = { navController.navigate(Routes.REALTIME_HOME) { popUpTo(Routes.REALTIME_HOME) { inclusive = true } } },
+            )
+        }
+        composable(Routes.TRIP_CREATE) {
+            TripCreateScreen(
+                onBack = { navController.popBackStack() },
+                onCreate = { trip ->
+                    trips.add(0, trip)
+                    navController.popBackStack()
+                },
             )
         }
         composable(Routes.REALTIME_HOME) {
