@@ -25,6 +25,22 @@ Android 앱은 `FirestoreSurveyDataSource`에서 데이터를 읽고 `DefaultSur
 
 캐릭터를 교체할 때는 같은 파일명으로 drawable을 덮어쓰면 됩니다. 유형을 추가하면 drawable, `CharacterDrawable.kt` 매핑, `firebase-data/travel-personality-v1.json`의 `characterKey`를 함께 갱신하고 seed 스크립트를 다시 실행합니다.
 
+## 결과 문서 구성
+
+결과 8종은 아래 필드를 모두 채웁니다. seed 스크립트가 개수와 형식을 검증하므로 유형을 추가·수정할 때 빠뜨리면 적재 전에 실패합니다.
+
+| 필드 | 형식 | 설명 |
+| --- | --- | --- |
+| `name` | 문자열 | "캐치프레이즈, 별명" 형식의 유형 이름 |
+| `summary` | 문자열 | "~ 여행 스타일"로 끝나는 한 줄 요약 |
+| `hashtags` | 문자열 3개 | `#`으로 시작하는 성향 태그 |
+| `strengths` | 문자열 4개 | "이런점이 좋아요" 카드 항목, `~요.`로 끝냄 |
+| `weaknesses` | 문자열 4개 | "이런점은 보완해야해요" 카드 항목, `~요.`로 끝냄 |
+
+결과 화면은 저장된 닉네임을 앞에 붙여 "{닉네임}님의 여행 캐릭터는"으로 인사합니다. 닉네임이 없으면 "나의 여행 캐릭터는"으로 표시하므로 온보딩을 건너뛰어도 화면은 깨지지 않습니다.
+
+`hashtags`·`strengths`·`weaknesses`가 비어 있으면 해당 영역만 숨기고 나머지는 정상 표시합니다. 예전 스키마의 `traits`·`compatibleCode`·`oppositeCode`는 더 이상 사용하지 않습니다.
+
 ## 결과 계산
 
 각 문항에서 선택한 `code`를 차원별로 집계합니다.

@@ -135,6 +135,16 @@ def validate_source(source: dict[str, Any]) -> None:
     expected_codes = {"PNA", "PNR", "PCA", "PCR", "SNA", "SNR", "SCA", "SCR"}
     if {result["code"] for result in results} != expected_codes:
         raise ValueError("8개 결과 코드 구성이 올바르지 않습니다.")
+    for result in results:
+        code = result["code"]
+        for field, expected_length in (("hashtags", 3), ("strengths", 4), ("weaknesses", 4)):
+            values = result.get(field)
+            if not isinstance(values, list) or len(values) != expected_length:
+                raise ValueError(f"{code} 결과의 {field}는 항목 {expected_length}개의 배열이어야 합니다.")
+            if not all(isinstance(value, str) and value.strip() for value in values):
+                raise ValueError(f"{code} 결과의 {field}에 빈 문자열이 있습니다.")
+        if not all(tag.startswith("#") for tag in result["hashtags"]):
+            raise ValueError(f"{code} 결과의 hashtags는 모두 #으로 시작해야 합니다.")
 
 
 def document_write(project: str, database: str, path: str, fields: dict[str, Any]) -> dict[str, Any]:

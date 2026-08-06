@@ -6,8 +6,8 @@ data class SurveyResult(
     val emoji: String,
     val name: String,
     val summary: String,
-    val traits: String?,
-    val compatibleCode: String?,
-    val oppositeCode: String?,
+    val hashtags: List<String>,
+    val strengths: List<String>,
+    val weaknesses: List<String>,
     val characterKey: String?,
 )

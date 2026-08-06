@@ -44,7 +44,7 @@ fun createSurveyDefinition(): SurveyDefinition {
         resultCodeOrder = dimensions.map { it.first },
         questions = questions,
         results = codes.associateWith { code ->
-            SurveyResult(code, "🐶", code, code, null, null, null, null)
+            SurveyResult(code, "🐶", code, code, emptyList(), emptyList(), emptyList(), null)
         },
     )
 }
