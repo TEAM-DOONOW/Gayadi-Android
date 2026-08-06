@@ -5,6 +5,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -18,9 +19,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -36,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -127,8 +129,9 @@ private fun ResultContent(result: SurveyResult, nickname: String?, onStart: () -
             Spacer(modifier = Modifier.height(28.dp))
             Box(
                 modifier = Modifier
-                    .size(208.dp)
-                    .clip(RoundedCornerShape(0.dp))
+                    .width(260.dp)
+                    .aspectRatio(1.08f)
+                    .clip(RoundedCornerShape(18.dp))
                     .background(Color(0xFFF6F6F8)),
                 contentAlignment = Alignment.Center,
             ) {
@@ -153,11 +156,13 @@ private fun ResultContent(result: SurveyResult, nickname: String?, onStart: () -
             )
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = result.name,
+                text = result.name.replaceFirst(", ", ",\n"),
                 fontSize = 24.sp,
+                lineHeight = 32.sp,
                 fontFamily = PretendardSemiBoldFontFamily,
                 color = TextPrimary,
                 textAlign = TextAlign.Center,
+                modifier = Modifier.widthIn(max = 280.dp),
             )
             Spacer(modifier = Modifier.height(12.dp))
             Text(
@@ -167,6 +172,7 @@ private fun ResultContent(result: SurveyResult, nickname: String?, onStart: () -
                 fontFamily = PretendardFontFamily,
                 color = TextSecondary,
                 textAlign = TextAlign.Center,
+                modifier = Modifier.widthIn(max = 270.dp),
             )
             if (result.hashtags.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(20.dp))
@@ -194,7 +200,7 @@ private fun ResultContent(result: SurveyResult, nickname: String?, onStart: () -
         Button(
             onClick = onStart,
             modifier = Modifier.fillMaxWidth().height(55.dp),
-            shape = RoundedCornerShape(0.dp),
+            shape = RectangleShape,
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color.Black,
                 contentColor = Color.White,
@@ -222,7 +228,11 @@ private fun ResultErrorScreen(message: String, onRetry: () -> Unit) {
         Spacer(modifier = Modifier.height(8.dp))
         Text(text = message, color = TextSecondary, textAlign = TextAlign.Center)
         Spacer(modifier = Modifier.height(20.dp))
-        Button(onClick = onRetry, colors = ButtonDefaults.buttonColors(containerColor = Color.Black)) {
+        Button(
+            onClick = onRetry,
+            shape = RectangleShape,
+            colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
+        ) {
             Text("다시 시도")
         }
     }
@@ -241,17 +251,17 @@ private fun hashtagPalette(index: Int): Pair<Color, Color> = when (index % 3) {
 
 @Composable
 private fun HashtagChip(text: String, background: Color, textColor: Color) {
-    val shape = RoundedCornerShape(20.dp)
+    val shape = RoundedCornerShape(8.dp)
     Box(
         modifier = Modifier
             .clip(shape)
             .background(background)
             .border(1.dp, textColor.copy(alpha = 0.35f), shape)
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            .padding(horizontal = 6.dp, vertical = 2.dp),
     ) {
         Text(
             text = text,
-            fontSize = 12.sp,
+            fontSize = 11.sp,
             fontFamily = PretendardFontFamily,
             color = textColor,
         )
@@ -263,7 +273,7 @@ private fun HashtagChip(text: String, background: Color, textColor: Color) {
 private fun InsightCard(title: String, items: List<String>) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
+        shape = RectangleShape,
         colors = CardDefaults.cardColors(containerColor = Color(0xFFFDFCFA)),
         border = BorderStroke(1.dp, Color(0xFFEDEDED)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
