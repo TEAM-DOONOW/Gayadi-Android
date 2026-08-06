@@ -67,6 +67,7 @@ fun GayadiNavHost(appContainer: AppContainer) {
                 factory = SurveyResultViewModel.factory(
                     resultCode,
                     appContainer.getSurveyResultUseCase,
+                    appContainer.getBasicInfoUseCase,
                 ),
             )
             SurveyResultRoute(
