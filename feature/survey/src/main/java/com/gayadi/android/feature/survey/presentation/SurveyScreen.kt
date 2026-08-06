@@ -106,6 +106,14 @@ internal fun SurveyScreen(
     onRetry: () -> Unit,
     onNext: () -> Unit,
 ) {
+    if (!uiState.hasStarted) {
+        SurveyIntroScreen(
+            questionCount = uiState.questions.size,
+            onStart = onStart,
+        )
+        return
+    }
+
     if (uiState.isLoading) {
         SurveyLoadingScreen()
         return
@@ -115,14 +123,6 @@ internal fun SurveyScreen(
         SurveyEmptyScreen(
             message = uiState.errorMessage ?: "잠시 후 다시 시도해주세요.",
             onRetry = onRetry,
-        )
-        return
-    }
-
-    if (!uiState.hasStarted) {
-        SurveyIntroScreen(
-            questionCount = uiState.questions.size,
-            onStart = onStart,
         )
         return
     }
@@ -337,7 +337,11 @@ private fun SurveyIntroScreen(questionCount: Int, onStart: () -> Unit) {
             )
             Spacer(modifier = Modifier.height(20.dp))
             Text(
-                text = "${questionCount}개의 질문으로\n나의 여행 유형을 찾아보세요",
+                text = if (questionCount > 0) {
+                    "${questionCount}개의 질문으로\n나의 여행 유형을 찾아보세요"
+                } else {
+                    "간단한 질문으로\n나의 여행 유형을 찾아보세요"
+                },
                 fontSize = 16.sp,
                 lineHeight = 24.sp,
                 color = TextSecondary,

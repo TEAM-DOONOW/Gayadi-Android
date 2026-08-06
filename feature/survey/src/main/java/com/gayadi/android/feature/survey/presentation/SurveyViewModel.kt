@@ -27,11 +27,7 @@ class SurveyViewModel(
     /** Handles a survey event and returns a result code only when the final answer is submitted. */
     fun onEvent(event: SurveyUiEvent): String? {
         when (event) {
-            SurveyUiEvent.Start -> {
-                if (_uiState.value.definition != null) {
-                    _uiState.update { it.copy(hasStarted = true) }
-                }
-            }
+            SurveyUiEvent.Start -> _uiState.update { it.copy(hasStarted = true) }
 
             is SurveyUiEvent.OptionSelected -> selectOption(event.index)
             SurveyUiEvent.Next -> return moveNextOrCalculate()
@@ -77,9 +73,15 @@ class SurveyViewModel(
         return null
     }
 
+    /**
+     * Loads the survey while preserving [SurveyUiState.hasStarted].
+     *
+     * The intro screen is shown before the content arrives, so the user can press start at any
+     * point during the request. Resetting that flag here would bounce them back to the intro.
+     */
     private fun loadSurvey() {
         val requestGeneration = ++activeRequestGeneration
-        _uiState.value = SurveyUiState(isLoading = true)
+        _uiState.value = SurveyUiState(isLoading = true, hasStarted = _uiState.value.hasStarted)
         getSurvey callback@{ result ->
             if (requestGeneration != activeRequestGeneration) return@callback
             result.fold(
@@ -87,12 +89,14 @@ class SurveyViewModel(
                     _uiState.value = SurveyUiState(
                         definition = definition,
                         isLoading = false,
+                        hasStarted = _uiState.value.hasStarted,
                     )
                 },
                 onFailure = { error ->
                     _uiState.value = SurveyUiState(
                         isLoading = false,
                         errorMessage = error.message ?: "설문을 불러오지 못했습니다.",
+                        hasStarted = _uiState.value.hasStarted,
                     )
                 },
             )
