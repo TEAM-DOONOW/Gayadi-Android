@@ -172,7 +172,6 @@ private fun ResultContent(result: SurveyResult, nickname: String?, onStart: () -
                 fontFamily = PretendardFontFamily,
                 color = TextSecondary,
                 textAlign = TextAlign.Center,
-                maxLines = 2,
                 modifier = Modifier.widthIn(max = 270.dp),
             )
             if (result.hashtags.isNotEmpty()) {
