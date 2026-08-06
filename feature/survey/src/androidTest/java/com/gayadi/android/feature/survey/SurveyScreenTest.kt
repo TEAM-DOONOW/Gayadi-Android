@@ -26,6 +26,7 @@ class SurveyScreenTest {
                     uiState = SurveyUiState(
                         isLoading = false,
                         errorMessage = "잠시 후 다시 시도해주세요.",
+                        hasStarted = true,
                     ),
                     onStart = {},
                     onOptionSelected = {},
@@ -38,5 +39,42 @@ class SurveyScreenTest {
         composeRule.onNodeWithText("설문을 불러오지 못했어요").assertIsDisplayed()
         composeRule.onNodeWithText("다시 시도").performClick()
         assertTrue(retried)
+    }
+
+    /** The intro is shown while the survey is still loading, so start owns the loading screen. */
+    @Test
+    fun loadingBeforeStart_showsIntroInsteadOfLoading() {
+        composeRule.setContent {
+            GayadiTheme {
+                SurveyScreen(
+                    uiState = SurveyUiState(isLoading = true),
+                    onStart = {},
+                    onOptionSelected = {},
+                    onRetry = {},
+                    onNext = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("테스트 시작하기").assertIsDisplayed()
+        composeRule.onNodeWithText("여행 성향 질문을 불러오고 있어요").assertDoesNotExist()
+    }
+
+    /** Starting before the content arrives shows the loading screen. */
+    @Test
+    fun loadingAfterStart_showsLoadingScreen() {
+        composeRule.setContent {
+            GayadiTheme {
+                SurveyScreen(
+                    uiState = SurveyUiState(isLoading = true, hasStarted = true),
+                    onStart = {},
+                    onOptionSelected = {},
+                    onRetry = {},
+                    onNext = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("여행 성향 질문을 불러오고 있어요").assertIsDisplayed()
     }
 }

@@ -1,5 +1,6 @@
 package com.gayadi.android.feature.surveyresult.presentation
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -8,7 +9,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -16,11 +20,14 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
@@ -42,6 +49,12 @@ import com.gayadi.android.domain.model.SurveyResult
 import com.gayadi.android.ui.theme.GayadiTheme
 import com.gayadi.android.ui.theme.PretendardFontFamily
 import com.gayadi.android.ui.theme.PretendardSemiBoldFontFamily
+import com.gayadi.android.ui.theme.TagBlue
+import com.gayadi.android.ui.theme.TagBlueText
+import com.gayadi.android.ui.theme.TagGreen
+import com.gayadi.android.ui.theme.TagGreenText
+import com.gayadi.android.ui.theme.TagPurple
+import com.gayadi.android.ui.theme.TagPurpleText
 import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary
 
@@ -71,13 +84,17 @@ internal fun SurveyResultScreen(
             onRetry = onRetry,
         )
 
-        else -> ResultContent(result = uiState.result, onStart = onStart)
+        else -> ResultContent(
+            result = uiState.result,
+            nickname = uiState.nickname,
+            onStart = onStart,
+        )
     }
 }
 
 @Composable
 @OptIn(ExperimentalLayoutApi::class)
-private fun ResultContent(result: SurveyResult, onStart: () -> Unit) {
+private fun ResultContent(result: SurveyResult, nickname: String?, onStart: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -127,7 +144,7 @@ private fun ResultContent(result: SurveyResult, onStart: () -> Unit) {
             }
             Spacer(modifier = Modifier.height(24.dp))
             Text(
-                text = "나의 여행 유형은",
+                text = greetingFor(nickname),
                 fontSize = 14.sp,
                 fontFamily = PretendardFontFamily,
                 color = TextSecondary,
@@ -138,6 +155,7 @@ private fun ResultContent(result: SurveyResult, onStart: () -> Unit) {
                 fontSize = 24.sp,
                 fontFamily = PretendardSemiBoldFontFamily,
                 color = TextPrimary,
+                textAlign = TextAlign.Center,
             )
             Spacer(modifier = Modifier.height(12.dp))
             Text(
@@ -148,19 +166,26 @@ private fun ResultContent(result: SurveyResult, onStart: () -> Unit) {
                 color = TextSecondary,
                 textAlign = TextAlign.Center,
             )
-            Spacer(modifier = Modifier.height(20.dp))
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                TagChip(result.code)
-                result.compatibleCode?.let { TagChip("잘 맞는 유형 · $it") }
-                result.oppositeCode?.let { TagChip("반대 유형 · $it") }
+            if (result.hashtags.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(20.dp))
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    result.hashtags.forEachIndexed { index, tag ->
+                        val (background, textColor) = hashtagPalette(index)
+                        HashtagChip(text = tag, background = background, textColor = textColor)
+                    }
+                }
             }
-            result.traits?.let { traits ->
+            if (result.strengths.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(28.dp))
-                TraitCard(text = traits)
+                InsightCard(title = "이런점이\n좋아요", items = result.strengths)
+            }
+            if (result.weaknesses.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                InsightCard(title = "이런점은\n보완해야해요", items = result.weaknesses)
             }
             Spacer(modifier = Modifier.height(28.dp))
         }
@@ -215,44 +240,81 @@ private fun ResultErrorScreen(message: String, onRetry: () -> Unit) {
     }
 }
 
+/** Greets the user by nickname, falling back to a neutral line before onboarding is filled in. */
+private fun greetingFor(nickname: String?): String =
+    if (nickname.isNullOrBlank()) "나의 여행 유형은" else "${nickname}님의 여행 유형은"
+
+/** Cycles the three hashtag colours so each chip in a row reads as a distinct trait. */
+private fun hashtagPalette(index: Int): Pair<Color, Color> = when (index % 3) {
+    0 -> TagPurple to TagPurpleText
+    1 -> TagGreen to TagGreenText
+    else -> TagBlue to TagBlueText
+}
+
 @Composable
-private fun TagChip(text: String) {
+private fun HashtagChip(text: String, background: Color, textColor: Color) {
+    val shape = RoundedCornerShape(20.dp)
     Box(
         modifier = Modifier
-            .border(1.dp, Color(0xFFD1D1D6), RoundedCornerShape(0.dp))
-            .padding(horizontal = 10.dp, vertical = 7.dp),
+            .clip(shape)
+            .background(background)
+            .border(1.dp, textColor.copy(alpha = 0.35f), shape)
+            .padding(horizontal = 12.dp, vertical = 6.dp),
     ) {
         Text(
             text = text,
             fontSize = 12.sp,
-            color = TextPrimary,
             fontFamily = PretendardFontFamily,
+            color = textColor,
         )
     }
 }
 
+/** Labelled bullet card used for the strengths and weaknesses sections. */
 @Composable
-private fun TraitCard(text: String) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color(0xFFF6F6F8))
-            .padding(18.dp),
+private fun InsightCard(title: String, items: List<String>) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFDFCFA)),
+        border = BorderStroke(1.dp, Color(0xFFEDEDED)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
-        Text(
-            text = "이 유형은",
-            fontSize = 15.sp,
-            fontFamily = PretendardSemiBoldFontFamily,
-            color = TextPrimary,
-        )
-        Spacer(modifier = Modifier.height(10.dp))
-        Text(
-            text = text,
-            fontSize = 13.sp,
-            lineHeight = 21.sp,
-            fontFamily = PretendardFontFamily,
-            color = TextSecondary,
-        )
+        Row(
+            modifier = Modifier
+                .height(IntrinsicSize.Min)
+                .padding(horizontal = 16.dp, vertical = 18.dp),
+        ) {
+            Text(
+                text = title,
+                fontSize = 13.sp,
+                lineHeight = 19.sp,
+                fontFamily = PretendardSemiBoldFontFamily,
+                color = TextPrimary,
+                modifier = Modifier.width(80.dp),
+            )
+            Box(
+                modifier = Modifier
+                    .width(1.dp)
+                    .fillMaxHeight()
+                    .background(Color(0xFFE5E5E5)),
+            )
+            Spacer(modifier = Modifier.width(14.dp))
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                items.forEach { item ->
+                    Text(
+                        text = "• $item",
+                        fontSize = 12.sp,
+                        lineHeight = 18.sp,
+                        fontFamily = PretendardFontFamily,
+                        color = TextSecondary,
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -264,13 +326,24 @@ private fun SurveyResultPreview() {
             result = SurveyResult(
                 code = "SCA",
                 emoji = "🔥",
-                name = "도심 순삭 인싸",
-                summary = "즉흥적으로 도시를 에너지 넘치게 누비는 인싸",
-                traits = "계획은 최소, 그날 끌리는 곳으로 직행. 몸 사리지 않고 하루를 꽉 채움.",
-                compatibleCode = "SNA",
-                oppositeCode = "PNR",
+                name = "그날 끌리는 대로, 인싸잉",
+                summary = "계획은 최소로, 눈앞의 도시를 에너지 넘치게 누비는 여행 스타일",
+                hashtags = listOf("#즉흥출발", "#도시탐험", "#하루꽉꽉"),
+                strengths = listOf(
+                    "그날의 분위기에 맞춰 바로 움직여요.",
+                    "처음 가는 골목도 망설이지 않아요.",
+                    "현지에서 얻은 정보를 잘 활용해요.",
+                    "밤낮없이 하루를 꽉 채워요.",
+                ),
+                weaknesses = listOf(
+                    "인기 장소는 대기가 길 수 있어요.",
+                    "동선이 겹쳐 시간을 낭비할 수 있어요.",
+                    "예산을 초과하기 쉬워요.",
+                    "무리한 일정으로 다음 날이 힘들어져요.",
+                ),
                 characterKey = "character_sca",
             ),
+            nickname = "민수",
             onStart = {},
         )
     }

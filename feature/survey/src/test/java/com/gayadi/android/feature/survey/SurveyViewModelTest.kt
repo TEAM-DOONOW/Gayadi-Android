@@ -112,6 +112,42 @@ class SurveyViewModelTest {
     }
 
     @Test
+    fun startBeforeLoadCompletes_keepsStartedThroughLoading() {
+        val repository = DelayedSurveyRepository()
+        val viewModel = SurveyViewModel(
+            GetSurveyUseCase(repository),
+            CalculateSurveyResultUseCase(),
+        )
+
+        viewModel.onEvent(SurveyUiEvent.Start)
+
+        assertTrue(viewModel.uiState.value.hasStarted)
+        assertTrue(viewModel.uiState.value.isLoading)
+
+        repository.complete(0, Result.success(definition))
+
+        assertTrue(viewModel.uiState.value.hasStarted)
+        assertFalse(viewModel.uiState.value.isLoading)
+        assertEquals(definition, viewModel.uiState.value.definition)
+    }
+
+    @Test
+    fun retryAfterStart_keepsStartedInsteadOfReturningToIntro() {
+        val repository = FakeSurveyRepository(Result.failure(IllegalStateException("network")))
+        val viewModel = SurveyViewModel(
+            GetSurveyUseCase(repository),
+            CalculateSurveyResultUseCase(),
+        )
+
+        viewModel.onEvent(SurveyUiEvent.Start)
+        repository.surveyResult = Result.success(definition)
+        viewModel.onEvent(SurveyUiEvent.Retry)
+
+        assertTrue(viewModel.uiState.value.hasStarted)
+        assertEquals(definition, viewModel.uiState.value.definition)
+    }
+
+    @Test
     fun retry_ignoresStaleResponseFromPreviousRequest() {
         val repository = DelayedSurveyRepository()
         val viewModel = SurveyViewModel(

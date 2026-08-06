@@ -3,6 +3,7 @@ package com.gayadi.android.feature.surveyresult.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.gayadi.android.domain.usecase.GetBasicInfoUseCase
 import com.gayadi.android.domain.usecase.GetSurveyResultUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -12,6 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
 class SurveyResultViewModel(
     private val resultCode: String,
     private val getSurveyResult: GetSurveyResultUseCase,
+    private val getBasicInfo: GetBasicInfoUseCase,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(SurveyResultUiState())
     val uiState: StateFlow<SurveyResultUiState> = _uiState.asStateFlow()
@@ -23,13 +25,15 @@ class SurveyResultViewModel(
     fun retry() = loadResult()
 
     private fun loadResult() {
-        _uiState.value = SurveyResultUiState(isLoading = true)
+        val nickname = getBasicInfo()?.nickname?.takeIf(String::isNotBlank)
+        _uiState.value = SurveyResultUiState(isLoading = true, nickname = nickname)
         getSurveyResult(resultCode) { result ->
             _uiState.value = result.fold(
-                onSuccess = { SurveyResultUiState(isLoading = false, result = it) },
+                onSuccess = { SurveyResultUiState(isLoading = false, result = it, nickname = nickname) },
                 onFailure = {
                     SurveyResultUiState(
                         isLoading = false,
+                        nickname = nickname,
                         errorMessage = it.message ?: "결과를 불러오지 못했습니다.",
                     )
                 },
@@ -38,8 +42,12 @@ class SurveyResultViewModel(
     }
 
     companion object {
-        fun factory(resultCode: String, getSurveyResult: GetSurveyResultUseCase) = viewModelFactory {
-            initializer { SurveyResultViewModel(resultCode, getSurveyResult) }
+        fun factory(
+            resultCode: String,
+            getSurveyResult: GetSurveyResultUseCase,
+            getBasicInfo: GetBasicInfoUseCase,
+        ) = viewModelFactory {
+            initializer { SurveyResultViewModel(resultCode, getSurveyResult, getBasicInfo) }
         }
     }
 }

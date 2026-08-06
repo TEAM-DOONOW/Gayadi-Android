@@ -7,6 +7,7 @@ import com.gayadi.android.data.repository.DefaultSurveyRepository
 import com.gayadi.android.domain.repository.ProfileRepository
 import com.gayadi.android.domain.repository.SurveyRepository
 import com.gayadi.android.domain.usecase.CalculateSurveyResultUseCase
+import com.gayadi.android.domain.usecase.GetBasicInfoUseCase
 import com.gayadi.android.domain.usecase.GetSurveyResultUseCase
 import com.gayadi.android.domain.usecase.GetSurveyUseCase
 import com.gayadi.android.domain.usecase.SaveBasicInfoUseCase
@@ -21,6 +22,9 @@ class AppContainer {
 
     /** Use case used to persist onboarding profile input. */
     val saveBasicInfoUseCase = SaveBasicInfoUseCase(profileRepository)
+
+    /** Use case used to read the saved nickname for the result greeting. */
+    val getBasicInfoUseCase = GetBasicInfoUseCase(profileRepository)
 
     /** Use case used to retrieve the Firestore-backed travel survey. */
     val getSurveyUseCase = GetSurveyUseCase(surveyRepository)

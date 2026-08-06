@@ -26,7 +26,16 @@ class RepositoryMapperTest {
 
     @Test
     fun surveyRepository_mapsAggregateToDomainModel() {
-        val expectedResult = SurveyResultDto("PNA", "⛰️", "플래너", "소개", null, null, null, "character_pna")
+        val expectedResult = SurveyResultDto(
+            "PNA",
+            "⛰️",
+            "플래너",
+            "소개",
+            listOf("#코스설계"),
+            listOf("미리 조사해요."),
+            listOf("조급해질 수 있어요."),
+            "character_pna",
+        )
         val dataSource = object : SurveyDataSource {
             override fun loadSurvey(callback: (Result<SurveyDefinitionDto>) -> Unit) {
                 callback(

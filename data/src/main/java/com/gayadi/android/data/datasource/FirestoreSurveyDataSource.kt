@@ -123,9 +123,9 @@ class FirestoreSurveyDataSource(
             emoji = requiredString(document, EMOJI_FIELD),
             name = requiredString(document, NAME_FIELD),
             summary = requiredString(document, SUMMARY_FIELD),
-            traits = document.getString(TRAITS_FIELD),
-            compatibleCode = document.getString(COMPATIBLE_CODE_FIELD),
-            oppositeCode = document.getString(OPPOSITE_CODE_FIELD),
+            hashtags = optionalStringList(document, HASHTAGS_FIELD),
+            strengths = optionalStringList(document, STRENGTHS_FIELD),
+            weaknesses = optionalStringList(document, WEAKNESSES_FIELD),
             characterKey = document.getString(CHARACTER_KEY_FIELD)?.takeIf(String::isNotBlank),
         )
     }
@@ -133,6 +133,17 @@ class FirestoreSurveyDataSource(
     private fun requiredString(document: DocumentSnapshot, field: String): String =
         document.getString(field)?.takeIf(String::isNotBlank)
             ?: error("${document.reference.path}의 $field 값이 없습니다.")
+
+    /**
+     * Reads an optional list field, returning an empty list when it is absent.
+     *
+     * Result copy is presentational, so a document seeded before these fields existed hides the
+     * matching section instead of failing the whole survey load.
+     */
+    private fun optionalStringList(document: DocumentSnapshot, field: String): List<String> =
+        (document.get(field) as? List<*>)
+            ?.mapNotNull { (it as? String)?.takeIf(String::isNotBlank) }
+            .orEmpty()
 
     private fun stringList(document: DocumentSnapshot, field: String): List<String> =
         (document.get(field) as? List<*>)
@@ -156,9 +167,9 @@ class FirestoreSurveyDataSource(
         const val EMOJI_FIELD = "emoji"
         const val NAME_FIELD = "name"
         const val SUMMARY_FIELD = "summary"
-        const val TRAITS_FIELD = "traits"
-        const val COMPATIBLE_CODE_FIELD = "compatibleCode"
-        const val OPPOSITE_CODE_FIELD = "oppositeCode"
+        const val HASHTAGS_FIELD = "hashtags"
+        const val STRENGTHS_FIELD = "strengths"
+        const val WEAKNESSES_FIELD = "weaknesses"
         const val CHARACTER_KEY_FIELD = "characterKey"
         const val EXPECTED_QUESTION_COUNT = 9
         const val EXPECTED_RESULT_COUNT = 8

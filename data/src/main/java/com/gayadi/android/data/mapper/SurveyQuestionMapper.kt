@@ -25,9 +25,9 @@ fun SurveyResultDto.toDomain(): SurveyResult = SurveyResult(
     emoji = emoji,
     name = name,
     summary = summary,
-    traits = traits,
-    compatibleCode = compatibleCode,
-    oppositeCode = oppositeCode,
+    hashtags = hashtags,
+    strengths = strengths,
+    weaknesses = weaknesses,
     characterKey = characterKey,
 )
 
