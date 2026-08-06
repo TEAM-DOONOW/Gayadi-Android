@@ -20,4 +20,18 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "GayadiAndroid"
-include(":app")
+include(
+    ":app",
+    ":domain",
+    ":data",
+    ":di",
+    ":core:designsystem",
+    ":core:ui",
+    ":feature:auth",
+    ":feature:basicinfo",
+    ":feature:survey",
+    ":feature:surveyresult",
+    ":feature:home",
+    ":feature:trip",
+    ":feature:mypage",
+)

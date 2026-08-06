@@ -55,6 +55,15 @@ android {
 }
 
 dependencies {
+    implementation(project(":di"))
+    implementation(project(":core:designsystem"))
+    implementation(project(":feature:auth"))
+    implementation(project(":feature:basicinfo"))
+    implementation(project(":feature:survey"))
+    implementation(project(":feature:surveyresult"))
+    implementation(project(":feature:home"))
+    implementation(project(":feature:trip"))
+    implementation(project(":feature:mypage"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
@@ -67,15 +76,8 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.navigation.compose)
-    implementation(libs.coil.compose)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.analytics)
-    implementation(libs.firebase.firestore)
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.test.ext.junit)
-    androidTestImplementation(libs.androidx.test.espresso.core)
-    androidTestImplementation(platform(libs.androidx.compose.bom))
-    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }
