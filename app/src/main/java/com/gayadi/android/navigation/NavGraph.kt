@@ -1,8 +1,8 @@
 package com.gayadi.android.navigation
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -21,7 +21,7 @@ import com.gayadi.android.ui.screens.LoginScreen
 import com.gayadi.android.ui.screens.MyPageScreen
 import com.gayadi.android.ui.screens.MyTripScreen
 import com.gayadi.android.ui.screens.TripCreateScreen
-import com.gayadi.android.ui.screens.TripSummary
+import com.gayadi.android.ui.screens.TripViewModel
 import com.gayadi.android.ui.screens.PlaceDetailScreen
 import com.gayadi.android.ui.screens.PlaceSearchScreen
 import com.gayadi.android.ui.screens.RealtimeHomeScreen
@@ -30,7 +30,8 @@ import com.gayadi.android.ui.screens.SettingsScreen
 @Composable
 fun GayadiNavHost(appContainer: AppContainer) {
     val navController = rememberNavController()
-    val trips = remember { mutableStateListOf<TripSummary>() }
+    val tripViewModel: TripViewModel = viewModel()
+    val trips by tripViewModel.trips.collectAsStateWithLifecycle()
 
     NavHost(navController = navController, startDestination = Routes.LOGIN) {
         composable(Routes.LOGIN) {
@@ -100,7 +101,7 @@ fun GayadiNavHost(appContainer: AppContainer) {
             MyTripScreen(
                 trips = trips,
                 onAddTrip = { navController.navigate(Routes.TRIP_CREATE) },
-                onDeleteTrip = { trip -> trips.remove(trip) },
+                onDeleteTrip = tripViewModel::deleteTrip,
                 onNavigateHome = { navController.navigate(Routes.REALTIME_HOME) { popUpTo(Routes.REALTIME_HOME) { inclusive = true } } },
             )
         }
@@ -108,7 +109,7 @@ fun GayadiNavHost(appContainer: AppContainer) {
             TripCreateScreen(
                 onBack = { navController.popBackStack() },
                 onCreate = { trip ->
-                    trips.add(0, trip)
+                    tripViewModel.addTrip(trip)
                     navController.popBackStack()
                 },
             )
