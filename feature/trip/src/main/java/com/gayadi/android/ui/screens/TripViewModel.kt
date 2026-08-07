@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.UUID
 
 class TripViewModel(private val savedStateHandle: SavedStateHandle) : ViewModel() {
     private val storedTrips = savedStateHandle.getStateFlow(TRIPS_KEY, EMPTY_TRIPS_JSON)
@@ -20,13 +21,14 @@ class TripViewModel(private val savedStateHandle: SavedStateHandle) : ViewModel(
         savedStateHandle[TRIPS_KEY] = encodeTrips(listOf(trip) + trips.value)
     }
 
-    fun deleteTrip(trip: TripSummary) {
-        savedStateHandle[TRIPS_KEY] = encodeTrips(trips.value.filterNot { it == trip })
+    fun deleteTrip(tripId: String) {
+        savedStateHandle[TRIPS_KEY] = encodeTrips(trips.value.filterNot { it.id == tripId })
     }
 
     private fun encodeTrips(trips: List<TripSummary>): String = JSONArray().apply {
         trips.forEach { trip ->
             put(JSONObject().apply {
+                put("id", trip.id)
                 put("name", trip.name)
                 put("startDate", trip.startDate)
                 put("endDate", trip.endDate)
@@ -41,6 +43,7 @@ class TripViewModel(private val savedStateHandle: SavedStateHandle) : ViewModel(
         List(array.length()) { index ->
             val item = array.getJSONObject(index)
             TripSummary(
+                id = item.optString("id").ifBlank { UUID.randomUUID().toString() },
                 name = item.getString("name"),
                 startDate = item.getString("startDate"),
                 endDate = item.getString("endDate"),

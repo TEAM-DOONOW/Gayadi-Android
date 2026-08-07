@@ -55,11 +55,13 @@ import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.util.UUID
 
 private val TripAccentColor = Color(0xFF343548)
 private val tripSummaryDateFormatter = DateTimeFormatter.ofPattern("yyyy.MM.dd")
 
 data class TripSummary(
+    val id: String = UUID.randomUUID().toString(),
     val name: String,
     val startDate: String,
     val endDate: String,
@@ -72,7 +74,7 @@ fun MyTripScreen(
     trips: List<TripSummary>,
     onAddTrip: () -> Unit,
     onNavigateHome: () -> Unit,
-    onDeleteTrip: (TripSummary) -> Unit,
+    onDeleteTrip: (String) -> Unit,
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     val today = LocalDate.now()
@@ -131,7 +133,7 @@ fun MyTripScreen(
                         TripCard(
                             trip = trip,
                             onClick = onNavigateHome,
-                            onDelete = { onDeleteTrip(trip) },
+                            onDelete = { onDeleteTrip(trip.id) },
                         )
                     }
                 }
@@ -207,7 +209,7 @@ private fun EmptyTrips(
 
 @Composable
 private fun TripCard(trip: TripSummary, onClick: () -> Unit, onDelete: () -> Unit) {
-    var showDelete by remember(trip) { mutableStateOf(false) }
+    var showDelete by remember(trip.id) { mutableStateOf(false) }
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         shape = RoundedCornerShape(8.dp),
