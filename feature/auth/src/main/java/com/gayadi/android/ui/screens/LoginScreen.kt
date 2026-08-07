@@ -59,6 +59,7 @@ import com.gayadi.android.feature.auth.R
 import com.gayadi.android.ui.theme.GayadiTheme
 import com.gayadi.android.ui.theme.PretendardFontFamily
 import com.gayadi.android.ui.theme.PretendardSemiBoldFontFamily
+import com.gayadi.android.ui.theme.PrimaryAction
 import com.gayadi.android.ui.theme.TextSecondary
 import kotlinx.coroutines.delay
 
@@ -235,7 +236,7 @@ fun LoginScreen(onStart: () -> Unit) {
                     onClick = onStart,
                     modifier = Modifier.fillMaxWidth().height(50.dp),
                     shape = RoundedCornerShape(2.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Black, contentColor = Color.White),
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryAction, contentColor = Color.White),
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
                 ) {
                     Text(text = "시작하기", fontSize = 15.sp, fontFamily = PretendardSemiBoldFontFamily)

@@ -1,7 +1,7 @@
 package com.gayadi.android.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.outlined.Luggage
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -27,11 +29,22 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.imageResource
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -40,11 +53,18 @@ import com.gayadi.android.ui.theme.PretendardFontFamily
 import com.gayadi.android.ui.theme.PretendardSemiBoldFontFamily
 import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+
+private val TripAccentColor = Color(0xFF343548)
+private val tripSummaryDateFormatter = DateTimeFormatter.ofPattern("yyyy.MM.dd")
 
 data class TripSummary(
     val name: String,
     val startDate: String,
     val endDate: String,
+    val cities: List<String>,
+    val coverImageResList: List<Int>,
 )
 
 @Composable
@@ -52,8 +72,17 @@ fun MyTripScreen(
     trips: List<TripSummary>,
     onAddTrip: () -> Unit,
     onNavigateHome: () -> Unit,
+    onDeleteTrip: (TripSummary) -> Unit,
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
+    val today = LocalDate.now()
+    val ongoingTrips = trips.filter { trip ->
+        trip.endDate.toTripDate()?.isBefore(today) != true
+    }
+    val completedTrips = trips.filter { trip ->
+        trip.endDate.toTripDate()?.isBefore(today) == true
+    }
+    val visibleTrips = if (selectedTab == 0) ongoingTrips else completedTrips
 
     Column(
         modifier = Modifier
@@ -74,28 +103,44 @@ fun MyTripScreen(
                 color = TextPrimary,
             )
             IconButton(onClick = { }) {
-                Icon(Icons.Filled.Settings, contentDescription = "설정", tint = Color(0xFF505466))
+                Icon(Icons.Filled.Settings, contentDescription = "설정", tint = TripAccentColor)
             }
         }
 
         Spacer(modifier = Modifier.height(18.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-            TripTab("진행 중인 여행", selectedTab == 0) { selectedTab = 0 }
-            TripTab("지나간 여행", selectedTab == 1) { selectedTab = 1 }
+        Row(modifier = Modifier.fillMaxWidth()) {
+            TripTab(
+                text = "진행 중인 여행 (${ongoingTrips.size})",
+                selected = selectedTab == 0,
+                onClick = { selectedTab = 0 },
+                modifier = Modifier.weight(1f),
+            )
+            TripTab(
+                text = "완료된 여행 (${completedTrips.size})",
+                selected = selectedTab == 1,
+                onClick = { selectedTab = 1 },
+                modifier = Modifier.weight(1f),
+            )
         }
         Spacer(modifier = Modifier.height(12.dp))
 
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-            if (trips.isEmpty()) {
-                EmptyTrips(modifier = Modifier.align(Alignment.Center))
-            } else if (selectedTab == 0) {
+            if (visibleTrips.isNotEmpty()) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    trips.forEach { trip -> TripCard(trip = trip, onClick = onNavigateHome) }
+                    visibleTrips.forEach { trip ->
+                        TripCard(
+                            trip = trip,
+                            onClick = onNavigateHome,
+                            onDelete = { onDeleteTrip(trip) },
+                        )
+                    }
                 }
+            } else if (selectedTab == 0) {
+                EmptyTrips(modifier = Modifier.align(Alignment.Center))
             } else {
                 EmptyTrips(
-                    title = "아직 지나간 여행이 없어요",
-                    message = "완료된 여행은 이곳에 차곡차곡 모아둘게요.",
+                    title = "아직 완료된 여행이 없어요",
+                    message = "여행이 끝나면 이곳에 자동으로 모아둘게요.",
                     modifier = Modifier.align(Alignment.Center),
                 )
             }
@@ -105,7 +150,7 @@ fun MyTripScreen(
             onClick = onAddTrip,
             modifier = Modifier.fillMaxWidth().height(50.dp),
             shape = RoundedCornerShape(2.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF343548)),
+            colors = ButtonDefaults.buttonColors(containerColor = TripAccentColor),
         ) {
             Text("여행 추가하기", fontFamily = PretendardSemiBoldFontFamily, fontSize = 15.sp)
         }
@@ -114,23 +159,28 @@ fun MyTripScreen(
 }
 
 @Composable
-private fun TripTab(text: String, selected: Boolean, onClick: () -> Unit) {
+private fun TripTab(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Column(
-        modifier = Modifier.clickable(onClick = onClick).padding(vertical = 6.dp),
+        modifier = modifier.clickable(onClick = onClick).padding(vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
             text = text,
             fontFamily = if (selected) PretendardSemiBoldFontFamily else PretendardFontFamily,
             fontSize = 14.sp,
-            color = if (selected) TextPrimary else Color(0xFFA7A8AF),
+            color = if (selected) TripAccentColor else Color(0xFFA7A8AF),
         )
         Spacer(modifier = Modifier.height(8.dp))
         Box(
             modifier = Modifier
                 .height(2.dp)
                 .fillMaxWidth()
-                .background(if (selected) Color(0xFF343548) else Color.Transparent),
+                .background(if (selected) TripAccentColor else Color.Transparent),
         )
     }
 }
@@ -156,30 +206,144 @@ private fun EmptyTrips(
 }
 
 @Composable
-private fun TripCard(trip: TripSummary, onClick: () -> Unit) {
+private fun TripCard(trip: TripSummary, onClick: () -> Unit, onDelete: () -> Unit) {
+    var showDelete by remember(trip) { mutableStateOf(false) }
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().border(1.dp, Color(0xFFE7E7EA), RoundedCornerShape(8.dp)).padding(14.dp),
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(trip.name, fontFamily = PretendardSemiBoldFontFamily, fontSize = 15.sp, color = TextPrimary)
-            Spacer(modifier = Modifier.height(5.dp))
-            Text(
-                "${trip.startDate} - ${trip.endDate}",
-                fontFamily = PretendardFontFamily,
-                fontSize = 12.sp,
-                color = Color(0xFF9A9BA2),
+            CityImageGrid(
+                imageResources = trip.coverImageResList,
+                modifier = Modifier.size(64.dp),
             )
+            Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        trip.name,
+                        fontFamily = PretendardSemiBoldFontFamily,
+                        fontSize = 17.sp,
+                        color = TextPrimary,
+                        modifier = Modifier.weight(1f),
+                    )
+                    IconButton(
+                        onClick = { if (showDelete) onDelete() else showDelete = true },
+                        modifier = Modifier.size(36.dp),
+                    ) {
+                        Icon(
+                            imageVector = if (showDelete) Icons.Default.Delete else Icons.Default.MoreHoriz,
+                            contentDescription = if (showDelete) "여행 삭제" else "여행 메뉴",
+                            tint = if (showDelete) Color(0xFFE45858) else Color(0xFF777883),
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(7.dp))
+                Text(
+                    trip.cities.joinToString(" · "),
+                    fontFamily = PretendardSemiBoldFontFamily,
+                    fontSize = 14.sp,
+                    color = TripAccentColor,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    "${trip.startDate} - ${trip.endDate}",
+                    fontFamily = PretendardFontFamily,
+                    fontSize = 13.sp,
+                    color = Color(0xFF9A9BA2),
+                )
+            }
         }
     }
 }
 
+@Composable
+private fun CityImageGrid(imageResources: List<Int>, modifier: Modifier = Modifier) {
+    val visibleResources = imageResources.take(4)
+    val resources = LocalContext.current.resources
+    val images = remember(visibleResources) {
+        visibleResources.map { resourceId -> ImageBitmap.imageResource(resources, resourceId) }
+    }
+
+    Canvas(modifier = modifier) {
+        if (images.isEmpty()) return@Canvas
+        val destinationSize = IntSize(size.width.toInt(), size.height.toInt())
+        val circle = Path().apply {
+            addOval(Rect(0f, 0f, size.width, size.height))
+        }
+
+        clipPath(circle) {
+            images.forEachIndexed { index, image ->
+                val cropSize = minOf(image.width, image.height)
+                val sourceOffset = IntOffset(
+                    x = (image.width - cropSize) / 2,
+                    y = (image.height - cropSize) / 2,
+                )
+                val cell = when {
+                    images.size == 1 -> Rect(0f, 0f, size.width, size.height)
+                    images.size == 2 && index == 0 -> Rect(0f, 0f, size.width / 2f, size.height)
+                    images.size == 2 -> Rect(size.width / 2f, 0f, size.width, size.height)
+                    images.size == 3 && index == 0 -> Rect(0f, 0f, size.width, size.height / 2f)
+                    images.size == 3 && index == 1 ->
+                        Rect(0f, size.height / 2f, size.width / 2f, size.height)
+                    images.size == 3 ->
+                        Rect(size.width / 2f, size.height / 2f, size.width, size.height)
+                    else -> {
+                        val left = if (index % 2 == 0) 0f else size.width / 2f
+                        val top = if (index < 2) 0f else size.height / 2f
+                        Rect(left, top, left + size.width / 2f, top + size.height / 2f)
+                    }
+                }
+
+                clipRect(cell.left, cell.top, cell.right, cell.bottom) {
+                    drawImage(
+                        image = image,
+                        srcOffset = sourceOffset,
+                        srcSize = IntSize(cropSize, cropSize),
+                        dstOffset = IntOffset.Zero,
+                        dstSize = destinationSize,
+                    )
+                }
+            }
+
+            if (images.size >= 2) {
+                drawLine(
+                    color = Color.White,
+                    start = androidx.compose.ui.geometry.Offset(
+                        size.width / 2f,
+                        if (images.size == 3) size.height / 2f else 0f,
+                    ),
+                    end = androidx.compose.ui.geometry.Offset(size.width / 2f, size.height),
+                    strokeWidth = 3.dp.toPx(),
+                )
+            }
+            if (images.size >= 3) {
+                drawLine(
+                    color = Color.White,
+                    start = androidx.compose.ui.geometry.Offset(0f, size.height / 2f),
+                    end = androidx.compose.ui.geometry.Offset(size.width, size.height / 2f),
+                    strokeWidth = 3.dp.toPx(),
+                )
+            }
+        }
+        drawCircle(color = Color.White, style = Stroke(width = 2.dp.toPx()))
+    }
+}
+
+private fun String.toTripDate(): LocalDate? =
+    runCatching { LocalDate.parse(this, tripSummaryDateFormatter) }.getOrNull()
+
 @Preview(showBackground = true, heightDp = 800)
 @Composable
 private fun MyTripPreview() {
-    GayadiTheme { MyTripScreen(trips = emptyList(), onAddTrip = {}, onNavigateHome = {}) }
+    GayadiTheme {
+        MyTripScreen(trips = emptyList(), onAddTrip = {}, onNavigateHome = {}, onDeleteTrip = {})
+    }
 }

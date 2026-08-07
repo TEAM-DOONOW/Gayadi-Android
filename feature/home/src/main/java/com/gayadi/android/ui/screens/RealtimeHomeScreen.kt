@@ -44,6 +44,7 @@ import com.gayadi.android.ui.theme.AlertBlue
 import com.gayadi.android.ui.theme.AlertBlueText
 import com.gayadi.android.ui.theme.GayadiTheme
 import com.gayadi.android.ui.theme.PrimaryBlue
+import com.gayadi.android.ui.theme.PrimaryAction
 import com.gayadi.android.ui.theme.TagBlue
 import com.gayadi.android.ui.theme.TagBlueText
 import com.gayadi.android.ui.theme.TextPrimary
@@ -402,7 +403,7 @@ private fun RescheduleBottomSheet(onDismiss: () -> Unit) {
                         .weight(1.5f)
                         .height(48.dp),
                     shape = RoundedCornerShape(0.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryAction),
                 ) {
                     Text("AI 추천대로 변경", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                 }

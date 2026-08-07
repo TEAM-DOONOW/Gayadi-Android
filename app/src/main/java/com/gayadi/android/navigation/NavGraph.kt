@@ -100,6 +100,7 @@ fun GayadiNavHost(appContainer: AppContainer) {
             MyTripScreen(
                 trips = trips,
                 onAddTrip = { navController.navigate(Routes.TRIP_CREATE) },
+                onDeleteTrip = { trip -> trips.remove(trip) },
                 onNavigateHome = { navController.navigate(Routes.REALTIME_HOME) { popUpTo(Routes.REALTIME_HOME) { inclusive = true } } },
             )
         }
