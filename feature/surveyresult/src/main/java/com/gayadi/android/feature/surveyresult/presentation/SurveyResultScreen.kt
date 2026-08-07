@@ -52,6 +52,7 @@ import com.gayadi.android.ui.components.rememberMinimumLoadingVisibility
 import com.gayadi.android.ui.theme.GayadiTheme
 import com.gayadi.android.ui.theme.PretendardFontFamily
 import com.gayadi.android.ui.theme.PretendardSemiBoldFontFamily
+import com.gayadi.android.ui.theme.PrimaryAction
 import com.gayadi.android.ui.theme.TagBlue
 import com.gayadi.android.ui.theme.TagBlueText
 import com.gayadi.android.ui.theme.TagGreen
@@ -202,12 +203,12 @@ private fun ResultContent(result: SurveyResult, nickname: String?, onStart: () -
             modifier = Modifier.fillMaxWidth().height(55.dp),
             shape = RectangleShape,
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color.Black,
+                containerColor = PrimaryAction,
                 contentColor = Color.White,
             ),
             elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
         ) {
-            Text("가야디 시작하기", fontSize = 18.sp, fontFamily = PretendardSemiBoldFontFamily)
+            Text("가야디 시작하기", fontSize = 16.sp, fontFamily = PretendardSemiBoldFontFamily)
         }
     }
 }
@@ -231,7 +232,7 @@ private fun ResultErrorScreen(message: String, onRetry: () -> Unit) {
         Button(
             onClick = onRetry,
             shape = RectangleShape,
-            colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
+            colors = ButtonDefaults.buttonColors(containerColor = PrimaryAction),
         ) {
             Text("다시 시도")
         }

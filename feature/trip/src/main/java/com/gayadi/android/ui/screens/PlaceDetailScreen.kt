@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gayadi.android.ui.theme.GayadiTheme
 import com.gayadi.android.ui.theme.PrimaryBlue
+import com.gayadi.android.ui.theme.PrimaryAction
 import com.gayadi.android.ui.theme.TagGreen
 import com.gayadi.android.ui.theme.TagGreenText
 import com.gayadi.android.ui.theme.TextPrimary
@@ -218,7 +219,7 @@ fun PlaceDetailScreen(onBack: () -> Unit) {
                     .fillMaxWidth()
                     .height(52.dp),
                 shape = RoundedCornerShape(0.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
+                colors = ButtonDefaults.buttonColors(containerColor = PrimaryAction),
             ) {
                 Text("일정에 추가", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             }

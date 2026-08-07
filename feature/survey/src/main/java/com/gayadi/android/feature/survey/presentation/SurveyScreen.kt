@@ -55,10 +55,11 @@ import com.gayadi.android.ui.components.rememberMinimumLoadingVisibility
 import com.gayadi.android.ui.theme.GayadiTheme
 import com.gayadi.android.ui.theme.PretendardFontFamily
 import com.gayadi.android.ui.theme.PretendardSemiBoldFontFamily
+import com.gayadi.android.ui.theme.PrimaryAction
 import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary
 
-private val SurveyBlack = Color.Black
+private val SurveyBlack = PrimaryAction
 private val DisabledButton = Color(0xFFEDEDED)
 private val DisabledButtonText = Color(0xFF9C9C9C)
 
@@ -283,7 +284,7 @@ private fun SurveyEmptyScreen(message: String, onRetry: () -> Unit) {
             modifier = Modifier.fillMaxWidth().height(52.dp),
             shape = RoundedCornerShape(0.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color.Black,
+                containerColor = PrimaryAction,
                 contentColor = Color.White,
             ),
         ) {
@@ -354,7 +355,7 @@ private fun SurveyIntroScreen(questionCount: Int, onStart: () -> Unit) {
             onClick = onStart,
             modifier = Modifier.fillMaxWidth().height(55.dp),
             shape = RoundedCornerShape(0.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color.Black, contentColor = Color.White),
+            colors = ButtonDefaults.buttonColors(containerColor = PrimaryAction, contentColor = Color.White),
             elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
         ) {
             Text("테스트 시작하기", fontSize = 18.sp, fontFamily = PretendardSemiBoldFontFamily)

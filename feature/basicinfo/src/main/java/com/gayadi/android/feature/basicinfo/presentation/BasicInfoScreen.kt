@@ -39,8 +39,10 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gayadi.android.ui.theme.GayadiTheme
 import com.gayadi.android.ui.theme.PretendardSemiBoldFontFamily
+import com.gayadi.android.ui.theme.PrimaryAction
 import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary
+import com.gayadi.android.ui.components.GayadiCompactTextField
 
 @Composable
 /** Connects the basic information ViewModel to its stateless screen. */
@@ -94,7 +96,7 @@ private fun BasicInfoScreen(
             modifier = Modifier.fillMaxWidth(),
         )
         Spacer(modifier = Modifier.height(6.dp))
-        CompactTextField(
+        GayadiCompactTextField(
             label = "닉네임",
             value = uiState.nickname,
             onValueChange = onNicknameChanged,
@@ -117,7 +119,7 @@ private fun BasicInfoScreen(
             modifier = Modifier.fillMaxWidth(),
         )
         Spacer(modifier = Modifier.height(6.dp))
-        CompactTextField(
+        GayadiCompactTextField(
             label = "한 줄 소개",
             value = uiState.introduction,
             onValueChange = onIntroductionChanged,
@@ -137,7 +139,7 @@ private fun BasicInfoScreen(
             modifier = Modifier.fillMaxWidth().height(52.dp),
             shape = RoundedCornerShape(0.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color.Black,
+                containerColor = PrimaryAction,
                 contentColor = Color.White,
                 disabledContainerColor = Color(0xFFEDEDED),
                 disabledContentColor = Color(0xFF9C9C9C),
@@ -152,48 +154,6 @@ private fun BasicInfoScreen(
         }
         Spacer(modifier = Modifier.height(32.dp))
     }
-}
-
-@Composable
-private fun CompactTextField(
-    label: String,
-    value: String,
-    onValueChange: (String) -> Unit,
-    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
-) {
-    var isFocused by remember { mutableStateOf(false) }
-    BasicTextField(
-        value = value,
-        onValueChange = onValueChange,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(44.dp)
-            .semantics { contentDescription = label }
-            .onFocusChanged { isFocused = it.isFocused },
-        singleLine = true,
-        textStyle = TextStyle(
-            fontFamily = PretendardSemiBoldFontFamily,
-            fontSize = 13.sp,
-            color = TextPrimary,
-        ),
-        keyboardOptions = keyboardOptions,
-        cursorBrush = SolidColor(Color.Black),
-        decorationBox = { innerTextField ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .border(
-                        width = 1.dp,
-                        color = if (isFocused) Color(0xFF8E8E93) else Color(0xFFD1D1D6),
-                        shape = RoundedCornerShape(0.dp),
-                    )
-                    .padding(horizontal = 12.dp),
-                contentAlignment = Alignment.CenterStart,
-            ) {
-                innerTextField()
-            }
-        },
-    )
 }
 
 @Preview(showBackground = true)
