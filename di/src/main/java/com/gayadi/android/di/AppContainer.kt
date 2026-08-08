@@ -1,7 +1,7 @@
 package com.gayadi.android.di
 
 import com.gayadi.android.data.repository.InMemoryProfileRepository
-import com.gayadi.android.data.datasource.InMemoryProfileLocalDataSource
+import com.gayadi.android.data.datasource.FileProfileLocalDataSource
 import com.gayadi.android.data.datasource.FirestoreSurveyDataSource
 import com.gayadi.android.data.repository.DefaultSurveyRepository
 import com.gayadi.android.domain.repository.ProfileRepository
@@ -11,12 +11,15 @@ import com.gayadi.android.domain.usecase.GetBasicInfoUseCase
 import com.gayadi.android.domain.usecase.GetSurveyResultUseCase
 import com.gayadi.android.domain.usecase.GetSurveyUseCase
 import com.gayadi.android.domain.usecase.SaveBasicInfoUseCase
+import com.gayadi.android.domain.usecase.GetUserProfileUseCase
+import com.gayadi.android.domain.usecase.SaveSurveyResultToProfileUseCase
 import com.google.firebase.firestore.FirebaseFirestore
+import java.io.File
 
 /** Application composition root that wires data implementations to domain use cases. */
-class AppContainer {
+class AppContainer(profileFile: File) {
     private val profileRepository: ProfileRepository =
-        InMemoryProfileRepository(InMemoryProfileLocalDataSource())
+        InMemoryProfileRepository(FileProfileLocalDataSource(profileFile))
     private val surveyRepository: SurveyRepository =
         DefaultSurveyRepository(FirestoreSurveyDataSource(FirebaseFirestore.getInstance()))
 
@@ -25,6 +28,12 @@ class AppContainer {
 
     /** Use case used to read the saved nickname for the result greeting. */
     val getBasicInfoUseCase = GetBasicInfoUseCase(profileRepository)
+
+    /** Use case used by profile-aware screens. */
+    val getUserProfileUseCase = GetUserProfileUseCase(profileRepository)
+
+    /** Use case used to attach the completed survey to the local profile. */
+    val saveSurveyResultToProfileUseCase = SaveSurveyResultToProfileUseCase(profileRepository)
 
     /** Use case used to retrieve the Firestore-backed travel survey. */
     val getSurveyUseCase = GetSurveyUseCase(surveyRepository)

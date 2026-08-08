@@ -17,21 +17,27 @@ import com.gayadi.android.feature.survey.presentation.SurveyViewModel
 import com.gayadi.android.feature.surveyresult.presentation.SurveyResultRoute
 import com.gayadi.android.feature.surveyresult.presentation.SurveyResultViewModel
 import com.gayadi.android.ui.screens.FriendAddScreen
+import com.gayadi.android.ui.screens.FriendAddViewModel
 import com.gayadi.android.ui.screens.LoginScreen
 import com.gayadi.android.ui.screens.MyPageScreen
+import com.gayadi.android.ui.screens.ProfileViewModel
 import com.gayadi.android.ui.screens.MyTripScreen
 import com.gayadi.android.ui.screens.TripCreateScreen
 import com.gayadi.android.ui.screens.TripViewModel
 import com.gayadi.android.ui.screens.PlaceDetailScreen
 import com.gayadi.android.ui.screens.PlaceSearchScreen
+import com.gayadi.android.ui.screens.PlaceViewModel
 import com.gayadi.android.ui.screens.RealtimeHomeScreen
+import com.gayadi.android.ui.screens.RealtimeHomeViewModel
 import com.gayadi.android.ui.screens.SettingsScreen
 
 @Composable
 fun GayadiNavHost(appContainer: AppContainer) {
     val navController = rememberNavController()
     val tripViewModel: TripViewModel = viewModel()
+    val placeViewModel: PlaceViewModel = viewModel(factory = PlaceViewModel.factory())
     val trips by tripViewModel.trips.collectAsStateWithLifecycle()
+    val selectedTripId by tripViewModel.selectedTripId.collectAsStateWithLifecycle()
 
     NavHost(navController = navController, startDestination = Routes.LOGIN) {
         composable(Routes.LOGIN) {
@@ -74,6 +80,7 @@ fun GayadiNavHost(appContainer: AppContainer) {
                     resultCode,
                     appContainer.getSurveyResultUseCase,
                     appContainer.getBasicInfoUseCase,
+                    appContainer.saveSurveyResultToProfileUseCase,
                 ),
             )
             SurveyResultRoute(
@@ -86,23 +93,50 @@ fun GayadiNavHost(appContainer: AppContainer) {
             )
         }
         composable(Routes.FRIEND_ADD) {
-            FriendAddScreen(onBack = { navController.popBackStack() })
-        }
-        composable(Routes.PLACE_SEARCH) {
-            PlaceSearchScreen(
+            val friendViewModel: FriendAddViewModel = viewModel(factory = FriendAddViewModel.factory())
+            val friendUiState by friendViewModel.uiState.collectAsStateWithLifecycle()
+            FriendAddScreen(
+                uiState = friendUiState,
                 onBack = { navController.popBackStack() },
-                onPlaceClick = { id -> navController.navigate(Routes.placeDetail(id)) },
+                onQueryChange = friendViewModel::updateQuery,
+                onAddFriend = friendViewModel::addFriend,
+                onRetry = friendViewModel::retry,
             )
         }
-        composable(Routes.PLACE_DETAIL) {
-            PlaceDetailScreen(onBack = { navController.popBackStack() })
+        composable(Routes.PLACE_SEARCH) {
+            val placeUiState by placeViewModel.uiState.collectAsStateWithLifecycle()
+            PlaceSearchScreen(
+                uiState = placeUiState,
+                onBack = { navController.popBackStack() },
+                onQueryChange = placeViewModel::updateQuery,
+                onCategorySelected = placeViewModel::selectCategory,
+                onPlaceClick = { id -> navController.navigate(Routes.placeDetail(id)) },
+                onRetry = placeViewModel::retry,
+            )
+        }
+        composable(
+            route = Routes.PLACE_DETAIL,
+            arguments = listOf(navArgument("placeId") { type = NavType.StringType }),
+        ) { backStackEntry ->
+            val placeId = requireNotNull(backStackEntry.arguments?.getString("placeId"))
+            val placeUiState by placeViewModel.uiState.collectAsStateWithLifecycle()
+            PlaceDetailScreen(
+                place = placeViewModel.findPlace(placeId),
+                isScheduled = placeId in placeUiState.scheduledPlaceIds,
+                onBack = { navController.popBackStack() },
+                onAddToSchedule = { placeViewModel.addPlaceToSchedule(placeId) },
+            )
         }
         composable(Routes.MY_TRIP) {
             MyTripScreen(
                 trips = trips,
                 onAddTrip = { navController.navigate(Routes.TRIP_CREATE) },
                 onDeleteTrip = tripViewModel::deleteTrip,
-                onNavigateHome = { navController.navigate(Routes.REALTIME_HOME) { popUpTo(Routes.REALTIME_HOME) { inclusive = true } } },
+                onNavigateHome = { tripId ->
+                    tripViewModel.selectTrip(tripId)
+                    navController.navigate(Routes.realtimeHome(tripId))
+                },
+                onOpenSettings = { navController.navigate(Routes.SETTINGS) },
             )
         }
         composable(Routes.TRIP_CREATE) {
@@ -114,20 +148,64 @@ fun GayadiNavHost(appContainer: AppContainer) {
                 },
             )
         }
-        composable(Routes.REALTIME_HOME) {
+        composable(
+            route = Routes.REALTIME_HOME,
+            arguments = listOf(navArgument("tripId") { type = NavType.StringType }),
+        ) { backStackEntry ->
+            val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
+            val trip = tripViewModel.tripById(tripId)
+            val homeViewModel: RealtimeHomeViewModel = viewModel(
+                factory = RealtimeHomeViewModel.factory(appContainer.getUserProfileUseCase),
+            )
+            val homeUiState by homeViewModel.uiState.collectAsStateWithLifecycle()
+            val placeUiState by placeViewModel.uiState.collectAsStateWithLifecycle()
+            val nextScheduleName = placeUiState.scheduledPlaceIds.firstNotNullOfOrNull(placeViewModel::findPlace)?.name
             RealtimeHomeScreen(
-                onNavigateMyTrip = { navController.navigate(Routes.MY_TRIP) { popUpTo(Routes.REALTIME_HOME) { inclusive = true } } },
-                onNavigateMyPage = { navController.navigate(Routes.MY_PAGE) { popUpTo(Routes.REALTIME_HOME) { inclusive = true } } },
+                uiState = homeUiState,
+                tripTitle = trip?.name ?: "선택한 여행",
+                tripSubtitle = trip?.let { "${it.startDate} - ${it.endDate} · ${it.cities.joinToString(" · ")}" }.orEmpty(),
+                nextScheduleName = nextScheduleName,
+                onNavigateMyTrip = { navController.navigate(Routes.MY_TRIP) },
+                onNavigateMyPage = { navController.navigate(Routes.MY_PAGE) },
+                onNavigatePlaceSearch = { navController.navigate(Routes.PLACE_SEARCH) },
+                onNavigateFriendAdd = { navController.navigate(Routes.FRIEND_ADD) },
+                onOpenReschedule = homeViewModel::openRescheduleSuggestion,
+                onDismissReschedule = homeViewModel::dismissRescheduleSuggestion,
+                onAcceptReschedule = homeViewModel::acceptRescheduleSuggestion,
+                onRejectReschedule = homeViewModel::rejectRescheduleSuggestion,
             )
         }
         composable(Routes.MY_PAGE) {
+            val profileViewModel: ProfileViewModel = viewModel(
+                factory = ProfileViewModel.factory(appContainer.getUserProfileUseCase),
+            )
+            val profileUiState by profileViewModel.uiState.collectAsStateWithLifecycle()
             MyPageScreen(
-                onNavigateHome = { navController.navigate(Routes.REALTIME_HOME) { popUpTo(Routes.REALTIME_HOME) { inclusive = true } } },
+                uiState = profileUiState,
+                onNavigateHome = {
+                    selectedTripId?.let { navController.navigate(Routes.realtimeHome(it)) }
+                        ?: navController.navigate(Routes.MY_TRIP)
+                },
                 onNavigateSettings = { navController.navigate(Routes.SETTINGS) },
             )
         }
         composable(Routes.SETTINGS) {
-            SettingsScreen(onBack = { navController.popBackStack() })
+            val profileViewModel: ProfileViewModel = viewModel(
+                factory = ProfileViewModel.factory(appContainer.getUserProfileUseCase),
+            )
+            val profileUiState by profileViewModel.uiState.collectAsStateWithLifecycle()
+            val returnToLogin = {
+                navController.navigate(Routes.LOGIN) {
+                    popUpTo(navController.graph.id) { inclusive = true }
+                }
+            }
+            SettingsScreen(
+                uiState = profileUiState,
+                onBack = { navController.popBackStack() },
+                onEditProfile = { navController.navigate(Routes.BASIC_INFO) },
+                onLogout = returnToLogin,
+                onDeleteAccount = returnToLogin,
+            )
         }
     }
 }

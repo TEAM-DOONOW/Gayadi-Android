@@ -1,6 +1,8 @@
 package com.gayadi.android.feature.basicinfo
 
 import com.gayadi.android.domain.model.BasicInfo
+import com.gayadi.android.domain.model.SurveyResult
+import com.gayadi.android.domain.model.UserProfile
 import com.gayadi.android.domain.repository.ProfileRepository
 import com.gayadi.android.domain.usecase.SaveBasicInfoUseCase
 import com.gayadi.android.feature.basicinfo.presentation.BasicInfoUiEvent
@@ -41,4 +43,8 @@ private class RecordingProfileRepository : ProfileRepository {
     var saved: BasicInfo? = null
     override fun saveBasicInfo(basicInfo: BasicInfo) { saved = basicInfo }
     override fun getBasicInfo(): BasicInfo? = saved
+    override fun saveSurveyResult(result: SurveyResult) = Unit
+    override fun getProfile(): UserProfile? = saved?.let {
+        UserProfile(nickname = it.nickname, introduction = it.introduction)
+    }
 }

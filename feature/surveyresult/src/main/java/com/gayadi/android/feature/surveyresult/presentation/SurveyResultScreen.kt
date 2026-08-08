@@ -137,16 +137,12 @@ private fun ResultContent(result: SurveyResult, nickname: String?, onStart: () -
                 contentAlignment = Alignment.Center,
             ) {
                 val characterDrawable = characterDrawableFor(result.characterKey)
-                if (characterDrawable == null) {
-                    Text(text = result.emoji, fontSize = 72.sp)
-                } else {
-                    Image(
-                        painter = painterResource(characterDrawable),
-                        contentDescription = "${result.name} 캐릭터",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Fit,
-                    )
-                }
+                Image(
+                    painter = painterResource(characterDrawable),
+                    contentDescription = "${result.name} 캐릭터",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit,
+                )
             }
             Spacer(modifier = Modifier.height(24.dp))
             Text(

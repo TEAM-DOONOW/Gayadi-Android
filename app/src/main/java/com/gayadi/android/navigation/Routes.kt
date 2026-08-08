@@ -10,10 +10,11 @@ object Routes {
     const val PLACE_DETAIL = "place_detail/{placeId}"
     const val MY_TRIP = "my_trip"
     const val TRIP_CREATE = "trip_create"
-    const val REALTIME_HOME = "realtime_home"
+    const val REALTIME_HOME = "realtime_home/{tripId}"
     const val MY_PAGE = "my_page"
     const val SETTINGS = "settings"
 
     fun placeDetail(placeId: String) = "place_detail/$placeId"
     fun surveyResult(resultCode: String) = "survey_result/$resultCode"
+    fun realtimeHome(tripId: String) = "realtime_home/$tripId"
 }

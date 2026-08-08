@@ -73,8 +73,9 @@ data class TripSummary(
 fun MyTripScreen(
     trips: List<TripSummary>,
     onAddTrip: () -> Unit,
-    onNavigateHome: () -> Unit,
+    onNavigateHome: (String) -> Unit,
     onDeleteTrip: (String) -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     val today = LocalDate.now()
@@ -104,7 +105,7 @@ fun MyTripScreen(
                 fontSize = 22.sp,
                 color = TextPrimary,
             )
-            IconButton(onClick = { }) {
+            IconButton(onClick = onOpenSettings) {
                 Icon(Icons.Filled.Settings, contentDescription = "설정", tint = TripAccentColor)
             }
         }
@@ -132,7 +133,7 @@ fun MyTripScreen(
                     visibleTrips.forEach { trip ->
                         TripCard(
                             trip = trip,
-                            onClick = onNavigateHome,
+                            onClick = { onNavigateHome(trip.id) },
                             onDelete = { onDeleteTrip(trip.id) },
                         )
                     }
@@ -346,6 +347,12 @@ private fun String.toTripDate(): LocalDate? =
 @Composable
 private fun MyTripPreview() {
     GayadiTheme {
-        MyTripScreen(trips = emptyList(), onAddTrip = {}, onNavigateHome = {}, onDeleteTrip = {})
+        MyTripScreen(
+            trips = emptyList(),
+            onAddTrip = {},
+            onNavigateHome = {},
+            onDeleteTrip = {},
+            onOpenSettings = {},
+        )
     }
 }

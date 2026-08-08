@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -48,9 +47,17 @@ import com.gayadi.android.ui.theme.TagPinkText
 import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary
 import com.gayadi.android.ui.theme.TextTertiary
+import com.gayadi.android.ui.components.UserCharacterAvatar
+import com.gayadi.android.domain.model.UserProfile
 
 @Composable
-fun SettingsScreen(onBack: () -> Unit) {
+fun SettingsScreen(
+    uiState: ProfileUiState,
+    onBack: () -> Unit,
+    onEditProfile: () -> Unit,
+    onLogout: () -> Unit,
+    onDeleteAccount: () -> Unit,
+) {
     var locationPermission by remember { mutableStateOf(true) }
     var darkMode by remember { mutableStateOf(false) }
 
@@ -85,24 +92,22 @@ fun SettingsScreen(onBack: () -> Unit) {
                     .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFF0F0F0)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text("🐶", fontSize = 24.sp)
-                }
+                val profile = uiState.profile
+                UserCharacterAvatar(
+                    characterKey = profile?.characterKey,
+                    contentDescription = "${profile?.nickname.orEmpty()} 여행 성향 캐릭터",
+                    modifier = Modifier.size(48.dp),
+                )
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("민수", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-                    Text("꼼꼼밍 · @doong", fontSize = 12.sp, color = TextSecondary)
+                    Text(profile?.nickname ?: "여행자", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                    Text(profile?.travelStyleName ?: "여행 성향 미설정", fontSize = 12.sp, color = TextSecondary)
                 }
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(12.dp))
                         .background(TagPink)
+                        .clickable(onClick = onEditProfile)
                         .padding(horizontal = 10.dp, vertical = 4.dp),
                 ) {
                     Text("편집", fontSize = 12.sp, color = TagPinkText, fontWeight = FontWeight.Medium)
@@ -148,7 +153,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
                     .border(1.dp, Color(0xFFFFEBEE), RoundedCornerShape(12.dp))
-                    .clickable {}
+                    .clickable(onClick = onLogout)
                     .padding(vertical = 14.dp),
                 contentAlignment = Alignment.Center,
             ) {
@@ -164,7 +169,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                 textAlign = TextAlign.Center,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable {}
+                    .clickable(onClick = onDeleteAccount)
                     .padding(vertical = 8.dp),
             )
 
@@ -190,5 +195,13 @@ private fun SettingsRow(label: String, trailing: @Composable () -> Unit) {
 @Preview(showBackground = true)
 @Composable
 private fun SettingsPreview() {
-    GayadiTheme { SettingsScreen(onBack = {}) }
+    GayadiTheme {
+        SettingsScreen(
+            uiState = ProfileUiState(UserProfile("가야디", "여행가")),
+            onBack = {},
+            onEditProfile = {},
+            onLogout = {},
+            onDeleteAccount = {},
+        )
+    }
 }

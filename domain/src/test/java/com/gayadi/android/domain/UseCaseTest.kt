@@ -2,6 +2,8 @@ package com.gayadi.android.domain
 
 import com.gayadi.android.domain.model.BasicInfo
 import com.gayadi.android.domain.model.SurveyDefinition
+import com.gayadi.android.domain.model.SurveyResult
+import com.gayadi.android.domain.model.UserProfile
 import com.gayadi.android.domain.repository.ProfileRepository
 import com.gayadi.android.domain.usecase.CalculateSurveyResultUseCase
 import com.gayadi.android.domain.usecase.GetSurveyUseCase
@@ -78,4 +80,8 @@ private class FakeProfileRepository : ProfileRepository {
     }
 
     override fun getBasicInfo(): BasicInfo? = saved
+    override fun saveSurveyResult(result: SurveyResult) = Unit
+    override fun getProfile(): UserProfile? = saved?.let {
+        UserProfile(nickname = it.nickname, introduction = it.introduction)
+    }
 }
