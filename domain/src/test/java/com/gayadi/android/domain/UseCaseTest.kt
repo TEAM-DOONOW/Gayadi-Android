@@ -15,11 +15,12 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Test
+import kotlinx.coroutines.test.runTest
 
 /** Verifies domain use-case behavior independently of data implementations. */
 class UseCaseTest {
     @Test
-    fun saveBasicInfo_trimsInput() {
+    fun saveBasicInfo_trimsInput() = runTest {
         val repository = FakeProfileRepository()
 
         SaveBasicInfoUseCase(repository)("  가야디 ", " 여행가 ")
@@ -28,7 +29,7 @@ class UseCaseTest {
     }
 
     @Test
-    fun surveyResult_roundTripPreservesAllProfileFields() {
+    fun surveyResult_roundTripPreservesAllProfileFields() = runTest {
         val repository = FakeProfileRepository()
         SaveBasicInfoUseCase(repository)("가야디", "여행가")
         val result = SurveyResult(
@@ -51,7 +52,7 @@ class UseCaseTest {
     }
 
     @Test
-    fun clearProfile_removesBasicInfoAndSurveyResult() {
+    fun clearProfile_removesBasicInfoAndSurveyResult() = runTest {
         val repository = FakeProfileRepository()
         SaveBasicInfoUseCase(repository)("가야디", "여행가")
         SaveSurveyResultToProfileUseCase(repository)(
@@ -116,16 +117,16 @@ private class FakeProfileRepository : ProfileRepository {
     var saved: BasicInfo? = null
     var surveyResult: SurveyResult? = null
 
-    override fun saveBasicInfo(basicInfo: BasicInfo) {
+    override suspend fun saveBasicInfo(basicInfo: BasicInfo) {
         saved = basicInfo
     }
 
-    override fun getBasicInfo(): BasicInfo? = saved
-    override fun saveSurveyResult(result: SurveyResult): Result<Unit> {
+    override suspend fun getBasicInfo(): BasicInfo? = saved
+    override suspend fun saveSurveyResult(result: SurveyResult): Result<Unit> {
         surveyResult = result
         return Result.success(Unit)
     }
-    override fun getProfile(): UserProfile? = saved?.let {
+    override suspend fun getProfile(): UserProfile? = saved?.let {
         UserProfile(
             nickname = it.nickname,
             introduction = it.introduction,
@@ -136,7 +137,7 @@ private class FakeProfileRepository : ProfileRepository {
             weaknesses = surveyResult?.weaknesses.orEmpty(),
         )
     }
-    override fun clearProfile(): Result<Unit> {
+    override suspend fun clearProfile(): Result<Unit> {
         saved = null
         surveyResult = null
         return Result.success(Unit)

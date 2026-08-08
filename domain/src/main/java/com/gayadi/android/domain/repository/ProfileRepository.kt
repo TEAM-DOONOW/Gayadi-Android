@@ -7,17 +7,17 @@ import com.gayadi.android.domain.model.UserProfile
 /** Domain contract for basic profile persistence. */
 interface ProfileRepository {
     /** Persists the supplied basic information. */
-    fun saveBasicInfo(basicInfo: BasicInfo)
+    suspend fun saveBasicInfo(basicInfo: BasicInfo)
 
     /** Returns saved basic information when available. */
-    fun getBasicInfo(): BasicInfo?
+    suspend fun getBasicInfo(): BasicInfo?
 
     /** Merges the completed survey result into the saved profile. */
-    fun saveSurveyResult(result: SurveyResult): Result<Unit>
+    suspend fun saveSurveyResult(result: SurveyResult): Result<Unit>
 
     /** Returns the complete locally persisted profile when available. */
-    fun getProfile(): UserProfile?
+    suspend fun getProfile(): UserProfile?
 
     /** Removes all locally persisted profile data. */
-    fun clearProfile(): Result<Unit>
+    suspend fun clearProfile(): Result<Unit>
 }

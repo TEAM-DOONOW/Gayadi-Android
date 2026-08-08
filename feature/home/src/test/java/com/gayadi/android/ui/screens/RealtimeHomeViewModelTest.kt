@@ -35,9 +35,9 @@ class RealtimeHomeViewModelTest {
 }
 
 private class FakeProfileRepository : ProfileRepository {
-    override fun saveBasicInfo(basicInfo: BasicInfo) = Unit
-    override fun getBasicInfo(): BasicInfo? = null
-    override fun saveSurveyResult(result: SurveyResult): Result<Unit> = Result.success(Unit)
-    override fun getProfile(): UserProfile = UserProfile("가야디", "여행가")
-    override fun clearProfile(): Result<Unit> = Result.success(Unit)
+    override suspend fun saveBasicInfo(basicInfo: BasicInfo) = Unit
+    override suspend fun getBasicInfo(): BasicInfo? = null
+    override suspend fun saveSurveyResult(result: SurveyResult): Result<Unit> = Result.success(Unit)
+    override suspend fun getProfile(): UserProfile = UserProfile("가야디", "여행가")
+    override suspend fun clearProfile(): Result<Unit> = Result.success(Unit)
 }

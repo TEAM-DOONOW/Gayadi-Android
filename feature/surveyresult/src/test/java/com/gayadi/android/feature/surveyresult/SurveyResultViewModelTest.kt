@@ -22,17 +22,17 @@ private class FakeProfileRepository(
     private val saveResult: Result<Unit> = Result.success(Unit),
 ) : ProfileRepository {
     var savedResult: SurveyResult? = null
-    override fun saveBasicInfo(basicInfo: BasicInfo) = Unit
+    override suspend fun saveBasicInfo(basicInfo: BasicInfo) = Unit
 
-    override fun getBasicInfo(): BasicInfo? = basicInfo
-    override fun saveSurveyResult(result: SurveyResult): Result<Unit> {
+    override suspend fun getBasicInfo(): BasicInfo? = basicInfo
+    override suspend fun saveSurveyResult(result: SurveyResult): Result<Unit> {
         if (saveResult.isSuccess) savedResult = result
         return saveResult
     }
-    override fun getProfile(): UserProfile? = basicInfo?.let {
+    override suspend fun getProfile(): UserProfile? = basicInfo?.let {
         UserProfile(nickname = it.nickname, introduction = it.introduction)
     }
-    override fun clearProfile(): Result<Unit> = Result.success(Unit)
+    override suspend fun clearProfile(): Result<Unit> = Result.success(Unit)
 }
 
 private fun profileRepository(nickname: String?) =

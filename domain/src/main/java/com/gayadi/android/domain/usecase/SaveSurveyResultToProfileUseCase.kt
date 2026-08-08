@@ -7,5 +7,5 @@ import com.gayadi.android.domain.repository.ProfileRepository
 class SaveSurveyResultToProfileUseCase(
     private val profileRepository: ProfileRepository,
 ) {
-    operator fun invoke(result: SurveyResult) = profileRepository.saveSurveyResult(result)
+    suspend operator fun invoke(result: SurveyResult) = profileRepository.saveSurveyResult(result)
 }

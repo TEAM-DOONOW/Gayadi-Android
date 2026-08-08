@@ -7,5 +7,5 @@ import com.gayadi.android.domain.repository.ProfileRepository
 class GetBasicInfoUseCase(
     private val profileRepository: ProfileRepository,
 ) {
-    operator fun invoke(): BasicInfo? = profileRepository.getBasicInfo()
+    suspend operator fun invoke(): BasicInfo? = profileRepository.getBasicInfo()
 }

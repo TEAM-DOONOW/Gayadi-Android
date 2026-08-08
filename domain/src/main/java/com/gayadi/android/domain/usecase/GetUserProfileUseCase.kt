@@ -7,5 +7,5 @@ import com.gayadi.android.domain.repository.ProfileRepository
 class GetUserProfileUseCase(
     private val profileRepository: ProfileRepository,
 ) {
-    operator fun invoke(): UserProfile? = profileRepository.getProfile()
+    suspend operator fun invoke(): UserProfile? = profileRepository.getProfile()
 }

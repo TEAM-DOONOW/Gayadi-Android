@@ -33,7 +33,7 @@ class RealtimeHomeViewModel(
 
     init {
         viewModelScope.launch(ioDispatcher) {
-            runCatching(getUserProfile::invoke).fold(
+            runCatching { getUserProfile() }.fold(
                 onSuccess = { profile -> _uiState.update { it.copy(profile = profile, isProfileLoading = false) } },
                 onFailure = { error ->
                     _uiState.update {

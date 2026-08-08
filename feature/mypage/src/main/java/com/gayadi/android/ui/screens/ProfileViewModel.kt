@@ -29,7 +29,7 @@ class ProfileViewModel(
 
     init {
         viewModelScope.launch(ioDispatcher) {
-            runCatching(getUserProfile::invoke).fold(
+            runCatching { getUserProfile() }.fold(
                 onSuccess = { profile -> _uiState.update { it.copy(profile = profile, isLoading = false) } },
                 onFailure = { error ->
                     _uiState.update {

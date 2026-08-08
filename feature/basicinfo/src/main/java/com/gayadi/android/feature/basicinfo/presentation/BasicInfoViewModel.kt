@@ -24,6 +24,8 @@ class BasicInfoViewModel(
 
     /** Handles form input and persistence events. */
     fun onEvent(event: BasicInfoUiEvent) {
+        if (_uiState.value.isSaving) return
+
         when (event) {
             is BasicInfoUiEvent.NicknameChanged ->
                 _uiState.update {

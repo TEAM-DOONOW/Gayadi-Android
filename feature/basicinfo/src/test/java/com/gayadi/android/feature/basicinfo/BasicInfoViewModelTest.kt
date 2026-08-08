@@ -12,6 +12,8 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlin.coroutines.CoroutineContext
 
 /** Verifies basic information state transitions and validation. */
 class BasicInfoViewModelTest {
@@ -56,20 +58,49 @@ class BasicInfoViewModelTest {
         assertFalse(viewModel.uiState.value.isSaving)
         assertEquals("저장 실패", viewModel.uiState.value.errorMessage)
     }
+
+    @Test
+    fun inputEvents_areIgnoredWhileProfileIsSaving() {
+        val repository = RecordingProfileRepository()
+        val dispatcher = QueuedDispatcher()
+        val viewModel = BasicInfoViewModel(SaveBasicInfoUseCase(repository), dispatcher)
+        viewModel.onEvent(BasicInfoUiEvent.NicknameChanged("저장할 닉네임"))
+        viewModel.onEvent(BasicInfoUiEvent.IntroductionChanged("저장할 소개"))
+
+        viewModel.onEvent(BasicInfoUiEvent.Submit)
+        viewModel.onEvent(BasicInfoUiEvent.NicknameChanged("바뀐 닉네임"))
+        dispatcher.runAll()
+
+        assertEquals("저장할 닉네임", repository.saved?.nickname)
+        assertEquals("저장할 닉네임", viewModel.uiState.value.nickname)
+        assertTrue(viewModel.uiState.value.saveCompleted)
+    }
+}
+
+private class QueuedDispatcher : CoroutineDispatcher() {
+    private val tasks = ArrayDeque<Runnable>()
+
+    override fun dispatch(context: CoroutineContext, block: Runnable) {
+        tasks.addLast(block)
+    }
+
+    fun runAll() {
+        while (tasks.isNotEmpty()) tasks.removeFirst().run()
+    }
 }
 
 private class RecordingProfileRepository(
     private val failure: Throwable? = null,
 ) : ProfileRepository {
     var saved: BasicInfo? = null
-    override fun saveBasicInfo(basicInfo: BasicInfo) {
+    override suspend fun saveBasicInfo(basicInfo: BasicInfo) {
         failure?.let { throw it }
         saved = basicInfo
     }
-    override fun getBasicInfo(): BasicInfo? = saved
-    override fun saveSurveyResult(result: SurveyResult): Result<Unit> = Result.success(Unit)
-    override fun getProfile(): UserProfile? = saved?.let {
+    override suspend fun getBasicInfo(): BasicInfo? = saved
+    override suspend fun saveSurveyResult(result: SurveyResult): Result<Unit> = Result.success(Unit)
+    override suspend fun getProfile(): UserProfile? = saved?.let {
         UserProfile(nickname = it.nickname, introduction = it.introduction)
     }
-    override fun clearProfile(): Result<Unit> = Result.success(Unit)
+    override suspend fun clearProfile(): Result<Unit> = Result.success(Unit)
 }

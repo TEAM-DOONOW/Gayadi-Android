@@ -6,5 +6,5 @@ import com.gayadi.android.domain.repository.ProfileRepository
 class ClearUserProfileUseCase(
     private val profileRepository: ProfileRepository,
 ) {
-    operator fun invoke(): Result<Unit> = profileRepository.clearProfile()
+    suspend operator fun invoke(): Result<Unit> = profileRepository.clearProfile()
 }

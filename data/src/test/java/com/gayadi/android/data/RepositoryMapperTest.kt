@@ -15,11 +15,12 @@ import java.nio.file.Files
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import kotlinx.coroutines.test.runTest
 
 /** Verifies repository delegation and data-to-domain mapping. */
 class RepositoryMapperTest {
     @Test
-    fun profileRepository_mapsEntityAndDomainModel() {
+    fun profileRepository_mapsEntityAndDomainModel() = runTest {
         val repository = InMemoryProfileRepository(InMemoryProfileLocalDataSource())
         val expected = BasicInfo("가야디", "여행을 좋아해요")
 
@@ -29,7 +30,7 @@ class RepositoryMapperTest {
     }
 
     @Test
-    fun profileRepository_persistsSurveyAcrossDataSourceRecreation() {
+    fun profileRepository_persistsSurveyAcrossDataSourceRecreation() = runTest {
         val directory = Files.createTempDirectory("gayadi-profile-test").toFile()
         val profileFile = directory.resolve("profile.xml")
         val firstRepository = InMemoryProfileRepository(FileProfileLocalDataSource(profileFile))
@@ -59,7 +60,7 @@ class RepositoryMapperTest {
     }
 
     @Test
-    fun profileRepository_rejectsSurveyWithoutBasicProfile() {
+    fun profileRepository_rejectsSurveyWithoutBasicProfile() = runTest {
         val repository = InMemoryProfileRepository(InMemoryProfileLocalDataSource())
 
         val result = repository.saveSurveyResult(

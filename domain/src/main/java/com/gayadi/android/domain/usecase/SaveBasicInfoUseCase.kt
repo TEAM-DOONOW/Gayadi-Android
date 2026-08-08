@@ -8,7 +8,7 @@ class SaveBasicInfoUseCase(
     private val profileRepository: ProfileRepository,
 ) {
     /** Trims user input and saves it through the profile repository. */
-    operator fun invoke(nickname: String, introduction: String) {
+    suspend operator fun invoke(nickname: String, introduction: String) {
         profileRepository.saveBasicInfo(
             BasicInfo(
                 nickname = nickname.trim(),
