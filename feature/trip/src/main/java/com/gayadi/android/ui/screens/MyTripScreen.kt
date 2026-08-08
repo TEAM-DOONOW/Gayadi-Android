@@ -53,6 +53,8 @@ import com.gayadi.android.ui.theme.PretendardFontFamily
 import com.gayadi.android.ui.theme.PretendardSemiBoldFontFamily
 import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary
+import com.gayadi.android.domain.model.DepartureMode
+import com.gayadi.android.domain.model.TripStatus
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.UUID
@@ -67,6 +69,9 @@ data class TripSummary(
     val endDate: String,
     val cities: List<String>,
     val coverImageResList: List<Int>,
+    val departureMode: DepartureMode = DepartureMode.SOLO,
+    val status: TripStatus = TripStatus.PLANNING,
+    val participantIds: List<String> = emptyList(),
 )
 
 @Composable
@@ -80,10 +85,10 @@ fun MyTripScreen(
     var selectedTab by remember { mutableIntStateOf(0) }
     val today = LocalDate.now()
     val ongoingTrips = trips.filter { trip ->
-        trip.endDate.toTripDate()?.isBefore(today) != true
+        trip.status != TripStatus.COMPLETED && trip.endDate.toTripDate()?.isBefore(today) != true
     }
     val completedTrips = trips.filter { trip ->
-        trip.endDate.toTripDate()?.isBefore(today) == true
+        trip.status == TripStatus.COMPLETED || trip.endDate.toTripDate()?.isBefore(today) == true
     }
     val visibleTrips = if (selectedTab == 0) ongoingTrips else completedTrips
 

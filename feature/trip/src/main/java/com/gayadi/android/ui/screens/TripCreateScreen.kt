@@ -101,12 +101,24 @@ private val domesticCities = listOf(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TripCreateScreen(onBack: () -> Unit, onCreate: (TripSummary) -> Unit) {
-    var step by remember { mutableStateOf(CreateStep.CITY) }
-    val selectedCities = remember { mutableStateListOf<String>() }
-    var name by remember { mutableStateOf("") }
-    var startDate by remember { mutableStateOf<LocalDate?>(null) }
-    var endDate by remember { mutableStateOf<LocalDate?>(null) }
+fun TripCreateScreen(
+    onBack: () -> Unit,
+    onCreate: (TripSummary) -> Unit,
+    initialTrip: TripSummary? = null,
+) {
+    var step by remember(initialTrip?.id) {
+        mutableStateOf(if (initialTrip == null) CreateStep.CITY else CreateStep.DETAILS)
+    }
+    val selectedCities = remember(initialTrip?.id) {
+        mutableStateListOf<String>().apply { addAll(initialTrip?.cities.orEmpty()) }
+    }
+    var name by remember(initialTrip?.id) { mutableStateOf(initialTrip?.name.orEmpty()) }
+    var startDate by remember(initialTrip?.id) {
+        mutableStateOf(initialTrip?.startDate?.let { LocalDate.parse(it, tripDateFormatter) })
+    }
+    var endDate by remember(initialTrip?.id) {
+        mutableStateOf(initialTrip?.endDate?.let { LocalDate.parse(it, tripDateFormatter) })
+    }
     var selectingField by remember { mutableStateOf<DateField?>(null) }
 
     when (step) {
@@ -116,6 +128,7 @@ fun TripCreateScreen(onBack: () -> Unit, onCreate: (TripSummary) -> Unit) {
             onNext = { step = CreateStep.DETAILS },
         )
         CreateStep.DETAILS -> TripDetailsStep(
+            isEditing = initialTrip != null,
             name = name,
             onNameChange = { name = it },
             startDate = startDate,
@@ -126,6 +139,7 @@ fun TripCreateScreen(onBack: () -> Unit, onCreate: (TripSummary) -> Unit) {
             onCreate = {
                 onCreate(
                     TripSummary(
+                        id = initialTrip?.id ?: java.util.UUID.randomUUID().toString(),
                         name = name.trim(),
                         startDate = startDate!!.format(tripDateFormatter),
                         endDate = endDate!!.format(tripDateFormatter),
@@ -281,6 +295,7 @@ private fun CityRow(city: CityOption, selected: Boolean, onClick: () -> Unit) {
 
 @Composable
 private fun TripDetailsStep(
+    isEditing: Boolean,
     name: String,
     onNameChange: (String) -> Unit,
     startDate: LocalDate?,
@@ -299,7 +314,12 @@ private fun TripDetailsStep(
             IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "도시 선택으로 돌아가기")
             }
-            Text("새 여행 만들기", fontFamily = PretendardSemiBoldFontFamily, fontSize = 20.sp, color = TextPrimary)
+            Text(
+                if (isEditing) "여행 수정하기" else "새 여행 만들기",
+                fontFamily = PretendardSemiBoldFontFamily,
+                fontSize = 20.sp,
+                color = TextPrimary,
+            )
         }
         Spacer(modifier = Modifier.height(28.dp))
         Text("여행 이름", fontFamily = PretendardSemiBoldFontFamily, fontSize = 14.sp)
@@ -329,7 +349,7 @@ private fun TripDetailsStep(
                 containerColor = tripCreateAccentColor,
                 disabledContainerColor = Color(0xFFD5D5DA),
             ),
-        ) { Text("여행 만들기", fontFamily = PretendardSemiBoldFontFamily, fontSize = 15.sp) }
+        ) { Text("여행 저장하기", fontFamily = PretendardSemiBoldFontFamily, fontSize = 15.sp) }
         Spacer(modifier = Modifier.height(16.dp))
     }
 }

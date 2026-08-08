@@ -14,7 +14,10 @@ import java.io.File
 
 class MainActivity : ComponentActivity() {
     private val appContainer by lazy {
-        AppContainer(profileFile = File(filesDir, "user-profile.xml"))
+        AppContainer(
+            profileFile = File(filesDir, "user-profile.xml"),
+            travelFile = File(filesDir, "travel-state.json"),
+        )
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

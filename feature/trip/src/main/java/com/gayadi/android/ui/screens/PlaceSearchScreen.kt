@@ -20,6 +20,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -58,6 +60,10 @@ fun PlaceSearchScreen(
     onCategorySelected: (String) -> Unit,
     onPlaceClick: (String) -> Unit,
     onRetry: () -> Unit,
+    favoritePlaceIds: Set<String> = emptySet(),
+    onToggleFavorite: (String) -> Unit = {},
+    onNearby: () -> Unit = {},
+    onFavorites: () -> Unit = {},
 ) {
     Column(Modifier.fillMaxSize().background(Color.White)) {
         Row(
@@ -104,6 +110,13 @@ fun PlaceSearchScreen(
                 )
             }
         }
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Button(onClick = onNearby, modifier = Modifier.weight(1f)) { Text("주변 장소") }
+            Button(onClick = onFavorites, modifier = Modifier.weight(1f)) { Text("찜 목록") }
+        }
         Spacer(Modifier.height(12.dp))
 
         when {
@@ -127,7 +140,12 @@ fun PlaceSearchScreen(
             ) {
                 item { Text("제주 성산 · ${uiState.filteredPlaces.size}곳", fontSize = 13.sp, color = TextSecondary) }
                 items(uiState.filteredPlaces, key = PlaceItem::id) { place ->
-                    PlaceCard(place, onClick = { onPlaceClick(place.id) })
+                    PlaceCard(
+                        place,
+                        isFavorite = place.id in favoritePlaceIds,
+                        onClick = { onPlaceClick(place.id) },
+                        onToggleFavorite = { onToggleFavorite(place.id) },
+                    )
                 }
                 item { Spacer(Modifier.height(24.dp)) }
             }
@@ -136,7 +154,7 @@ fun PlaceSearchScreen(
 }
 
 @Composable
-private fun PlaceCard(place: PlaceItem, onClick: () -> Unit) {
+private fun PlaceCard(place: PlaceItem, isFavorite: Boolean, onClick: () -> Unit, onToggleFavorite: () -> Unit) {
     val (tagBackground, tagText) = when (place.crowdLevel) {
         CrowdLevel.RELAXED -> TagGreen to TagGreenText
         CrowdLevel.NORMAL -> TagOrange to TagOrangeText
@@ -157,13 +175,22 @@ private fun PlaceCard(place: PlaceItem, onClick: () -> Unit) {
             Text("${place.category} · ★ ${place.rating} · 리뷰 ${place.reviews}", fontSize = 12.sp, color = TextSecondary)
             Text(place.description, fontSize = 11.sp, color = TextTertiary)
         }
-        Text(
-            place.crowdLevel.label,
-            modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(tagBackground)
-                .padding(horizontal = 10.dp, vertical = 4.dp),
-            fontSize = 11.sp,
-            color = tagText,
-        )
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            IconButton(onClick = onToggleFavorite) {
+                Icon(
+                    if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                    contentDescription = if (isFavorite) "찜 해제" else "찜 추가",
+                    tint = if (isFavorite) Color(0xFFE84D6E) else TextSecondary,
+                )
+            }
+            Text(
+                place.crowdLevel.label,
+                modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(tagBackground)
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
+                fontSize = 11.sp,
+                color = tagText,
+            )
+        }
     }
 }
 

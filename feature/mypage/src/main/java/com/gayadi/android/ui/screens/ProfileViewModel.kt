@@ -21,13 +21,18 @@ data class ProfileUiState(
 )
 
 class ProfileViewModel(
-    getUserProfile: GetUserProfileUseCase,
-    ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val getUserProfile: GetUserProfileUseCase,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ProfileUiState())
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
 
     init {
+        reload()
+    }
+
+    fun reload() {
+        _uiState.update { it.copy(isLoading = true, errorMessage = null) }
         viewModelScope.launch(ioDispatcher) {
             runCatching { getUserProfile() }.fold(
                 onSuccess = { profile -> _uiState.update { it.copy(profile = profile, isLoading = false) } },

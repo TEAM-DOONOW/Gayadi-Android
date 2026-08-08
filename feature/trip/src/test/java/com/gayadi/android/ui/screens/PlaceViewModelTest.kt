@@ -1,6 +1,5 @@
 package com.gayadi.android.ui.screens
 
-import androidx.lifecycle.SavedStateHandle
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -8,24 +7,21 @@ import org.junit.Test
 class PlaceViewModelTest {
     @Test
     fun queryAndCategoryFilterPlaces() {
-        val viewModel = PlaceViewModel(SavedStateHandle())
-
+        val viewModel = PlaceViewModel()
         viewModel.selectCategory("카페")
         viewModel.updateQuery("글렌코")
-
         assertEquals(listOf("place-2"), viewModel.uiState.value.filteredPlaces.map(PlaceItem::id))
     }
 
     @Test
-    fun detailLookupAndScheduleStateUsePlaceId() {
-        val state = SavedStateHandle()
-        val viewModel = PlaceViewModel(state)
-
-        assertEquals("섭지코지", viewModel.findPlace("place-3")?.name)
-        viewModel.addPlaceToSchedule("trip-a", "place-3")
-
-        assertTrue("place-3" in viewModel.scheduledPlaceIds("trip-a"))
-        assertTrue("place-3" in PlaceViewModel(state).scheduledPlaceIds("trip-a"))
-        assertTrue(PlaceViewModel(state).scheduledPlaceIds("trip-b").isEmpty())
+    fun detailNearbyWeatherAndCrowdComeFromRepository() {
+        val viewModel = PlaceViewModel()
+        val place = viewModel.findPlace("place-3")!!
+        assertEquals("섭지코지", place.name)
+        assertEquals("바람", place.weather)
+        assertEquals(CrowdLevel.CROWDED, place.crowdLevel)
+        val nearby = viewModel.nearbyPlaces("place-3")
+        assertTrue(nearby.none { it.id == "place-3" })
+        assertEquals(nearby.sortedBy(PlaceItem::distanceMeters), nearby)
     }
 }

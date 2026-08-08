@@ -1,8 +1,6 @@
 package com.gayadi.android.ui.screens
 
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,13 +19,16 @@ data class PlaceItem(
     val crowdLevel: CrowdLevel,
     val emoji: String,
     val description: String,
+    val distanceMeters: Int = 500,
+    val weather: String = "맑음",
+    val temperatureCelsius: Int = 23,
+    val rainProbability: Int = 10,
 )
 
 data class PlaceUiState(
     val query: String = "",
     val selectedCategory: String = "전체",
     val places: List<PlaceItem> = emptyList(),
-    val scheduledPlaceIdsByTrip: Map<String, Set<String>> = emptyMap(),
     val isLoading: Boolean = true,
     val errorMessage: String? = null,
 ) {
@@ -41,26 +42,27 @@ data class PlaceUiState(
 
 interface PlaceRepository {
     fun getPlaces(): Result<List<PlaceItem>>
+    fun getNearbyPlaces(originPlaceId: String?): Result<List<PlaceItem>>
 }
 
 class FakePlaceRepository : PlaceRepository {
     override fun getPlaces(): Result<List<PlaceItem>> = Result.success(
         listOf(
-            PlaceItem("place-1", "명진전복", "맛집", 4.5, 1284, CrowdLevel.RELAXED, "🍲", "제주 성산 전복 요리"),
-            PlaceItem("place-2", "카페 글렌코", "카페", 4.4, 892, CrowdLevel.NORMAL, "☕", "제주 오션뷰 카페"),
-            PlaceItem("place-3", "섭지코지", "관광명소", 4.7, 3561, CrowdLevel.CROWDED, "🏞️", "제주 동부 해안 산책"),
-            PlaceItem("place-4", "스테이 성산", "숙소", 4.6, 421, CrowdLevel.RELAXED, "🏨", "성산일출봉 인근 숙소"),
+            PlaceItem("place-1", "명진전복", "맛집", 4.5, 1284, CrowdLevel.RELAXED, "🍲", "제주 성산 전복 요리", 320, "맑음", 24, 10),
+            PlaceItem("place-2", "카페 글렌코", "카페", 4.4, 892, CrowdLevel.NORMAL, "☕", "제주 오션뷰 카페", 680, "구름 많음", 23, 20),
+            PlaceItem("place-3", "섭지코지", "관광명소", 4.7, 3561, CrowdLevel.CROWDED, "🏞️", "제주 동부 해안 산책", 1_200, "바람", 21, 30),
+            PlaceItem("place-4", "스테이 성산", "숙소", 4.6, 421, CrowdLevel.RELAXED, "🏨", "성산일출봉 인근 숙소", 900, "맑음", 22, 10),
         ),
     )
+
+    override fun getNearbyPlaces(originPlaceId: String?): Result<List<PlaceItem>> =
+        getPlaces().map { places -> places.filterNot { it.id == originPlaceId }.sortedBy(PlaceItem::distanceMeters) }
 }
 
 class PlaceViewModel(
-    private val savedStateHandle: SavedStateHandle,
     private val repository: PlaceRepository = FakePlaceRepository(),
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow(
-        PlaceUiState(scheduledPlaceIdsByTrip = decodeSchedules(savedStateHandle[SCHEDULED_IDS_KEY])),
-    )
+    private val _uiState = MutableStateFlow(PlaceUiState())
     val uiState: StateFlow<PlaceUiState> = _uiState.asStateFlow()
 
     init {
@@ -73,19 +75,10 @@ class PlaceViewModel(
 
     fun retry() = loadPlaces()
 
-    fun addPlaceToSchedule(tripId: String, placeId: String) {
-        if (_uiState.value.places.none { it.id == placeId }) return
-        val updated = _uiState.value.scheduledPlaceIdsByTrip.toMutableMap().apply {
-            this[tripId] = get(tripId).orEmpty() + placeId
-        }
-        savedStateHandle[SCHEDULED_IDS_KEY] = encodeSchedules(updated)
-        _uiState.update { it.copy(scheduledPlaceIdsByTrip = updated) }
-    }
-
-    fun scheduledPlaceIds(tripId: String): Set<String> =
-        _uiState.value.scheduledPlaceIdsByTrip[tripId].orEmpty()
-
     fun findPlace(placeId: String): PlaceItem? = _uiState.value.places.find { it.id == placeId }
+
+    fun nearbyPlaces(originPlaceId: String?): List<PlaceItem> =
+        repository.getNearbyPlaces(originPlaceId).getOrDefault(emptyList())
 
     private fun loadPlaces() {
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
@@ -99,25 +92,9 @@ class PlaceViewModel(
         )
     }
 
-    private fun encodeSchedules(value: Map<String, Set<String>>): String = value.entries.joinToString("\n") { (tripId, placeIds) ->
-        "$tripId=${placeIds.sorted().joinToString(",")}"
-    }
-
-    private fun decodeSchedules(value: String?): Map<String, Set<String>> = value.orEmpty()
-        .lineSequence()
-        .mapNotNull { record ->
-            val separator = record.indexOf('=')
-            if (separator <= 0) return@mapNotNull null
-            record.substring(0, separator) to record.substring(separator + 1)
-                .split(',').filter(String::isNotBlank).toSet()
-        }
-        .toMap()
-
     companion object {
         fun factory(repository: PlaceRepository = FakePlaceRepository()) = viewModelFactory {
-            initializer { PlaceViewModel(createSavedStateHandle(), repository) }
+            initializer { PlaceViewModel(repository) }
         }
-
-        const val SCHEDULED_IDS_KEY = "scheduled_place_ids"
     }
 }

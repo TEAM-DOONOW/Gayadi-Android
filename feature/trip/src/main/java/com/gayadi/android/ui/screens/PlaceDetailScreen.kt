@@ -17,6 +17,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -46,6 +48,9 @@ fun PlaceDetailScreen(
     isScheduled: Boolean,
     onBack: () -> Unit,
     onAddToSchedule: () -> Unit,
+    isFavorite: Boolean = false,
+    onToggleFavorite: () -> Unit = {},
+    onNearby: () -> Unit = {},
 ) {
     if (place == null) {
         Column(
@@ -77,6 +82,13 @@ fun PlaceDetailScreen(
                 Spacer(Modifier.width(8.dp))
                 Text(place.category, fontSize = 11.sp, color = TextSecondary)
                 Spacer(Modifier.weight(1f))
+                IconButton(onClick = onToggleFavorite) {
+                    Icon(
+                        if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                        contentDescription = if (isFavorite) "찜 해제" else "찜 추가",
+                        tint = if (isFavorite) Color(0xFFE84D6E) else TextSecondary,
+                    )
+                }
                 Text(place.crowdLevel.label, fontSize = 12.sp, color = PrimaryBlue)
             }
             Text(place.description, fontSize = 13.sp, color = TextSecondary)
@@ -85,6 +97,17 @@ fun PlaceDetailScreen(
             Spacer(Modifier.height(24.dp))
             Text("실시간 혼잡도", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             Text("현재 ${place.crowdLevel.label} · 예상 대기 5분", fontSize = 12.sp, color = TextSecondary)
+            Spacer(Modifier.height(10.dp))
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFEAF4FF)),
+            ) {
+                Column(Modifier.padding(14.dp)) {
+                    Text("현재 날씨", fontWeight = FontWeight.SemiBold)
+                    Text("${place.weather} · ${place.temperatureCelsius}℃ · 강수확률 ${place.rainProbability}%", fontSize = 12.sp, color = TextSecondary)
+                }
+            }
             Spacer(Modifier.height(12.dp))
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -101,6 +124,12 @@ fun PlaceDetailScreen(
                 }
             }
             Spacer(Modifier.height(24.dp))
+            Button(
+                onClick = onNearby,
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
+            ) { Text("주변 장소 보기") }
+            Spacer(Modifier.height(10.dp))
             Button(
                 onClick = onAddToSchedule,
                 enabled = !isScheduled,
