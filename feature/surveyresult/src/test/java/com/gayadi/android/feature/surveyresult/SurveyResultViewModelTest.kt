@@ -14,6 +14,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Test
+import kotlinx.coroutines.Dispatchers
 
 /** Profile stub returning whatever onboarding state a test needs. */
 private class FakeProfileRepository(private val basicInfo: BasicInfo?) : ProfileRepository {
@@ -25,6 +26,7 @@ private class FakeProfileRepository(private val basicInfo: BasicInfo?) : Profile
     override fun getProfile(): UserProfile? = basicInfo?.let {
         UserProfile(nickname = it.nickname, introduction = it.introduction)
     }
+    override fun clearProfile(): Result<Unit> = Result.success(Unit)
 }
 
 private fun profileRepository(nickname: String?) =
@@ -41,6 +43,7 @@ class SurveyResultViewModelTest {
             GetSurveyResultUseCase(FakeSurveyRepository(Result.success(definition))),
             GetBasicInfoUseCase(profileRepository),
             SaveSurveyResultToProfileUseCase(profileRepository),
+            Dispatchers.Unconfined,
         )
 
         assertFalse(viewModel.uiState.value.isLoading)
@@ -57,6 +60,7 @@ class SurveyResultViewModelTest {
             GetSurveyResultUseCase(FakeSurveyRepository(Result.success(createSurveyDefinition()))),
             GetBasicInfoUseCase(profileRepository),
             SaveSurveyResultToProfileUseCase(profileRepository),
+            Dispatchers.Unconfined,
         )
 
         assertNull(viewModel.uiState.value.nickname)
@@ -70,6 +74,7 @@ class SurveyResultViewModelTest {
             GetSurveyResultUseCase(FakeSurveyRepository(Result.success(createSurveyDefinition()))),
             GetBasicInfoUseCase(profileRepository),
             SaveSurveyResultToProfileUseCase(profileRepository),
+            Dispatchers.Unconfined,
         )
 
         assertNull(viewModel.uiState.value.nickname)
@@ -84,6 +89,7 @@ class SurveyResultViewModelTest {
             GetSurveyResultUseCase(repository),
             GetBasicInfoUseCase(profileRepository),
             SaveSurveyResultToProfileUseCase(profileRepository),
+            Dispatchers.Unconfined,
         )
 
         assertNull(viewModel.uiState.value.result)

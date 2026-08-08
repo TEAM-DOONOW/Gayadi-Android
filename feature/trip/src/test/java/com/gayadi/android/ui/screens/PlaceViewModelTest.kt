@@ -22,9 +22,10 @@ class PlaceViewModelTest {
         val viewModel = PlaceViewModel(state)
 
         assertEquals("섭지코지", viewModel.findPlace("place-3")?.name)
-        viewModel.addPlaceToSchedule("place-3")
+        viewModel.addPlaceToSchedule("trip-a", "place-3")
 
-        assertTrue("place-3" in viewModel.uiState.value.scheduledPlaceIds)
-        assertTrue("place-3" in PlaceViewModel(state).uiState.value.scheduledPlaceIds)
+        assertTrue("place-3" in viewModel.scheduledPlaceIds("trip-a"))
+        assertTrue("place-3" in PlaceViewModel(state).scheduledPlaceIds("trip-a"))
+        assertTrue(PlaceViewModel(state).scheduledPlaceIds("trip-b").isEmpty())
     }
 }

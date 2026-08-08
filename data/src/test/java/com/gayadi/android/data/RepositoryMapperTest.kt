@@ -13,6 +13,7 @@ import com.gayadi.android.domain.model.BasicInfo
 import com.gayadi.android.domain.model.SurveyResult
 import java.nio.file.Files
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 /** Verifies repository delegation and data-to-domain mapping. */
@@ -52,6 +53,8 @@ class RepositoryMapperTest {
         assertEquals("SCA", recreatedRepository.getProfile()?.resultCode)
         assertEquals("character_sca", recreatedRepository.getProfile()?.characterKey)
         assertEquals(listOf("유연해요"), recreatedRepository.getProfile()?.strengths)
+        recreatedRepository.clearProfile().getOrThrow()
+        assertNull(InMemoryProfileRepository(FileProfileLocalDataSource(profileFile)).getProfile())
         directory.deleteRecursively()
     }
 

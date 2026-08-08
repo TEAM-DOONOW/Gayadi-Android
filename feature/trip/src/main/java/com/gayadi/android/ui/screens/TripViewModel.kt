@@ -51,9 +51,13 @@ class TripViewModel(private val savedStateHandle: SavedStateHandle) : ViewModel(
         ).joinToString(FIELD_SEPARATOR, transform = ::encodeField)
     }
 
-    private fun decodeTrips(json: String): List<TripSummary> = runCatching {
-        if (json.isBlank()) return@runCatching emptyList()
-        json.split(RECORD_SEPARATOR).map { record ->
+    private fun decodeTrips(value: String): List<TripSummary> = decodeCurrentTrips(value)
+        .recoverCatching { decodeLegacyTrips(value) }
+        .getOrDefault(emptyList())
+
+    private fun decodeCurrentTrips(value: String): Result<List<TripSummary>> = runCatching {
+        if (value.isBlank()) return@runCatching emptyList()
+        value.split(RECORD_SEPARATOR).map { record ->
             val fields = record.split(FIELD_SEPARATOR).map(::decodeField)
             require(fields.size == FIELD_COUNT)
             TripSummary(
@@ -65,7 +69,41 @@ class TripViewModel(private val savedStateHandle: SavedStateHandle) : ViewModel(
                 coverImageResList = fields[5].split(LIST_SEPARATOR).mapNotNull(String::toIntOrNull),
             )
         }
-    }.getOrDefault(emptyList())
+    }
+
+    private fun decodeLegacyTrips(value: String): List<TripSummary> {
+        require(value.trim().startsWith("["))
+        val content = value.trim().removePrefix("[").removeSuffix("]")
+        if (content.isBlank()) return emptyList()
+        return content.split("},{").map { rawItem ->
+            val item = rawItem.removePrefix("{").removeSuffix("}")
+            TripSummary(
+                id = item.jsonString("id").ifBlank { UUID.randomUUID().toString() },
+                name = item.jsonString("name"),
+                startDate = item.jsonString("startDate"),
+                endDate = item.jsonString("endDate"),
+                cities = item.jsonArray("cities").map(::unescapeJson),
+                coverImageResList = item.jsonArray("coverImageResList").map(String::toInt),
+            )
+        }
+    }
+
+    private fun String.jsonString(key: String): String {
+        val encoded = Regex("\"${Regex.escape(key)}\"\\s*:\\s*\"((?:\\\\.|[^\"\\\\])*)\"")
+            .find(this)?.groupValues?.get(1) ?: error("Missing $key")
+        return unescapeJson(encoded)
+    }
+
+    private fun String.jsonArray(key: String): List<String> {
+        val content = Regex("\"${Regex.escape(key)}\"\\s*:\\s*\\[([^\\]]*)\\]")
+            .find(this)?.groupValues?.get(1) ?: error("Missing $key")
+        if (content.isBlank()) return emptyList()
+        return content.split(',').map { it.trim().removeSurrounding("\"") }
+    }
+
+    private fun unescapeJson(value: String): String = value
+        .replace("\\\\\"", "\"")
+        .replace("\\\\\\\\", "\\")
 
     private fun encodeField(value: String): String =
         Base64.getUrlEncoder().withoutPadding().encodeToString(value.toByteArray(StandardCharsets.UTF_8))

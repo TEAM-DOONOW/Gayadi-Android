@@ -2,6 +2,7 @@ package com.gayadi.android.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
@@ -30,10 +31,14 @@ import com.gayadi.android.ui.screens.PlaceViewModel
 import com.gayadi.android.ui.screens.RealtimeHomeScreen
 import com.gayadi.android.ui.screens.RealtimeHomeViewModel
 import com.gayadi.android.ui.screens.SettingsScreen
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun GayadiNavHost(appContainer: AppContainer) {
     val navController = rememberNavController()
+    val appScope = rememberCoroutineScope()
     val tripViewModel: TripViewModel = viewModel()
     val placeViewModel: PlaceViewModel = viewModel(factory = PlaceViewModel.factory())
     val trips by tripViewModel.trips.collectAsStateWithLifecycle()
@@ -103,28 +108,36 @@ fun GayadiNavHost(appContainer: AppContainer) {
                 onRetry = friendViewModel::retry,
             )
         }
-        composable(Routes.PLACE_SEARCH) {
+        composable(
+            route = Routes.PLACE_SEARCH,
+            arguments = listOf(navArgument("tripId") { type = NavType.StringType }),
+        ) { backStackEntry ->
+            val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
             val placeUiState by placeViewModel.uiState.collectAsStateWithLifecycle()
             PlaceSearchScreen(
                 uiState = placeUiState,
                 onBack = { navController.popBackStack() },
                 onQueryChange = placeViewModel::updateQuery,
                 onCategorySelected = placeViewModel::selectCategory,
-                onPlaceClick = { id -> navController.navigate(Routes.placeDetail(id)) },
+                onPlaceClick = { id -> navController.navigate(Routes.placeDetail(tripId, id)) },
                 onRetry = placeViewModel::retry,
             )
         }
         composable(
             route = Routes.PLACE_DETAIL,
-            arguments = listOf(navArgument("placeId") { type = NavType.StringType }),
+            arguments = listOf(
+                navArgument("tripId") { type = NavType.StringType },
+                navArgument("placeId") { type = NavType.StringType },
+            ),
         ) { backStackEntry ->
+            val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
             val placeId = requireNotNull(backStackEntry.arguments?.getString("placeId"))
             val placeUiState by placeViewModel.uiState.collectAsStateWithLifecycle()
             PlaceDetailScreen(
                 place = placeViewModel.findPlace(placeId),
-                isScheduled = placeId in placeUiState.scheduledPlaceIds,
+                isScheduled = placeId in placeUiState.scheduledPlaceIdsByTrip[tripId].orEmpty(),
                 onBack = { navController.popBackStack() },
-                onAddToSchedule = { placeViewModel.addPlaceToSchedule(placeId) },
+                onAddToSchedule = { placeViewModel.addPlaceToSchedule(tripId, placeId) },
             )
         }
         composable(Routes.MY_TRIP) {
@@ -159,7 +172,8 @@ fun GayadiNavHost(appContainer: AppContainer) {
             )
             val homeUiState by homeViewModel.uiState.collectAsStateWithLifecycle()
             val placeUiState by placeViewModel.uiState.collectAsStateWithLifecycle()
-            val nextScheduleName = placeUiState.scheduledPlaceIds.firstNotNullOfOrNull(placeViewModel::findPlace)?.name
+            val nextScheduleName = placeUiState.scheduledPlaceIdsByTrip[tripId].orEmpty()
+                .firstNotNullOfOrNull(placeViewModel::findPlace)?.name
             RealtimeHomeScreen(
                 uiState = homeUiState,
                 tripTitle = trip?.name ?: "선택한 여행",
@@ -167,7 +181,7 @@ fun GayadiNavHost(appContainer: AppContainer) {
                 nextScheduleName = nextScheduleName,
                 onNavigateMyTrip = { navController.navigate(Routes.MY_TRIP) },
                 onNavigateMyPage = { navController.navigate(Routes.MY_PAGE) },
-                onNavigatePlaceSearch = { navController.navigate(Routes.PLACE_SEARCH) },
+                onNavigatePlaceSearch = { navController.navigate(Routes.placeSearch(tripId)) },
                 onNavigateFriendAdd = { navController.navigate(Routes.FRIEND_ADD) },
                 onOpenReschedule = homeViewModel::openRescheduleSuggestion,
                 onDismissReschedule = homeViewModel::dismissRescheduleSuggestion,
@@ -204,7 +218,13 @@ fun GayadiNavHost(appContainer: AppContainer) {
                 onBack = { navController.popBackStack() },
                 onEditProfile = { navController.navigate(Routes.BASIC_INFO) },
                 onLogout = returnToLogin,
-                onDeleteAccount = returnToLogin,
+                onDeleteAccount = {
+                    appScope.launch(Dispatchers.IO) {
+                        appContainer.clearUserProfileUseCase().onSuccess {
+                            withContext(Dispatchers.Main) { returnToLogin() }
+                        }
+                    }
+                },
             )
         }
     }

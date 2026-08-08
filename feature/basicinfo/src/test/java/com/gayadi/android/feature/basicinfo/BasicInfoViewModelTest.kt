@@ -11,6 +11,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlinx.coroutines.Dispatchers
 
 /** Verifies basic information state transitions and validation. */
 class BasicInfoViewModelTest {
@@ -18,7 +19,7 @@ class BasicInfoViewModelTest {
     @Test
     fun inputEvents_limitTextAndSubmitValidForm() {
         val repository = RecordingProfileRepository()
-        val viewModel = BasicInfoViewModel(SaveBasicInfoUseCase(repository))
+        val viewModel = BasicInfoViewModel(SaveBasicInfoUseCase(repository), Dispatchers.Unconfined)
 
         viewModel.onEvent(BasicInfoUiEvent.NicknameChanged("12345678901"))
         viewModel.onEvent(BasicInfoUiEvent.IntroductionChanged("123456789012345678901"))
@@ -33,7 +34,7 @@ class BasicInfoViewModelTest {
     /** Empty required fields block submission. */
     @Test
     fun submitEvent_rejectsEmptyForm() {
-        val viewModel = BasicInfoViewModel(SaveBasicInfoUseCase(RecordingProfileRepository()))
+        val viewModel = BasicInfoViewModel(SaveBasicInfoUseCase(RecordingProfileRepository()), Dispatchers.Unconfined)
 
         assertFalse(viewModel.onEvent(BasicInfoUiEvent.Submit))
     }
@@ -47,4 +48,5 @@ private class RecordingProfileRepository : ProfileRepository {
     override fun getProfile(): UserProfile? = saved?.let {
         UserProfile(nickname = it.nickname, introduction = it.introduction)
     }
+    override fun clearProfile(): Result<Unit> = Result.success(Unit)
 }

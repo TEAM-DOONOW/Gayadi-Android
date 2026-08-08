@@ -123,7 +123,7 @@ fun FriendAddScreen(
                 Text("검색 결과가 없어요", color = TextSecondary)
             }
             else -> LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
+                modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 item {

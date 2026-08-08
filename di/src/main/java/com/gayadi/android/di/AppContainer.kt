@@ -7,6 +7,7 @@ import com.gayadi.android.data.repository.DefaultSurveyRepository
 import com.gayadi.android.domain.repository.ProfileRepository
 import com.gayadi.android.domain.repository.SurveyRepository
 import com.gayadi.android.domain.usecase.CalculateSurveyResultUseCase
+import com.gayadi.android.domain.usecase.ClearUserProfileUseCase
 import com.gayadi.android.domain.usecase.GetBasicInfoUseCase
 import com.gayadi.android.domain.usecase.GetSurveyResultUseCase
 import com.gayadi.android.domain.usecase.GetSurveyUseCase
@@ -31,6 +32,9 @@ class AppContainer(profileFile: File) {
 
     /** Use case used by profile-aware screens. */
     val getUserProfileUseCase = GetUserProfileUseCase(profileRepository)
+
+    /** Use case used to remove local profile data after account deletion. */
+    val clearUserProfileUseCase = ClearUserProfileUseCase(profileRepository)
 
     /** Use case used to attach the completed survey to the local profile. */
     val saveSurveyResultToProfileUseCase = SaveSurveyResultToProfileUseCase(profileRepository)

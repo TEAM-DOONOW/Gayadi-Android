@@ -13,5 +13,7 @@ class FriendAddViewModelTest {
 
         viewModel.addFriend("friend-4")
         assertEquals(FriendStatus.ADDED, viewModel.uiState.value.visibleFriends.single().status)
+        viewModel.retry()
+        assertEquals(FriendStatus.ADDED, viewModel.uiState.value.visibleFriends.single().status)
     }
 }

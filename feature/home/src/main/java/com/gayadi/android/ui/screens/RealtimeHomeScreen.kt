@@ -241,7 +241,7 @@ fun RealtimeHomeScreen(
                                 .padding(horizontal = 12.dp, vertical = 6.dp),
                         ) {
                             Text(
-                                if (nextScheduleName == null) "장소 찾기" else "일정 보기",
+                                "장소 찾기",
                                 fontSize = 12.sp,
                                 color = Color.White,
                                 fontWeight = FontWeight.Medium,

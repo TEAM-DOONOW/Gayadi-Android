@@ -1,6 +1,7 @@
 package com.gayadi.android.feature.basicinfo.presentation
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.gayadi.android.domain.usecase.SaveBasicInfoUseCase
@@ -8,10 +9,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 /** Owns basic information form state and delegates persistence to the domain layer. */
 class BasicInfoViewModel(
     private val saveBasicInfo: SaveBasicInfoUseCase,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(BasicInfoUiState())
     /** Observable immutable state consumed by the Compose route. */
@@ -27,7 +32,9 @@ class BasicInfoViewModel(
             BasicInfoUiEvent.Submit -> {
                 val state = _uiState.value
                 if (!state.canSubmit) return false
-                saveBasicInfo(state.nickname, state.introduction)
+                viewModelScope.launch(ioDispatcher) {
+                    saveBasicInfo(state.nickname, state.introduction)
+                }
                 return true
             }
         }

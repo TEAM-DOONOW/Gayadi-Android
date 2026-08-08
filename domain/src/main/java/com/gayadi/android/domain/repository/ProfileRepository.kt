@@ -17,4 +17,7 @@ interface ProfileRepository {
 
     /** Returns the complete locally persisted profile when available. */
     fun getProfile(): UserProfile?
+
+    /** Removes all locally persisted profile data. */
+    fun clearProfile(): Result<Unit>
 }

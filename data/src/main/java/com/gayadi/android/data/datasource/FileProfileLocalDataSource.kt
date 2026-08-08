@@ -47,6 +47,12 @@ class FileProfileLocalDataSource(
         )
     }
 
+    override fun clearProfile() {
+        if (profileFile.exists() && !profileFile.delete()) {
+            error("프로필 파일을 삭제하지 못했습니다.")
+        }
+    }
+
     private fun Properties.readList(key: String): List<String> =
         getProperty(key).orEmpty().split(LIST_SEPARATOR).filter(String::isNotBlank)
 

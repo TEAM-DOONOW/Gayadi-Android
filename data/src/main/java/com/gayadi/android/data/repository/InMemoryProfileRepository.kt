@@ -46,4 +46,6 @@ class InMemoryProfileRepository(
     }
 
     override fun getProfile(): UserProfile? = localDataSource.getProfile()?.toDomain()
+
+    override fun clearProfile(): Result<Unit> = runCatching(localDataSource::clearProfile)
 }

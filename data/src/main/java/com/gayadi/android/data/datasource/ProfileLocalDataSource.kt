@@ -9,4 +9,7 @@ interface ProfileLocalDataSource {
 
     /** Returns the saved profile entity, or null when none exists. */
     fun getProfile(): UserProfileEntity?
+
+    /** Removes the saved profile. */
+    fun clearProfile()
 }

@@ -13,4 +13,8 @@ class InMemoryProfileLocalDataSource : ProfileLocalDataSource {
 
     /** Returns the profile stored in the current app process. */
     override fun getProfile(): UserProfileEntity? = profile
+
+    override fun clearProfile() {
+        profile = null
+    }
 }

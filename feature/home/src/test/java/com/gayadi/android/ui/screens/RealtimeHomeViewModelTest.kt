@@ -9,12 +9,14 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlinx.coroutines.Dispatchers
 
 class RealtimeHomeViewModelTest {
     @Test
     fun suggestion_acceptAndRejectAreAppliedOnlyOnce() {
         val viewModel = RealtimeHomeViewModel(
             GetUserProfileUseCase(FakeProfileRepository()),
+            Dispatchers.Unconfined,
         )
 
         viewModel.openRescheduleSuggestion()
@@ -23,6 +25,9 @@ class RealtimeHomeViewModelTest {
         viewModel.acceptRescheduleSuggestion()
         assertEquals(RescheduleDecision.ACCEPTED, viewModel.uiState.value.rescheduleDecision)
         assertFalse(viewModel.uiState.value.showRescheduleSheet)
+
+        viewModel.rejectRescheduleSuggestion()
+        assertEquals(RescheduleDecision.ACCEPTED, viewModel.uiState.value.rescheduleDecision)
 
         viewModel.openRescheduleSuggestion()
         assertFalse(viewModel.uiState.value.showRescheduleSheet)
@@ -34,4 +39,5 @@ private class FakeProfileRepository : ProfileRepository {
     override fun getBasicInfo(): BasicInfo? = null
     override fun saveSurveyResult(result: SurveyResult) = Unit
     override fun getProfile(): UserProfile = UserProfile("가야디", "여행가")
+    override fun clearProfile(): Result<Unit> = Result.success(Unit)
 }

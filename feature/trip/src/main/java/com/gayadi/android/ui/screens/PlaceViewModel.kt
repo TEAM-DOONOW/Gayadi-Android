@@ -27,7 +27,7 @@ data class PlaceUiState(
     val query: String = "",
     val selectedCategory: String = "전체",
     val places: List<PlaceItem> = emptyList(),
-    val scheduledPlaceIds: Set<String> = emptySet(),
+    val scheduledPlaceIdsByTrip: Map<String, Set<String>> = emptyMap(),
     val isLoading: Boolean = true,
     val errorMessage: String? = null,
 ) {
@@ -59,7 +59,7 @@ class PlaceViewModel(
     private val repository: PlaceRepository = FakePlaceRepository(),
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(
-        PlaceUiState(scheduledPlaceIds = decodeIds(savedStateHandle[SCHEDULED_IDS_KEY])),
+        PlaceUiState(scheduledPlaceIdsByTrip = decodeSchedules(savedStateHandle[SCHEDULED_IDS_KEY])),
     )
     val uiState: StateFlow<PlaceUiState> = _uiState.asStateFlow()
 
@@ -73,12 +73,17 @@ class PlaceViewModel(
 
     fun retry() = loadPlaces()
 
-    fun addPlaceToSchedule(placeId: String) {
+    fun addPlaceToSchedule(tripId: String, placeId: String) {
         if (_uiState.value.places.none { it.id == placeId }) return
-        val updated = _uiState.value.scheduledPlaceIds + placeId
-        savedStateHandle[SCHEDULED_IDS_KEY] = updated.sorted().joinToString(",")
-        _uiState.update { it.copy(scheduledPlaceIds = updated) }
+        val updated = _uiState.value.scheduledPlaceIdsByTrip.toMutableMap().apply {
+            this[tripId] = get(tripId).orEmpty() + placeId
+        }
+        savedStateHandle[SCHEDULED_IDS_KEY] = encodeSchedules(updated)
+        _uiState.update { it.copy(scheduledPlaceIdsByTrip = updated) }
     }
+
+    fun scheduledPlaceIds(tripId: String): Set<String> =
+        _uiState.value.scheduledPlaceIdsByTrip[tripId].orEmpty()
 
     fun findPlace(placeId: String): PlaceItem? = _uiState.value.places.find { it.id == placeId }
 
@@ -94,8 +99,19 @@ class PlaceViewModel(
         )
     }
 
-    private fun decodeIds(value: String?): Set<String> =
-        value.orEmpty().split(',').filter(String::isNotBlank).toSet()
+    private fun encodeSchedules(value: Map<String, Set<String>>): String = value.entries.joinToString("\n") { (tripId, placeIds) ->
+        "$tripId=${placeIds.sorted().joinToString(",")}"
+    }
+
+    private fun decodeSchedules(value: String?): Map<String, Set<String>> = value.orEmpty()
+        .lineSequence()
+        .mapNotNull { record ->
+            val separator = record.indexOf('=')
+            if (separator <= 0) return@mapNotNull null
+            record.substring(0, separator) to record.substring(separator + 1)
+                .split(',').filter(String::isNotBlank).toSet()
+        }
+        .toMap()
 
     companion object {
         fun factory(repository: PlaceRepository = FakePlaceRepository()) = viewModelFactory {
