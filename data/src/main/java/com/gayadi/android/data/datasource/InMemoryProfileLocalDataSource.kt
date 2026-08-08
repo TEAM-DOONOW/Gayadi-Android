@@ -1,16 +1,20 @@
 package com.gayadi.android.data.datasource
 
-import com.gayadi.android.data.model.BasicInfoEntity
+import com.gayadi.android.data.model.UserProfileEntity
 
 /** In-memory profile data source used until persistent storage is connected. */
 class InMemoryProfileLocalDataSource : ProfileLocalDataSource {
-    private var basicInfo: BasicInfoEntity? = null
+    private var profile: UserProfileEntity? = null
 
     /** Stores the profile for the current app process. */
-    override fun saveBasicInfo(basicInfo: BasicInfoEntity) {
-        this.basicInfo = basicInfo
+    override fun saveProfile(profile: UserProfileEntity) {
+        this.profile = profile
     }
 
     /** Returns the profile stored in the current app process. */
-    override fun getBasicInfo(): BasicInfoEntity? = basicInfo
+    override fun getProfile(): UserProfileEntity? = profile
+
+    override fun clearProfile() {
+        profile = null
+    }
 }

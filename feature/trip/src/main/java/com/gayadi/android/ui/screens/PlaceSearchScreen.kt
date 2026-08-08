@@ -16,20 +16,20 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,8 +40,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gayadi.android.ui.theme.GayadiTheme
 import com.gayadi.android.ui.theme.PrimaryBlue
-import com.gayadi.android.ui.theme.TagBlue
-import com.gayadi.android.ui.theme.TagBlueText
 import com.gayadi.android.ui.theme.TagGreen
 import com.gayadi.android.ui.theme.TagGreenText
 import com.gayadi.android.ui.theme.TagOrange
@@ -52,43 +50,24 @@ import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary
 import com.gayadi.android.ui.theme.TextTertiary
 
-private data class PlaceItem(
-    val id: String,
-    val name: String,
-    val category: String,
-    val rating: Double,
-    val reviews: Int,
-    val crowdTag: String,
-    val crowdBg: Color,
-    val crowdText: Color,
-    val emoji: String,
-)
-
-private val categories = listOf("맛집", "카페", "관광명소", "숙소")
-
-private val mockPlaces = listOf(
-    PlaceItem("1", "명진전복", "맛집", 4.5, 1284, "여유", TagGreen, TagGreenText, "🍲"),
-    PlaceItem("2", "카페 글렌코", "카페", 4.4, 892, "보통", TagOrange, TagOrangeText, "☕"),
-    PlaceItem("3", "섭지코지", "관광명소", 4.7, 3561, "혼잡", TagRed, TagRedText, "🏞️"),
-    PlaceItem("4", "스테이 성산", "숙소", 4.6, 421, "여유", TagGreen, TagGreenText, "🏨"),
-)
+private val placeCategories = listOf("전체", "맛집", "카페", "관광명소", "숙소")
 
 @Composable
 fun PlaceSearchScreen(
+    uiState: PlaceUiState,
     onBack: () -> Unit,
+    onQueryChange: (String) -> Unit,
+    onCategorySelected: (String) -> Unit,
     onPlaceClick: (String) -> Unit,
+    onRetry: () -> Unit,
+    favoritePlaceIds: Set<String> = emptySet(),
+    onToggleFavorite: (String) -> Unit = {},
+    onNearby: () -> Unit = {},
+    onFavorites: () -> Unit = {},
 ) {
-    var selectedCategory by remember { mutableStateOf("맛집") }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White),
-    ) {
+    Column(Modifier.fillMaxSize().background(Color.White)) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 12.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onBack) {
@@ -96,116 +75,121 @@ fun PlaceSearchScreen(
             }
             Text("장소 찾기", fontSize = 23.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
         }
-
         androidx.compose.material3.HorizontalDivider(color = Color(0xFFE5E5E5))
 
-        Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xFFF5F5F5))
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(Icons.Filled.Search, contentDescription = null, tint = TextTertiary, modifier = Modifier.size(20.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("맛집, 카페, 명소 검색", fontSize = 14.sp, color = TextTertiary)
-            }
+        OutlinedTextField(
+            value = uiState.query,
+            onValueChange = onQueryChange,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
+            placeholder = { Text("맛집, 카페, 명소 검색") },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = "장소 검색") },
+            singleLine = true,
+            shape = RoundedCornerShape(12.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedContainerColor = Color(0xFFF5F5F5),
+                unfocusedContainerColor = Color(0xFFF5F5F5),
+                focusedBorderColor = PrimaryBlue,
+                unfocusedBorderColor = Color.Transparent,
+            ),
+        )
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                categories.forEach { cat ->
-                    val isSelected = selectedCategory == cat
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(if (isSelected) PrimaryBlue else Color(0xFFF0F0F0))
-                            .clickable { selectedCategory = cat }
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                    ) {
-                        Text(
-                            text = cat,
-                            fontSize = 13.sp,
-                            color = if (isSelected) Color.White else TextSecondary,
-                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text("계절 성산 · 12곳", fontSize = 13.sp, color = TextSecondary)
-                Text("혼잡도 낮은순 ▾", fontSize = 13.sp, color = TextSecondary)
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            placeCategories.forEach { category ->
+                val selected = category == uiState.selectedCategory
+                Text(
+                    category,
+                    modifier = Modifier.clip(RoundedCornerShape(18.dp))
+                        .background(if (selected) PrimaryBlue else Color(0xFFF0F0F0))
+                        .clickable { onCategorySelected(category) }
+                        .padding(horizontal = 11.dp, vertical = 7.dp),
+                    fontSize = 12.sp,
+                    color = if (selected) Color.White else TextSecondary,
+                )
             }
         }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        LazyColumn(
-            modifier = Modifier.padding(horizontal = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            items(mockPlaces) { place ->
-                PlaceCard(place = place, onClick = { onPlaceClick(place.id) })
+            Button(onClick = onNearby, modifier = Modifier.weight(1f)) { Text("주변 장소") }
+            Button(onClick = onFavorites, modifier = Modifier.weight(1f)) { Text("찜 목록") }
+        }
+        Spacer(Modifier.height(12.dp))
+
+        when {
+            uiState.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = PrimaryBlue)
             }
-            item { Spacer(modifier = Modifier.height(24.dp)) }
+            uiState.errorMessage != null -> Column(
+                Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(uiState.errorMessage, color = TextSecondary)
+                Button(onClick = onRetry) { Text("다시 시도") }
+            }
+            uiState.filteredPlaces.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("조건에 맞는 장소가 없어요", color = TextSecondary)
+            }
+            else -> LazyColumn(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                item { Text("${uiState.regionName} · ${uiState.filteredPlaces.size}곳", fontSize = 13.sp, color = TextSecondary) }
+                items(uiState.filteredPlaces, key = PlaceItem::id) { place ->
+                    PlaceCard(
+                        place,
+                        isFavorite = place.id in favoritePlaceIds,
+                        onClick = { onPlaceClick(place.id) },
+                        onToggleFavorite = { onToggleFavorite(place.id) },
+                    )
+                }
+                item { Spacer(Modifier.height(24.dp)) }
+            }
         }
     }
 }
 
 @Composable
-private fun PlaceCard(place: PlaceItem, onClick: () -> Unit) {
+private fun PlaceCard(place: PlaceItem, isFavorite: Boolean, onClick: () -> Unit, onToggleFavorite: () -> Unit) {
+    val (tagBackground, tagText) = when (place.crowdLevel) {
+        CrowdLevel.RELAXED -> TagGreen to TagGreenText
+        CrowdLevel.NORMAL -> TagOrange to TagOrangeText
+        CrowdLevel.CROWDED -> TagRed to TagRedText
+    }
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
             .border(1.dp, Color(0xFFE8E8E8), RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
-            .padding(12.dp),
+            .clickable(onClick = onClick).padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            modifier = Modifier
-                .size(64.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFFF0F0F0)),
-            contentAlignment = Alignment.Center,
-        ) {
+        Box(Modifier.size(64.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFFF0F0F0)), contentAlignment = Alignment.Center) {
             Text(place.emoji, fontSize = 28.sp)
         }
-        Spacer(modifier = Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(place.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-                Spacer(modifier = Modifier.width(8.dp))
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(Color(0xFFF0F0F0))
-                        .padding(horizontal = 6.dp, vertical = 2.dp),
-                ) {
-                    Text(place.category, fontSize = 10.sp, color = TextSecondary)
-                }
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-            Text("★ ${place.rating} · 리뷰 ${place.reviews}", fontSize = 12.sp, color = TextSecondary)
-            Spacer(modifier = Modifier.height(4.dp))
-            Text("차로 6분", fontSize = 11.sp, color = TextTertiary)
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(place.name, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+            Text("${place.category} · ★ ${place.rating} · 리뷰 ${place.reviews}", fontSize = 12.sp, color = TextSecondary)
+            Text(place.description, fontSize = 11.sp, color = TextTertiary)
         }
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(12.dp))
-                .background(place.crowdBg)
-                .padding(horizontal = 10.dp, vertical = 4.dp),
-        ) {
-            Text(place.crowdTag, fontSize = 11.sp, color = place.crowdText, fontWeight = FontWeight.Medium)
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            IconButton(onClick = onToggleFavorite) {
+                Icon(
+                    if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                    contentDescription = if (isFavorite) "찜 해제" else "찜 추가",
+                    tint = if (isFavorite) Color(0xFFE84D6E) else TextSecondary,
+                )
+            }
+            Text(
+                place.crowdLevel.label,
+                modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(tagBackground)
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
+                fontSize = 11.sp,
+                color = tagText,
+            )
         }
     }
 }
@@ -213,5 +197,14 @@ private fun PlaceCard(place: PlaceItem, onClick: () -> Unit) {
 @Preview(showBackground = true)
 @Composable
 private fun PlaceSearchPreview() {
-    GayadiTheme { PlaceSearchScreen(onBack = {}, onPlaceClick = {}) }
+    GayadiTheme {
+        PlaceSearchScreen(
+            uiState = PlaceUiState(places = FakePlaceRepository().getPlaces().getOrThrow(), isLoading = false),
+            onBack = {},
+            onQueryChange = {},
+            onCategorySelected = {},
+            onPlaceClick = {},
+            onRetry = {},
+        )
+    }
 }

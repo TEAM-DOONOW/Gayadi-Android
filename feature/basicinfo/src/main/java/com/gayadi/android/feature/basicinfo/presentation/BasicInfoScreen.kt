@@ -19,6 +19,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -51,13 +52,17 @@ fun BasicInfoRoute(
     onStartSurvey: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    LaunchedEffect(uiState.saveCompleted) {
+        if (uiState.saveCompleted) {
+            viewModel.consumeSaveCompleted()
+            onStartSurvey()
+        }
+    }
     BasicInfoScreen(
         uiState = uiState,
         onNicknameChanged = { viewModel.onEvent(BasicInfoUiEvent.NicknameChanged(it)) },
         onIntroductionChanged = { viewModel.onEvent(BasicInfoUiEvent.IntroductionChanged(it)) },
-        onSubmit = {
-            if (viewModel.onEvent(BasicInfoUiEvent.Submit)) onStartSurvey()
-        },
+        onSubmit = { viewModel.onEvent(BasicInfoUiEvent.Submit) },
     )
 }
 
@@ -132,6 +137,15 @@ private fun BasicInfoScreen(
             fontSize = 12.sp,
             textAlign = TextAlign.End,
         )
+        uiState.errorMessage?.let { message ->
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = message,
+                color = Color(0xFFD32F2F),
+                fontSize = 13.sp,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
         Spacer(modifier = Modifier.weight(1f))
         Button(
             onClick = onSubmit,
@@ -147,7 +161,7 @@ private fun BasicInfoScreen(
             elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
         ) {
             Text(
-                text = "여행 유형 검사하러 가기",
+                text = if (uiState.isSaving) "저장 중..." else "여행 유형 검사하러 가기",
                 fontSize = 16.sp,
                 fontFamily = PretendardSemiBoldFontFamily,
             )

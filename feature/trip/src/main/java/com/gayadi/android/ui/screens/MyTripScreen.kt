@@ -53,6 +53,7 @@ import com.gayadi.android.ui.theme.PretendardFontFamily
 import com.gayadi.android.ui.theme.PretendardSemiBoldFontFamily
 import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary
+import com.gayadi.android.domain.model.TripStatus
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.UUID
@@ -67,22 +68,25 @@ data class TripSummary(
     val endDate: String,
     val cities: List<String>,
     val coverImageResList: List<Int>,
+    val status: TripStatus = TripStatus.PLANNING,
+    val participantIds: List<String> = emptyList(),
 )
 
 @Composable
 fun MyTripScreen(
     trips: List<TripSummary>,
     onAddTrip: () -> Unit,
-    onNavigateHome: () -> Unit,
+    onNavigateHome: (String) -> Unit,
     onDeleteTrip: (String) -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     val today = LocalDate.now()
     val ongoingTrips = trips.filter { trip ->
-        trip.endDate.toTripDate()?.isBefore(today) != true
+        trip.status != TripStatus.COMPLETED && trip.endDate.toTripDate()?.isBefore(today) != true
     }
     val completedTrips = trips.filter { trip ->
-        trip.endDate.toTripDate()?.isBefore(today) == true
+        trip.status == TripStatus.COMPLETED || trip.endDate.toTripDate()?.isBefore(today) == true
     }
     val visibleTrips = if (selectedTab == 0) ongoingTrips else completedTrips
 
@@ -104,7 +108,7 @@ fun MyTripScreen(
                 fontSize = 22.sp,
                 color = TextPrimary,
             )
-            IconButton(onClick = { }) {
+            IconButton(onClick = onOpenSettings) {
                 Icon(Icons.Filled.Settings, contentDescription = "설정", tint = TripAccentColor)
             }
         }
@@ -132,7 +136,7 @@ fun MyTripScreen(
                     visibleTrips.forEach { trip ->
                         TripCard(
                             trip = trip,
-                            onClick = onNavigateHome,
+                            onClick = { onNavigateHome(trip.id) },
                             onDelete = { onDeleteTrip(trip.id) },
                         )
                     }
@@ -346,6 +350,12 @@ private fun String.toTripDate(): LocalDate? =
 @Composable
 private fun MyTripPreview() {
     GayadiTheme {
-        MyTripScreen(trips = emptyList(), onAddTrip = {}, onNavigateHome = {}, onDeleteTrip = {})
+        MyTripScreen(
+            trips = emptyList(),
+            onAddTrip = {},
+            onNavigateHome = {},
+            onDeleteTrip = {},
+            onOpenSettings = {},
+        )
     }
 }

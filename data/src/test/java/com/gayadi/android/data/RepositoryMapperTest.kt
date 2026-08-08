@@ -1,6 +1,7 @@
 package com.gayadi.android.data
 
 import com.gayadi.android.data.datasource.InMemoryProfileLocalDataSource
+import com.gayadi.android.data.datasource.FileProfileLocalDataSource
 import com.gayadi.android.data.datasource.SurveyDataSource
 import com.gayadi.android.data.model.SurveyDefinitionDto
 import com.gayadi.android.data.model.SurveyOptionDto
@@ -9,19 +10,74 @@ import com.gayadi.android.data.model.SurveyResultDto
 import com.gayadi.android.data.repository.DefaultSurveyRepository
 import com.gayadi.android.data.repository.InMemoryProfileRepository
 import com.gayadi.android.domain.model.BasicInfo
+import com.gayadi.android.domain.model.SurveyResult
+import java.nio.file.Files
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
+import kotlinx.coroutines.test.runTest
 
 /** Verifies repository delegation and data-to-domain mapping. */
 class RepositoryMapperTest {
     @Test
-    fun profileRepository_mapsEntityAndDomainModel() {
+    fun profileRepository_mapsEntityAndDomainModel() = runTest {
         val repository = InMemoryProfileRepository(InMemoryProfileLocalDataSource())
         val expected = BasicInfo("가야디", "여행을 좋아해요")
 
         repository.saveBasicInfo(expected)
 
         assertEquals(expected, repository.getBasicInfo())
+    }
+
+    @Test
+    fun profileRepository_persistsSurveyAcrossDataSourceRecreation() = runTest {
+        val directory = Files.createTempDirectory("gayadi-profile-test").toFile()
+        val profileFile = directory.resolve("profile.xml")
+        val firstRepository = InMemoryProfileRepository(FileProfileLocalDataSource(profileFile))
+        firstRepository.saveBasicInfo(BasicInfo("가야디", "여행가"))
+        firstRepository.saveSurveyResult(
+            SurveyResult(
+                code = "SCA",
+                emoji = "🔥",
+                name = "즉흥 여행가",
+                summary = "",
+                hashtags = emptyList(),
+                strengths = listOf("유연해요"),
+                weaknesses = listOf("놓칠 수 있어요"),
+                characterKey = "character_sca",
+            ),
+        )
+
+        val recreatedRepository = InMemoryProfileRepository(FileProfileLocalDataSource(profileFile))
+
+        assertEquals("가야디", recreatedRepository.getProfile()?.nickname)
+        assertEquals("SCA", recreatedRepository.getProfile()?.resultCode)
+        assertEquals("character_sca", recreatedRepository.getProfile()?.characterKey)
+        assertEquals(listOf("유연해요"), recreatedRepository.getProfile()?.strengths)
+        recreatedRepository.clearProfile().getOrThrow()
+        assertNull(InMemoryProfileRepository(FileProfileLocalDataSource(profileFile)).getProfile())
+        directory.deleteRecursively()
+    }
+
+    @Test
+    fun profileRepository_rejectsSurveyWithoutBasicProfile() = runTest {
+        val repository = InMemoryProfileRepository(InMemoryProfileLocalDataSource())
+
+        val result = repository.saveSurveyResult(
+            SurveyResult(
+                code = "SCA",
+                emoji = "🔥",
+                name = "즉흥 여행가",
+                summary = "",
+                hashtags = emptyList(),
+                strengths = emptyList(),
+                weaknesses = emptyList(),
+                characterKey = "character_sca",
+            ),
+        )
+
+        assertEquals("기본 프로필이 없습니다.", result.exceptionOrNull()?.message)
+        assertNull(repository.getProfile())
     }
 
     @Test

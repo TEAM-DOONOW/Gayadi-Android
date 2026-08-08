@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -35,6 +34,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gayadi.android.ui.components.BottomNavBar
 import com.gayadi.android.ui.components.BottomTab
+import com.gayadi.android.ui.components.UserCharacterAvatar
+import com.gayadi.android.domain.model.UserProfile
 import com.gayadi.android.ui.theme.GayadiTheme
 import com.gayadi.android.ui.theme.PrimaryBlue
 import com.gayadi.android.ui.theme.TextPrimary
@@ -42,9 +43,11 @@ import com.gayadi.android.ui.theme.TextSecondary
 
 @Composable
 fun MyPageScreen(
+    uiState: ProfileUiState,
     onNavigateHome: () -> Unit,
     onNavigateSettings: () -> Unit,
 ) {
+    val profile = uiState.profile
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -74,19 +77,15 @@ fun MyPageScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                Box(
-                    modifier = Modifier
-                        .size(80.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFF0F0F0)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text("🐶", fontSize = 40.sp)
-                }
+                UserCharacterAvatar(
+                    characterKey = profile?.characterKey,
+                    contentDescription = "${profile?.nickname.orEmpty()} 여행 성향 캐릭터",
+                    modifier = Modifier.size(80.dp),
+                )
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                Text("민수", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                Text(profile?.nickname ?: "여행자", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
 
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -96,7 +95,12 @@ fun MyPageScreen(
                         .background(Color(0xFFEBF5FF))
                         .padding(horizontal = 16.dp, vertical = 6.dp),
                 ) {
-                    Text("계획 절대 지켜, 꼼꼼밍", fontSize = 13.sp, color = PrimaryBlue, fontWeight = FontWeight.Medium)
+                    Text(
+                        profile?.travelStyleName ?: "여행 성향을 확인해 보세요",
+                        fontSize = 13.sp,
+                        color = PrimaryBlue,
+                        fontWeight = FontWeight.Medium,
+                    )
                 }
             }
 
@@ -116,12 +120,9 @@ fun MyPageScreen(
                         modifier = Modifier.width(72.dp),
                     )
                     Column(modifier = Modifier.weight(1f)) {
-                        listOf(
-                            "여행 일정이든 미리 계획을 세워요.",
-                            "시간 낭비 없이 효율적으로 여행해요.",
-                            "예약, 동선, 준비물을 꼼꼼하게 챙겨요.",
-                            "변수까지 고려해 플랜 B도 준비해요.",
-                        ).forEach { Text("• $it", fontSize = 12.sp, color = TextSecondary, lineHeight = 20.sp) }
+                        profile.profileStrengths().forEach {
+                            Text("• $it", fontSize = 12.sp, color = TextSecondary, lineHeight = 20.sp)
+                        }
                     }
                 }
             }
@@ -142,12 +143,9 @@ fun MyPageScreen(
                         modifier = Modifier.width(72.dp),
                     )
                     Column(modifier = Modifier.weight(1f)) {
-                        listOf(
-                            "예상치 못한 상황에 스트레스를 받을 수 있어요.",
-                            "계획이 틀어지면 유연하게 대처하기 어려워요.",
-                            "즉흥적인 여행의 재미를 놓칠 수 있어요.",
-                            "일정에 집착해서 휴식을 잊기 쉬워요.",
-                        ).forEach { Text("• $it", fontSize = 12.sp, color = TextSecondary, lineHeight = 20.sp) }
+                        profile.profileWeaknesses().forEach {
+                            Text("• $it", fontSize = 12.sp, color = TextSecondary, lineHeight = 20.sp)
+                        }
                     }
                 }
             }
@@ -165,8 +163,20 @@ fun MyPageScreen(
     }
 }
 
+private fun UserProfile?.profileStrengths(): List<String> =
+    this?.strengths?.takeIf { it.isNotEmpty() } ?: listOf("설문을 완료하면 강점을 알려드려요.")
+
+private fun UserProfile?.profileWeaknesses(): List<String> =
+    this?.weaknesses?.takeIf { it.isNotEmpty() } ?: listOf("설문을 완료하면 보완점을 알려드려요.")
+
 @Preview(showBackground = true)
 @Composable
 private fun MyPagePreview() {
-    GayadiTheme { MyPageScreen(onNavigateHome = {}, onNavigateSettings = {}) }
+    GayadiTheme {
+        MyPageScreen(
+            uiState = ProfileUiState(UserProfile("가야디", "여행가")),
+            onNavigateHome = {},
+            onNavigateSettings = {},
+        )
+    }
 }

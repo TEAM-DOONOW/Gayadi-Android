@@ -2,6 +2,7 @@ package com.gayadi.android.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,10 +27,6 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gayadi.android.ui.components.BottomNavBar
 import com.gayadi.android.ui.components.BottomTab
+import com.gayadi.android.ui.components.UserCharacterAvatar
 import com.gayadi.android.ui.theme.AlertBlue
 import com.gayadi.android.ui.theme.AlertBlueText
 import com.gayadi.android.ui.theme.GayadiTheme
@@ -54,11 +52,19 @@ import com.gayadi.android.ui.theme.TextTertiary
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RealtimeHomeScreen(
+    uiState: RealtimeHomeUiState,
+    tripTitle: String,
+    tripSubtitle: String,
+    nextScheduleName: String?,
     onNavigateMyTrip: () -> Unit,
     onNavigateMyPage: () -> Unit,
+    onNavigatePlaceSearch: () -> Unit,
+    onNavigateFriendAdd: () -> Unit,
+    onOpenReschedule: () -> Unit,
+    onDismissReschedule: () -> Unit,
+    onAcceptReschedule: () -> Unit,
+    onRejectReschedule: () -> Unit,
 ) {
-    var showRescheduleSheet by remember { mutableStateOf(false) }
-
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -73,7 +79,7 @@ fun RealtimeHomeScreen(
             ) {
                 Spacer(modifier = Modifier.height(56.dp))
 
-                Text("여행 2일차 · 제주 동부", fontSize = 13.sp, color = TextSecondary)
+                Text(tripSubtitle, fontSize = 13.sp, color = TextSecondary)
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Row(
@@ -81,16 +87,19 @@ fun RealtimeHomeScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("두나우들이랑 제주", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                    Box(
+                    Text(tripTitle, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                    UserCharacterAvatar(
+                        characterKey = uiState.profile?.characterKey,
+                        contentDescription = "${uiState.profile?.nickname.orEmpty()} 여행 성향 캐릭터",
                         modifier = Modifier
                             .size(44.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFFF0F0F0)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text("🐶", fontSize = 22.sp)
-                    }
+                            .clickable(onClick = onNavigateMyPage),
+                    )
+                }
+
+                uiState.profile?.nickname?.let { nickname ->
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("$nickname 님의 맞춤 여행", fontSize = 12.sp, color = TextSecondary)
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -98,6 +107,7 @@ fun RealtimeHomeScreen(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .clickable(onClick = onOpenReschedule)
                         .then(Modifier.padding(0.dp)),
                     shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(containerColor = AlertBlue),
@@ -109,8 +119,22 @@ fun RealtimeHomeScreen(
                             Text("실시간 알림: 방금", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = AlertBlueText)
                         }
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text("곧 비가 와요, 실내로 다시 끌까요?", fontSize = 14.sp, color = TextPrimary)
+                        Text(
+                            when (uiState.rescheduleDecision) {
+                                RescheduleDecision.PENDING -> "곧 비가 와요, 실내로 다시 바꿀까요?"
+                                RescheduleDecision.ACCEPTED -> "추천 일정으로 변경했어요"
+                                RescheduleDecision.REJECTED -> "기존 일정을 유지해요"
+                            },
+                            fontSize = 14.sp,
+                            color = TextPrimary,
+                        )
                     }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    HomeQuickAction("장소 찾기", onNavigatePlaceSearch)
+                    HomeQuickAction("여행메이트", onNavigateFriendAdd)
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -131,7 +155,12 @@ fun RealtimeHomeScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Text("오늘의 동선", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-                    Text("전체보기", fontSize = 13.sp, color = PrimaryBlue)
+                    Text(
+                        "전체보기",
+                        fontSize = 13.sp,
+                        color = PrimaryBlue,
+                        modifier = Modifier.clickable(onClick = onNavigatePlaceSearch),
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -192,16 +221,31 @@ fun RealtimeHomeScreen(
                         }
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("다음 일정 · 13:00", fontSize = 11.sp, color = TextTertiary)
-                            Text("명진전복", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                            Text(
+                                if (nextScheduleName == null) "다음 일정 없음" else "다음 일정 · 13:00",
+                                fontSize = 11.sp,
+                                color = TextTertiary,
+                            )
+                            Text(
+                                nextScheduleName ?: "장소를 일정에 추가해 보세요",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = TextPrimary,
+                            )
                         }
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(PrimaryBlue)
+                                .clickable(onClick = onNavigatePlaceSearch)
                                 .padding(horizontal = 12.dp, vertical = 6.dp),
                         ) {
-                            Text("일정대로 이동", fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Medium)
+                            Text(
+                                "장소 찾기",
+                                fontSize = 12.sp,
+                                color = Color.White,
+                                fontWeight = FontWeight.Medium,
+                            )
                         }
                     }
                 }
@@ -221,9 +265,26 @@ fun RealtimeHomeScreen(
             )
         }
 
-        if (showRescheduleSheet) {
-            RescheduleBottomSheet(onDismiss = { showRescheduleSheet = false })
+        if (uiState.showRescheduleSheet) {
+            RescheduleBottomSheet(
+                onDismiss = onDismissReschedule,
+                onKeep = onRejectReschedule,
+                onAccept = onAcceptReschedule,
+            )
         }
+    }
+}
+
+@Composable
+private fun HomeQuickAction(label: String, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(TagBlue)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 7.dp),
+    ) {
+        Text(label, fontSize = 12.sp, color = TagBlueText, fontWeight = FontWeight.Medium)
     }
 }
 
@@ -251,7 +312,11 @@ private fun RouteDot(number: String, color: Color) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun RescheduleBottomSheet(onDismiss: () -> Unit) {
+private fun RescheduleBottomSheet(
+    onDismiss: () -> Unit,
+    onKeep: () -> Unit,
+    onAccept: () -> Unit,
+) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     ModalBottomSheet(
@@ -385,7 +450,7 @@ private fun RescheduleBottomSheet(onDismiss: () -> Unit) {
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Button(
-                    onClick = onDismiss,
+                    onClick = onKeep,
                     modifier = Modifier
                         .weight(1f)
                         .height(48.dp),
@@ -398,7 +463,7 @@ private fun RescheduleBottomSheet(onDismiss: () -> Unit) {
                     Text("유지", fontSize = 15.sp, fontWeight = FontWeight.Medium)
                 }
                 Button(
-                    onClick = onDismiss,
+                    onClick = onAccept,
                     modifier = Modifier
                         .weight(1.5f)
                         .height(48.dp),
@@ -415,5 +480,20 @@ private fun RescheduleBottomSheet(onDismiss: () -> Unit) {
 @Preview(showBackground = true)
 @Composable
 private fun RealtimeHomePreview() {
-    GayadiTheme { RealtimeHomeScreen(onNavigateMyTrip = {}, onNavigateMyPage = {}) }
+    GayadiTheme {
+        RealtimeHomeScreen(
+            uiState = RealtimeHomeUiState(),
+            tripTitle = "제주 여행",
+            tripSubtitle = "여행 2일차 · 제주",
+            nextScheduleName = "명진전복",
+            onNavigateMyTrip = {},
+            onNavigateMyPage = {},
+            onNavigatePlaceSearch = {},
+            onNavigateFriendAdd = {},
+            onOpenReschedule = {},
+            onDismissReschedule = {},
+            onAcceptReschedule = {},
+            onRejectReschedule = {},
+        )
+    }
 }
