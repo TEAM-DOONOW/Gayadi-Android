@@ -28,7 +28,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -83,6 +82,7 @@ class TripViewModel(
             trips = state.trips.filterNot { it.id == tripId },
             invitations = state.invitations.filterNot { it.tripId == tripId },
             schedules = state.schedules.filterNot { it.tripId == tripId },
+            appliedRouteIds = state.appliedRouteIds.filterKeys { !it.startsWith("$tripId:") },
             selectedTripId = state.selectedTripId.takeUnless { it == tripId },
         )
     }
@@ -278,12 +278,23 @@ class TripViewModel(
     }
 
     private fun mutate(message: String?, transform: (TravelState) -> TravelState) {
-        val updated = _uiState.updateAndGet {
-            it.copy(travelState = transform(it.travelState), message = message, errorMessage = null)
-        }.travelState
-        savedStateHandle[SELECTED_TRIP_ID_KEY] = updated.selectedTripId
         viewModelScope.launch(ioDispatcher) {
-            persistLatest()
+            persistenceMutex.withLock {
+                val candidate = transform(_uiState.value.travelState)
+                saveTravelState(candidate).fold(
+                    onSuccess = {
+                        savedStateHandle[SELECTED_TRIP_ID_KEY] = candidate.selectedTripId
+                        _uiState.update {
+                            it.copy(travelState = candidate, message = message, errorMessage = null)
+                        }
+                    },
+                    onFailure = { error ->
+                        _uiState.update {
+                            it.copy(errorMessage = error.message ?: "여행 정보를 저장하지 못했어요")
+                        }
+                    },
+                )
+            }
         }
     }
 
