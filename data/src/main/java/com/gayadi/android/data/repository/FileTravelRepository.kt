@@ -14,6 +14,8 @@ import java.io.File
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -30,20 +32,24 @@ class FileTravelRepository(
     }
 
     override suspend fun saveTravelState(state: TravelState): Result<Unit> = withContext(ioDispatcher) {
-        runCatching {
-            file.parentFile?.mkdirs()
-            val temporary = File(file.parentFile, "${file.name}.tmp")
-            temporary.writeText(encode(state).toString())
-            check(temporary.renameTo(file) || run {
-                temporary.copyTo(file, overwrite = true)
-                temporary.delete()
-            }) { "여행 정보를 저장하지 못했습니다." }
+        mutexFor(file).withLock {
+            runCatching {
+                file.parentFile?.mkdirs()
+                val temporary = File(file.parentFile, "${file.name}.tmp")
+                try {
+                    temporary.writeText(encode(state).toString())
+                    check(temporary.renameTo(file)) { "여행 정보를 저장하지 못했습니다." }
+                } finally {
+                    if (temporary.exists()) temporary.delete()
+                }
+            }
         }
     }
 
     private fun encode(state: TravelState) = JSONObject().apply {
         put("selectedTripId", state.selectedTripId ?: JSONObject.NULL)
         put("favoritePlaceIds", JSONArray(state.favoritePlaceIds.toList()))
+        put("appliedRouteIds", JSONObject(state.appliedRouteIds))
         put("trips", JSONArray().apply {
             state.trips.forEach { trip ->
                 put(JSONObject().apply {
@@ -141,6 +147,7 @@ class FileTravelRepository(
             )
         },
         favoritePlaceIds = root.optJSONArray("favoritePlaceIds").strings().toSet(),
+        appliedRouteIds = root.optJSONObject("appliedRouteIds").stringMap(),
         selectedTripId = root.optNullableString("selectedTripId"),
     )
 
@@ -156,6 +163,16 @@ class FileTravelRepository(
     private fun JSONObject.optNullableString(key: String): String? =
         if (isNull(key)) null else optString(key).takeIf(String::isNotBlank)
 
+    private fun JSONObject?.stringMap(): Map<String, String> =
+        this?.keys()?.asSequence()?.associateWith { key -> getString(key) }.orEmpty()
+
     private inline fun <reified T : Enum<T>> String.enumOr(default: T): T =
         enumValues<T>().firstOrNull { it.name == this } ?: default
+
+    companion object {
+        private val fileMutexes = java.util.concurrent.ConcurrentHashMap<String, Mutex>()
+
+        private fun mutexFor(file: File): Mutex =
+            fileMutexes.computeIfAbsent(file.absoluteFile.normalize().path) { Mutex() }
+    }
 }

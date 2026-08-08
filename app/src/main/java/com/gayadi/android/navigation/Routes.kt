@@ -17,7 +17,7 @@ object Routes {
     const val TRIP_SCHEDULE = "trip_schedule/{tripId}"
     const val ROUTE_HUB = "route_hub/{tripId}"
     const val ROUTE_RECOMMENDATION = "route_recommendation/{tripId}/{routeType}"
-    const val NEARBY_PLACES = "nearby_places/{tripId}/{placeId}"
+    const val NEARBY_PLACES = "nearby_places/{tripId}?placeId={placeId}"
     const val FAVORITE_PLACES = "favorite_places/{tripId}"
     const val REALTIME_HOME = "realtime_home/{tripId}"
     const val MY_PAGE = "my_page"
@@ -34,6 +34,7 @@ object Routes {
     fun tripSchedule(tripId: String) = "trip_schedule/$tripId"
     fun routeHub(tripId: String) = "route_hub/$tripId"
     fun routeRecommendation(tripId: String, routeType: String) = "route_recommendation/$tripId/$routeType"
-    fun nearbyPlaces(tripId: String, placeId: String = "origin") = "nearby_places/$tripId/$placeId"
+    fun nearbyPlaces(tripId: String, placeId: String? = null) =
+        if (placeId == null) "nearby_places/$tripId" else "nearby_places/$tripId?placeId=$placeId"
     fun favoritePlaces(tripId: String) = "favorite_places/$tripId"
 }

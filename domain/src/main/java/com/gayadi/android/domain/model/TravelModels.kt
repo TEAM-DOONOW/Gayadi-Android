@@ -52,5 +52,6 @@ data class TravelState(
     val invitations: List<TravelInvitation> = emptyList(),
     val schedules: List<TravelSchedule> = emptyList(),
     val favoritePlaceIds: Set<String> = emptySet(),
+    val appliedRouteIds: Map<String, String> = emptyMap(),
     val selectedTripId: String? = null,
 )

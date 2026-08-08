@@ -82,7 +82,7 @@ fun TripDetailScreen(
                 Text(trip.name, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
                 Text("${trip.startDate} - ${trip.endDate}", fontSize = 12.sp, color = TextSecondary)
             }
-            UserCharacterAvatar(profile?.characterKey, "${profile?.nickname.orEmpty()} 캐릭터", Modifier.size(44.dp))
+            UserCharacterAvatar(profile?.characterKey, "${profile?.nickname ?: "여행자"} 캐릭터", Modifier.size(44.dp))
         }
 
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {

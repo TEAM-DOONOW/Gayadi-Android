@@ -114,10 +114,10 @@ fun TripCreateScreen(
     }
     var name by remember(initialTrip?.id) { mutableStateOf(initialTrip?.name.orEmpty()) }
     var startDate by remember(initialTrip?.id) {
-        mutableStateOf(initialTrip?.startDate?.let { LocalDate.parse(it, tripDateFormatter) })
+        mutableStateOf(initialTrip?.startDate?.let { runCatching { LocalDate.parse(it, tripDateFormatter) }.getOrNull() })
     }
     var endDate by remember(initialTrip?.id) {
-        mutableStateOf(initialTrip?.endDate?.let { LocalDate.parse(it, tripDateFormatter) })
+        mutableStateOf(initialTrip?.endDate?.let { runCatching { LocalDate.parse(it, tripDateFormatter) }.getOrNull() })
     }
     var selectingField by remember { mutableStateOf<DateField?>(null) }
 
@@ -144,8 +144,8 @@ fun TripCreateScreen(
                         startDate = startDate!!.format(tripDateFormatter),
                         endDate = endDate!!.format(tripDateFormatter),
                         cities = selectedCities.toList(),
-                        coverImageResList = selectedCities.map { selectedCity ->
-                            domesticCities.first { it.name == selectedCity }.imageRes
+                        coverImageResList = selectedCities.mapNotNull { selectedCity ->
+                            domesticCities.firstOrNull { it.name == selectedCity }?.imageRes
                         },
                     ),
                 )

@@ -45,6 +45,10 @@ class ProfileViewModel(
         }
     }
 
+    fun showError(message: String) {
+        _uiState.update { it.copy(isLoading = false, errorMessage = message) }
+    }
+
     companion object {
         fun factory(getUserProfile: GetUserProfileUseCase) = viewModelFactory {
             initializer { ProfileViewModel(getUserProfile) }

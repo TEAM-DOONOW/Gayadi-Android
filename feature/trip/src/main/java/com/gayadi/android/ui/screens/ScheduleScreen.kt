@@ -44,6 +44,9 @@ import com.gayadi.android.ui.theme.PrimaryBlue
 import com.gayadi.android.ui.theme.SurfaceCard
 import com.gayadi.android.ui.theme.TextSecondary
 import java.util.UUID
+import java.time.LocalDate
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
 
 @Composable
 fun ScheduleScreen(
@@ -161,6 +164,8 @@ private fun ScheduleEditor(
     var date by remember(initial?.id) { mutableStateOf(initial?.date ?: defaultDate) }
     var time by remember(initial?.id) { mutableStateOf(initial?.time ?: "10:00") }
     var type by remember(initial?.id) { mutableStateOf(initial?.type ?: ScheduleType.MAIN) }
+    val validDate = remember(date) { runCatching { LocalDate.parse(date, DateTimeFormatter.ofPattern("uuuu.MM.dd")) }.isSuccess }
+    val validTime = remember(time) { runCatching { LocalTime.parse(time, DateTimeFormatter.ofPattern("HH:mm")) }.isSuccess }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (initial == null) "일정 추가" else "일정 수정") },
@@ -180,7 +185,12 @@ private fun ScheduleEditor(
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { onSave(title.trim(), date, time, type) }, enabled = title.isNotBlank() && date.isNotBlank() && time.isNotBlank()) { Text("저장") } },
+        confirmButton = {
+            TextButton(
+                onClick = { onSave(title.trim(), date, time, type) },
+                enabled = title.isNotBlank() && validDate && validTime,
+            ) { Text("저장") }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text("취소") } },
     )
 }

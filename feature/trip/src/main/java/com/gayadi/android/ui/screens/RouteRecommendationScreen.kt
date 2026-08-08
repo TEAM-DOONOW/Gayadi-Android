@@ -48,11 +48,12 @@ fun RouteRecommendationScreen(
     trip: TravelTrip?,
     schedules: List<TravelSchedule>,
     profile: UserProfile?,
+    appliedOptionId: String?,
     onBack: () -> Unit,
+    onApply: (String) -> Unit,
 ) {
     val options = remember(type, schedules) { routeOptions(type, schedules) }
-    var selectedId by remember(type) { mutableStateOf(options.firstOrNull()?.id) }
-    var appliedId by remember(type) { mutableStateOf<String?>(null) }
+    var selectedId by remember(type, appliedOptionId) { mutableStateOf(appliedOptionId ?: options.firstOrNull()?.id) }
     Column(Modifier.fillMaxSize().background(Color.White).verticalScroll(rememberScrollState())) {
         Row(Modifier.fillMaxWidth().padding(top = 36.dp, start = 8.dp, end = 20.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "뒤로") }
@@ -81,10 +82,14 @@ fun RouteRecommendationScreen(
                     }
                 }
             }
-            Button(onClick = { appliedId = selectedId }, enabled = selectedId != null, modifier = Modifier.fillMaxWidth()) {
-                Text(if (appliedId == selectedId) "경로 적용됨" else "선택한 경로 사용")
+            Button(
+                onClick = { selectedId?.let(onApply) },
+                enabled = selectedId != null,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(if (appliedOptionId == selectedId) "경로 적용됨" else "선택한 경로 사용")
             }
-            appliedId?.let { Text("추천 경로를 이번 여행에 적용했어요", color = PrimaryBlue, fontSize = 12.sp) }
+            appliedOptionId?.let { Text("추천 경로를 이번 여행에 적용했어요", color = PrimaryBlue, fontSize = 12.sp) }
             Spacer(Modifier.height(24.dp))
         }
     }

@@ -315,18 +315,20 @@ fun GayadiNavHost(appContainer: AppContainer) {
                 trip = tripViewModel.domainTripById(tripId),
                 schedules = tripViewModel.schedulesForTrip(tripId),
                 profile = sharedProfileUiState.profile,
+                appliedOptionId = travelUiState.travelState.appliedRouteIds["$tripId:${type.name}"],
                 onBack = { navController.popBackStack() },
+                onApply = { tripViewModel.applyRoute(tripId, type.name, it) },
             )
         }
         composable(
             route = Routes.NEARBY_PLACES,
             arguments = listOf(
                 navArgument("tripId") { type = NavType.StringType },
-                navArgument("placeId") { type = NavType.StringType },
+                navArgument("placeId") { type = NavType.StringType; nullable = true; defaultValue = null },
             ),
         ) { backStackEntry ->
             val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
-            val placeId = backStackEntry.arguments?.getString("placeId").takeUnless { it == "origin" }
+            val placeId = backStackEntry.arguments?.getString("placeId")
             NearbyPlacesScreen(
                 places = placeViewModel.nearbyPlaces(placeId),
                 favoriteIds = travelUiState.travelState.favoritePlaceIds,
@@ -389,17 +391,13 @@ fun GayadiNavHost(appContainer: AppContainer) {
             )
         }
         composable(Routes.SETTINGS) {
-            val profileViewModel: ProfileViewModel = viewModel(
-                factory = ProfileViewModel.factory(appContainer.getUserProfileUseCase),
-            )
-            val profileUiState by profileViewModel.uiState.collectAsStateWithLifecycle()
             val returnToLogin = {
                 navController.navigate(Routes.LOGIN) {
                     popUpTo(navController.graph.id) { inclusive = true }
                 }
             }
             SettingsScreen(
-                uiState = profileUiState,
+                uiState = sharedProfileUiState,
                 onBack = { navController.popBackStack() },
                 onEditProfile = { navController.navigate(Routes.BASIC_INFO) },
                 onLogout = returnToLogin,
@@ -407,6 +405,8 @@ fun GayadiNavHost(appContainer: AppContainer) {
                     appScope.launch(Dispatchers.IO) {
                         appContainer.clearUserProfileUseCase().onSuccess {
                             withContext(Dispatchers.Main) { returnToLogin() }
+                        }.onFailure { error ->
+                            sharedProfileViewModel.showError(error.message ?: "회원 탈퇴에 실패했어요")
                         }
                     }
                 },

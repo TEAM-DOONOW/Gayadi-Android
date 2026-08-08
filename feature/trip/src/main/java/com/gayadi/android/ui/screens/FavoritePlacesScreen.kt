@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -60,7 +61,9 @@ private fun FavoritePlaceRow(place: PlaceItem, onPlaceClick: (String) -> Unit, o
                 Text(place.name, fontWeight = FontWeight.SemiBold)
                 Text("${place.category} · ${place.weather} · ${place.crowdLevel.label}", fontSize = 11.sp, color = TextSecondary)
             }
-            IconButton(onClick = { onToggleFavorite(place.id) }) { Text("♥", color = Color(0xFFE84D6E), fontSize = 20.sp) }
+            IconButton(onClick = { onToggleFavorite(place.id) }) {
+                Icon(Icons.Filled.Favorite, contentDescription = "찜 해제", tint = Color(0xFFE84D6E))
+            }
         }
     }
 }

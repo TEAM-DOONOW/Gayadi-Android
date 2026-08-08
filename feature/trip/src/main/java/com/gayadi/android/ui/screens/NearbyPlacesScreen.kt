@@ -71,7 +71,7 @@ fun NearbyPlacesScreen(
                         IconButton(onClick = { onToggleFavorite(place.id) }) {
                             Icon(
                                 if (place.id in favoriteIds) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                                "찜",
+                                if (place.id in favoriteIds) "찜 해제" else "찜하기",
                                 tint = if (place.id in favoriteIds) Color(0xFFE84D6E) else TextSecondary,
                             )
                         }

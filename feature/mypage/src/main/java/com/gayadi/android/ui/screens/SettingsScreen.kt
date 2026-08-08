@@ -84,6 +84,11 @@ fun SettingsScreen(
         Column(modifier = Modifier.padding(horizontal = 20.dp)) {
             Spacer(modifier = Modifier.height(8.dp))
 
+            uiState.errorMessage?.let { message ->
+                Text(message, color = Color(0xFFE53935), fontSize = 13.sp)
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()

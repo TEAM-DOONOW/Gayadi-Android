@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -200,6 +201,14 @@ class TripViewModel(
         state.copy(favoritePlaceIds = if (placeId in favorites) favorites - placeId else favorites + placeId)
     }
 
+    fun applyRoute(tripId: String, routeType: String, optionId: String) = mutate("추천 경로를 적용했어요") { state ->
+        if (state.trips.none { it.id == tripId }) state
+        else state.copy(appliedRouteIds = state.appliedRouteIds + (routeKey(tripId, routeType) to optionId))
+    }
+
+    fun appliedRouteId(tripId: String, routeType: String): String? =
+        _uiState.value.travelState.appliedRouteIds[routeKey(tripId, routeType)]
+
     fun tripById(tripId: String): TripSummary? =
         _uiState.value.travelState.trips.find { it.id == tripId }?.toSummary()
 
@@ -269,9 +278,10 @@ class TripViewModel(
     }
 
     private fun mutate(message: String?, transform: (TravelState) -> TravelState) {
-        val updated = transform(_uiState.value.travelState)
+        val updated = _uiState.updateAndGet {
+            it.copy(travelState = transform(it.travelState), message = message, errorMessage = null)
+        }.travelState
         savedStateHandle[SELECTED_TRIP_ID_KEY] = updated.selectedTripId
-        _uiState.update { it.copy(travelState = updated, message = message, errorMessage = null) }
         viewModelScope.launch(ioDispatcher) {
             persistLatest()
         }
@@ -339,6 +349,8 @@ class TripViewModel(
         }
     }
 }
+
+private fun routeKey(tripId: String, routeType: String) = "$tripId:$routeType"
 
 private fun TravelTrip.toSummary() = TripSummary(
     id = id,

@@ -14,6 +14,8 @@ import java.nio.file.Files
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -52,6 +54,26 @@ class FileTravelRepositoryTest {
         }
     }
 
+    @Test
+    fun concurrentRepositoryInstancesAlwaysLeaveOneCompleteState() = runTest {
+        val directory = Files.createTempDirectory("travel-repository-concurrent-test").toFile()
+        try {
+            val file = directory.resolve("travel-state.json")
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val states = (1..20).map { index ->
+                fullState().copy(trips = fullState().trips.map { it.copy(id = "trip-$index", name = "여행 $index") })
+            }
+            states.map { state ->
+                async { FileTravelRepository(file, dispatcher).saveTravelState(state).getOrThrow() }
+            }.awaitAll()
+
+            val restored = FileTravelRepository(file, dispatcher).getTravelState().getOrThrow()
+            assertTrue(restored in states)
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
     private fun fullState() = TravelState(
         trips = listOf(
             TravelTrip(
@@ -84,6 +106,7 @@ class FileTravelRepositoryTest {
             ),
         ),
         favoritePlaceIds = setOf("place-3"),
+        appliedRouteIds = mapOf("trip-28:ITINERARY" to "balanced"),
         selectedTripId = "trip-28",
     )
 }
