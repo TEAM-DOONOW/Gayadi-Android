@@ -1,7 +1,5 @@
 package com.gayadi.android.domain.model
 
-enum class DepartureMode { SOLO, TOGETHER }
-
 enum class TripStatus { PLANNING, ONGOING, COMPLETED }
 
 data class TravelTrip(
@@ -11,7 +9,6 @@ data class TravelTrip(
     val endDate: String,
     val cities: List<String>,
     val coverImageResList: List<Int> = emptyList(),
-    val departureMode: DepartureMode = DepartureMode.SOLO,
     val status: TripStatus = TripStatus.PLANNING,
     val participantIds: List<String> = emptyList(),
 )

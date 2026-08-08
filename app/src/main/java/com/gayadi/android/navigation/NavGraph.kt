@@ -226,7 +226,6 @@ fun GayadiNavHost(appContainer: AppContainer) {
                 },
                 onStart = { tripViewModel.startTrip(tripId) },
                 onFinish = { tripViewModel.finishTrip(tripId) },
-                onDepartureModeChange = { tripViewModel.setDepartureMode(tripId, it) },
                 onParticipants = { navController.navigate(Routes.tripParticipants(tripId)) },
                 onInvitation = { navController.navigate(Routes.tripInvitation(tripId)) },
                 onSchedule = { navController.navigate(Routes.tripSchedule(tripId)) },

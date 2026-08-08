@@ -53,7 +53,6 @@ import com.gayadi.android.ui.theme.PretendardFontFamily
 import com.gayadi.android.ui.theme.PretendardSemiBoldFontFamily
 import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary
-import com.gayadi.android.domain.model.DepartureMode
 import com.gayadi.android.domain.model.TripStatus
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -69,7 +68,6 @@ data class TripSummary(
     val endDate: String,
     val cities: List<String>,
     val coverImageResList: List<Int>,
-    val departureMode: DepartureMode = DepartureMode.SOLO,
     val status: TripStatus = TripStatus.PLANNING,
     val participantIds: List<String> = emptyList(),
 )

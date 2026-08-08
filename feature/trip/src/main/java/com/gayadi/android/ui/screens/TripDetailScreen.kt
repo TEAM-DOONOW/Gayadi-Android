@@ -37,7 +37,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.gayadi.android.domain.model.DepartureMode
 import com.gayadi.android.domain.model.TravelParticipant
 import com.gayadi.android.domain.model.TravelTrip
 import com.gayadi.android.domain.model.TripStatus
@@ -59,7 +58,6 @@ fun TripDetailScreen(
     onDelete: () -> Unit,
     onStart: () -> Unit,
     onFinish: () -> Unit,
-    onDepartureModeChange: (DepartureMode) -> Unit,
     onParticipants: () -> Unit,
     onInvitation: () -> Unit,
     onSchedule: () -> Unit,
@@ -90,21 +88,7 @@ fun TripDetailScreen(
             Card(colors = CardDefaults.cardColors(containerColor = SurfaceCard), shape = RoundedCornerShape(14.dp)) {
                 Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     DetailLine("여행 상태", trip.status.label)
-                    DetailLine("출발 방식", if (trip.departureMode == DepartureMode.SOLO) "혼자 출발" else "같이 출발")
                     DetailLine("참여자", "${participants.size}명")
-                }
-            }
-
-            Text("출발 방식", fontWeight = FontWeight.SemiBold)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                DepartureMode.entries.forEach { mode ->
-                    OutlinedButton(
-                        onClick = { onDepartureModeChange(mode) },
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = if (trip.departureMode == mode) PrimaryBlue else Color.White,
-                            contentColor = if (trip.departureMode == mode) Color.White else TextPrimary,
-                        ),
-                    ) { Text(if (mode == DepartureMode.SOLO) "혼자" else "같이") }
                 }
             }
 

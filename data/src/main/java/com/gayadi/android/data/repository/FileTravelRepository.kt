@@ -1,6 +1,5 @@
 package com.gayadi.android.data.repository
 
-import com.gayadi.android.domain.model.DepartureMode
 import com.gayadi.android.domain.model.InvitationStatus
 import com.gayadi.android.domain.model.ScheduleType
 import com.gayadi.android.domain.model.TravelInvitation
@@ -59,7 +58,6 @@ class FileTravelRepository(
                     put("endDate", trip.endDate)
                     put("cities", JSONArray(trip.cities))
                     put("coverImageResList", JSONArray(trip.coverImageResList))
-                    put("departureMode", trip.departureMode.name)
                     put("status", trip.status.name)
                     put("participantIds", JSONArray(trip.participantIds))
                 })
@@ -111,7 +109,6 @@ class FileTravelRepository(
                 endDate = trip.getString("endDate"),
                 cities = trip.optJSONArray("cities").strings(),
                 coverImageResList = trip.optJSONArray("coverImageResList").ints(),
-                departureMode = trip.optString("departureMode", DepartureMode.SOLO.name).enumOr(DepartureMode.SOLO),
                 status = trip.optString("status", TripStatus.PLANNING.name).enumOr(TripStatus.PLANNING),
                 participantIds = trip.optJSONArray("participantIds").strings(),
             )

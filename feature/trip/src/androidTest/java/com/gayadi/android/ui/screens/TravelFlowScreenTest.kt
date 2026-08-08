@@ -8,7 +8,6 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.gayadi.android.domain.model.DepartureMode
 import com.gayadi.android.domain.model.TravelTrip
 import com.gayadi.android.domain.model.TripStatus
 import com.gayadi.android.domain.model.UserProfile
@@ -41,7 +40,6 @@ class TravelFlowScreenTest {
                         startDate = "2026.08.08",
                         endDate = "2026.08.10",
                         cities = listOf("제주"),
-                        departureMode = DepartureMode.SOLO,
                         status = TripStatus.PLANNING,
                     ),
                     participants = emptyList(),
@@ -51,7 +49,6 @@ class TravelFlowScreenTest {
                     onDelete = {},
                     onStart = { started = true },
                     onFinish = {},
-                    onDepartureModeChange = {},
                     onParticipants = {},
                     onInvitation = { invitationOpened = true },
                     onSchedule = { scheduleOpened = true },

@@ -1,7 +1,6 @@
 package com.gayadi.android.ui.screens
 
 import androidx.lifecycle.SavedStateHandle
-import com.gayadi.android.domain.model.DepartureMode
 import com.gayadi.android.domain.model.InvitationStatus
 import com.gayadi.android.domain.model.ScheduleType
 import com.gayadi.android.domain.model.TravelSchedule
@@ -36,13 +35,12 @@ class TripViewModelTest {
     fun tearDown() = Dispatchers.resetMain()
 
     @Test
-    fun tripCrudStatusDepartureParticipantsAndCascadeDelete() = runTest(dispatcher) {
+    fun tripCrudStatusParticipantsAndCascadeDelete() = runTest(dispatcher) {
         val repository = MemoryTravelRepository()
         val viewModel = viewModel(repository)
         advanceUntilIdle()
         viewModel.addTrip(sampleTrip())
         viewModel.selectTrip("trip-28")
-        viewModel.setDepartureMode("trip-28", DepartureMode.TOGETHER)
         viewModel.addParticipant("trip-28", "user-101")
         viewModel.startTrip("trip-28")
         viewModel.finishTrip("trip-28")
@@ -51,7 +49,6 @@ class TripViewModelTest {
         advanceUntilIdle()
 
         val trip = viewModel.domainTripById("trip-28")!!
-        assertEquals(DepartureMode.TOGETHER, trip.departureMode)
         assertEquals(TripStatus.COMPLETED, trip.status)
         assertEquals(listOf("user-101"), trip.participantIds)
         assertEquals("trip-28", viewModel.selectedTripId.value)

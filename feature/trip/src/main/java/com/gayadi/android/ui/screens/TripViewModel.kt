@@ -6,7 +6,6 @@ import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import com.gayadi.android.domain.model.DepartureMode
 import com.gayadi.android.domain.model.InvitationStatus
 import com.gayadi.android.domain.model.ScheduleType
 import com.gayadi.android.domain.model.TravelInvitation
@@ -101,10 +100,6 @@ class TripViewModel(
         state.updateTrip(tripId) { trip ->
             if (trip.status == TripStatus.ONGOING) trip.copy(status = TripStatus.COMPLETED) else trip
         }
-    }
-
-    fun setDepartureMode(tripId: String, mode: DepartureMode) = mutate("출발 방식을 저장했어요") { state ->
-        state.updateTrip(tripId) { it.copy(departureMode = mode) }
     }
 
     fun addParticipant(tripId: String, participantId: String) = mutate("참여자를 추가했어요") { state ->
@@ -370,7 +365,6 @@ private fun TravelTrip.toSummary() = TripSummary(
     endDate = endDate,
     cities = cities,
     coverImageResList = coverImageResList,
-    departureMode = departureMode,
     status = status,
     participantIds = participantIds,
 )
@@ -382,7 +376,6 @@ private fun TripSummary.toDomain(existing: TravelTrip? = null) = TravelTrip(
     endDate = endDate,
     cities = cities,
     coverImageResList = coverImageResList,
-    departureMode = existing?.departureMode ?: departureMode,
     status = existing?.status ?: status,
     participantIds = existing?.participantIds ?: participantIds,
 )

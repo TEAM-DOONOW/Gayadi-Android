@@ -1,7 +1,6 @@
 package com.gayadi.android.data
 
 import com.gayadi.android.data.repository.FileTravelRepository
-import com.gayadi.android.domain.model.DepartureMode
 import com.gayadi.android.domain.model.InvitationStatus
 import com.gayadi.android.domain.model.ScheduleType
 import com.gayadi.android.domain.model.TravelInvitation
@@ -88,7 +87,6 @@ class FileTravelRepositoryTest {
                 endDate = "2026.08.10",
                 cities = listOf("제주"),
                 coverImageResList = listOf(1, 2),
-                departureMode = DepartureMode.TOGETHER,
                 status = TripStatus.ONGOING,
                 participantIds = listOf("user-101"),
             ),
