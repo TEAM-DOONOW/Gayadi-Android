@@ -57,6 +57,7 @@ android {
 dependencies {
     implementation(project(":di"))
     implementation(project(":core:designsystem"))
+    implementation(project(":core:ui"))
     implementation(project(":feature:auth"))
     implementation(project(":feature:basicinfo"))
     implementation(project(":feature:survey"))
@@ -78,6 +79,7 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.analytics)
+    testImplementation(libs.junit)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }

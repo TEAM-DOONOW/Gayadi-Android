@@ -24,4 +24,32 @@ class PlaceViewModelTest {
         assertTrue(nearby.none { it.id == "place-3" })
         assertEquals(nearby.sortedBy(PlaceItem::distanceMeters), nearby)
     }
+
+    @Test
+    fun changingRegionLoadsTripSpecificPlacesAndResetsFilters() {
+        val viewModel = PlaceViewModel()
+        viewModel.selectCategory("카페")
+        viewModel.updateQuery("글렌코")
+
+        viewModel.setRegion("서울")
+
+        assertEquals("서울", viewModel.uiState.value.regionName)
+        assertEquals("", viewModel.uiState.value.query)
+        assertEquals("전체", viewModel.uiState.value.selectedCategory)
+        assertEquals(
+            listOf("광장시장", "서울숲 카페거리", "경복궁", "서울역 스테이"),
+            viewModel.uiState.value.places.map(PlaceItem::name),
+        )
+        assertTrue(viewModel.uiState.value.places.none { it.description.contains("제주") })
+    }
+
+    @Test
+    fun changingRegionKeepsPreviouslyLoadedFavoriteDetailsAddressable() {
+        val viewModel = PlaceViewModel()
+        viewModel.setRegion("서울")
+        viewModel.setRegion("부산")
+
+        assertEquals("광장시장", viewModel.findPlace("seoul-place-1")?.name)
+        assertTrue(viewModel.uiState.value.places.all { it.description.contains("부산") })
+    }
 }

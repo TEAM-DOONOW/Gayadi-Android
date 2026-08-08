@@ -39,4 +39,28 @@ class PlaceSearchScreenTest {
         composeRule.onNodeWithText("맛집, 카페, 명소 검색").performTextInput("없는 장소")
         composeRule.onNodeWithText("조건에 맞는 장소가 없어요").assertIsDisplayed()
     }
+
+    @Test
+    fun displaysSelectedTripRegion() {
+        val state = PlaceUiState(
+            regionName = "서울",
+            places = FakePlaceRepository().getPlaces("서울").getOrThrow(),
+            isLoading = false,
+        )
+        composeRule.setContent {
+            GayadiTheme {
+                PlaceSearchScreen(
+                    uiState = state,
+                    onBack = {},
+                    onQueryChange = {},
+                    onCategorySelected = {},
+                    onPlaceClick = {},
+                    onRetry = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("서울 · 4곳").assertIsDisplayed()
+        composeRule.onNodeWithText("광장시장").assertIsDisplayed()
+    }
 }

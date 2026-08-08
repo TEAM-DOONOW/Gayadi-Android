@@ -1,6 +1,7 @@
 package com.gayadi.android.navigation
 
 object Routes {
+    const val STARTUP = "startup"
     const val LOGIN = "login"
     const val BASIC_INFO = "basic_info"
     const val SURVEY = "survey"

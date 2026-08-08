@@ -138,7 +138,7 @@ fun PlaceSearchScreen(
                 modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                item { Text("제주 성산 · ${uiState.filteredPlaces.size}곳", fontSize = 13.sp, color = TextSecondary) }
+                item { Text("${uiState.regionName} · ${uiState.filteredPlaces.size}곳", fontSize = 13.sp, color = TextSecondary) }
                 items(uiState.filteredPlaces, key = PlaceItem::id) { place ->
                     PlaceCard(
                         place,

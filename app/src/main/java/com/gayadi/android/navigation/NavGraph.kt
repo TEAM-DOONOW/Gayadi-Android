@@ -1,6 +1,7 @@
 package com.gayadi.android.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -11,12 +12,16 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.gayadi.android.di.AppContainer
+import com.gayadi.android.domain.model.TravelParticipant
+import com.gayadi.android.domain.model.TravelState
+import com.gayadi.android.domain.model.UserProfile
 import com.gayadi.android.feature.basicinfo.presentation.BasicInfoRoute
 import com.gayadi.android.feature.basicinfo.presentation.BasicInfoViewModel
 import com.gayadi.android.feature.survey.presentation.SurveyRoute
 import com.gayadi.android.feature.survey.presentation.SurveyViewModel
 import com.gayadi.android.feature.surveyresult.presentation.SurveyResultRoute
 import com.gayadi.android.feature.surveyresult.presentation.SurveyResultViewModel
+import com.gayadi.android.ui.components.GayadiLoadingScreen
 import com.gayadi.android.ui.screens.FriendAddScreen
 import com.gayadi.android.ui.screens.FriendAddViewModel
 import com.gayadi.android.ui.screens.LoginScreen
@@ -62,7 +67,17 @@ fun GayadiNavHost(appContainer: AppContainer) {
     )
     val sharedProfileUiState by sharedProfileViewModel.uiState.collectAsStateWithLifecycle()
 
-    NavHost(navController = navController, startDestination = Routes.LOGIN) {
+    NavHost(navController = navController, startDestination = Routes.STARTUP) {
+        composable(Routes.STARTUP) {
+            GayadiLoadingScreen()
+            LaunchedEffect(sharedProfileUiState.isLoading, travelUiState.isLoading) {
+                if (!sharedProfileUiState.isLoading && !travelUiState.isLoading) {
+                    navController.navigate(resolveStartupDestination(sharedProfileUiState.profile)) {
+                        popUpTo(Routes.STARTUP) { inclusive = true }
+                    }
+                }
+            }
+        }
         composable(Routes.LOGIN) {
             LoginScreen(
                 onStart = { navController.navigate(Routes.BASIC_INFO) },
@@ -132,7 +147,9 @@ fun GayadiNavHost(appContainer: AppContainer) {
             arguments = listOf(navArgument("tripId") { type = NavType.StringType }),
         ) { backStackEntry ->
             val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
+            val city = travelUiState.travelState.trip(tripId)?.cities?.firstOrNull().orEmpty()
             val placeUiState by placeViewModel.uiState.collectAsStateWithLifecycle()
+            LaunchedEffect(tripId, city) { placeViewModel.setRegion(city) }
             PlaceSearchScreen(
                 uiState = placeUiState,
                 onBack = { navController.popBackStack() },
@@ -155,16 +172,17 @@ fun GayadiNavHost(appContainer: AppContainer) {
         ) { backStackEntry ->
             val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
             val placeId = requireNotNull(backStackEntry.arguments?.getString("placeId"))
+            val travelState = travelUiState.travelState
             PlaceDetailScreen(
                 place = placeViewModel.findPlace(placeId),
-                isScheduled = tripViewModel.schedulesForTrip(tripId).any { it.placeId == placeId },
+                isScheduled = travelState.schedulesForTrip(tripId).any { it.placeId == placeId },
                 onBack = { navController.popBackStack() },
                 onAddToSchedule = {
                     placeViewModel.findPlace(placeId)?.let { place ->
                         tripViewModel.addPlaceSchedule(tripId, placeId, place.name)
                     }
                 },
-                isFavorite = tripViewModel.isFavorite(placeId),
+                isFavorite = placeId in travelState.favoritePlaceIds,
                 onToggleFavorite = { tripViewModel.toggleFavorite(placeId) },
                 onNearby = { navController.navigate(Routes.nearbyPlaces(tripId, placeId)) },
             )
@@ -195,9 +213,10 @@ fun GayadiNavHost(appContainer: AppContainer) {
             arguments = listOf(navArgument("tripId") { type = NavType.StringType }),
         ) { backStackEntry ->
             val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
+            val travelState = travelUiState.travelState
             TripDetailScreen(
-                trip = tripViewModel.domainTripById(tripId),
-                participants = tripViewModel.participantsForTrip(tripId),
+                trip = travelState.trip(tripId),
+                participants = travelState.participantsForTrip(tripId, tripViewModel.availableParticipants),
                 profile = sharedProfileUiState.profile,
                 onBack = { navController.popBackStack() },
                 onEdit = { navController.navigate(Routes.tripEdit(tripId)) },
@@ -237,10 +256,11 @@ fun GayadiNavHost(appContainer: AppContainer) {
             arguments = listOf(navArgument("tripId") { type = NavType.StringType }),
         ) { backStackEntry ->
             val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
+            val travelState = travelUiState.travelState
             ParticipantsScreen(
-                tripName = tripViewModel.tripById(tripId)?.name.orEmpty(),
+                tripName = travelState.trip(tripId)?.name.orEmpty(),
                 profile = sharedProfileUiState.profile,
-                participants = tripViewModel.participantsForTrip(tripId),
+                participants = travelState.participantsForTrip(tripId, tripViewModel.availableParticipants),
                 candidates = tripViewModel.availableParticipants,
                 onBack = { navController.popBackStack() },
                 onAdd = { tripViewModel.addParticipant(tripId, it) },
@@ -253,9 +273,10 @@ fun GayadiNavHost(appContainer: AppContainer) {
         ) { backStackEntry ->
             val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
             val clipboard = LocalClipboardManager.current
+            val travelState = travelUiState.travelState
             InvitationScreen(
-                tripName = tripViewModel.tripById(tripId)?.name.orEmpty(),
-                invitation = tripViewModel.invitationForTrip(tripId),
+                tripName = travelState.trip(tripId)?.name.orEmpty(),
+                invitation = travelState.invitations.find { it.tripId == tripId },
                 candidates = tripViewModel.availableParticipants,
                 message = travelUiState.message,
                 onBack = { navController.popBackStack() },
@@ -272,12 +293,13 @@ fun GayadiNavHost(appContainer: AppContainer) {
             arguments = listOf(navArgument("tripId") { type = NavType.StringType }),
         ) { backStackEntry ->
             val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
-            val trip = tripViewModel.domainTripById(tripId)
+            val travelState = travelUiState.travelState
+            val trip = travelState.trip(tripId)
             ScheduleScreen(
                 tripId = tripId,
                 tripName = trip?.name.orEmpty(),
                 defaultDate = trip?.startDate.orEmpty(),
-                schedules = tripViewModel.schedulesForTrip(tripId),
+                schedules = travelState.schedulesForTrip(tripId),
                 onBack = { navController.popBackStack() },
                 onSave = tripViewModel::upsertSchedule,
                 onDelete = tripViewModel::deleteSchedule,
@@ -294,7 +316,7 @@ fun GayadiNavHost(appContainer: AppContainer) {
         ) { backStackEntry ->
             val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
             RouteHubScreen(
-                tripName = tripViewModel.tripById(tripId)?.name.orEmpty(),
+                tripName = travelUiState.travelState.trip(tripId)?.name.orEmpty(),
                 onBack = { navController.popBackStack() },
                 onSelect = { type -> navController.navigate(Routes.routeRecommendation(tripId, type.name)) },
             )
@@ -310,12 +332,13 @@ fun GayadiNavHost(appContainer: AppContainer) {
             val type = backStackEntry.arguments?.getString("routeType")
                 ?.let { runCatching { RouteRecommendationType.valueOf(it) }.getOrNull() }
                 ?: RouteRecommendationType.ITINERARY
+            val travelState = travelUiState.travelState
             RouteRecommendationScreen(
                 type = type,
-                trip = tripViewModel.domainTripById(tripId),
-                schedules = tripViewModel.schedulesForTrip(tripId),
+                trip = travelState.trip(tripId),
+                schedules = travelState.schedulesForTrip(tripId),
                 profile = sharedProfileUiState.profile,
-                appliedOptionId = travelUiState.travelState.appliedRouteIds["$tripId:${type.name}"],
+                appliedOptionId = travelState.appliedRouteIds["$tripId:${type.name}"],
                 onBack = { navController.popBackStack() },
                 onApply = { tripViewModel.applyRoute(tripId, type.name, it) },
             )
@@ -354,12 +377,13 @@ fun GayadiNavHost(appContainer: AppContainer) {
             arguments = listOf(navArgument("tripId") { type = NavType.StringType }),
         ) { backStackEntry ->
             val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
-            val trip = tripViewModel.tripById(tripId)
+            val travelState = travelUiState.travelState
+            val trip = travelState.trip(tripId)
             val homeViewModel: RealtimeHomeViewModel = viewModel(
                 factory = RealtimeHomeViewModel.factory(appContainer.getUserProfileUseCase),
             )
             val homeUiState by homeViewModel.uiState.collectAsStateWithLifecycle()
-            val nextScheduleName = tripViewModel.schedulesForTrip(tripId)
+            val nextScheduleName = travelState.schedulesForTrip(tripId)
                 .firstOrNull { !it.isVisited }?.title
             RealtimeHomeScreen(
                 uiState = homeUiState,
@@ -413,4 +437,25 @@ fun GayadiNavHost(appContainer: AppContainer) {
             )
         }
     }
+}
+
+internal fun resolveStartupDestination(profile: UserProfile?): String = when {
+    profile?.nickname.isNullOrBlank() -> Routes.LOGIN
+    profile?.characterKey.isNullOrBlank() -> Routes.SURVEY
+    else -> Routes.MY_TRIP
+}
+
+private fun TravelState.trip(tripId: String) = trips.find { it.id == tripId }
+
+private fun TravelState.schedulesForTrip(tripId: String) =
+    schedules.filter { it.tripId == tripId }.sortedBy { it.order }
+
+private fun TravelState.participantsForTrip(
+    tripId: String,
+    candidates: List<TravelParticipant>,
+): List<TravelParticipant> {
+    val participantIds = trip(tripId)?.participantIds.orEmpty()
+    return (participants + candidates)
+        .distinctBy(TravelParticipant::id)
+        .filter { it.id in participantIds }
 }
