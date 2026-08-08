@@ -17,12 +17,18 @@ import org.junit.Test
 import kotlinx.coroutines.Dispatchers
 
 /** Profile stub returning whatever onboarding state a test needs. */
-private class FakeProfileRepository(private val basicInfo: BasicInfo?) : ProfileRepository {
+private class FakeProfileRepository(
+    private val basicInfo: BasicInfo?,
+    private val saveResult: Result<Unit> = Result.success(Unit),
+) : ProfileRepository {
     var savedResult: SurveyResult? = null
     override fun saveBasicInfo(basicInfo: BasicInfo) = Unit
 
     override fun getBasicInfo(): BasicInfo? = basicInfo
-    override fun saveSurveyResult(result: SurveyResult) { savedResult = result }
+    override fun saveSurveyResult(result: SurveyResult): Result<Unit> {
+        if (saveResult.isSuccess) savedResult = result
+        return saveResult
+    }
     override fun getProfile(): UserProfile? = basicInfo?.let {
         UserProfile(nickname = it.nickname, introduction = it.introduction)
     }
@@ -78,6 +84,26 @@ class SurveyResultViewModelTest {
         )
 
         assertNull(viewModel.uiState.value.nickname)
+    }
+
+    @Test
+    fun initialization_whenProfileSaveFails_showsErrorAndStopsLoading() {
+        val profileRepository = FakeProfileRepository(
+            BasicInfo("민수", "여행가"),
+            Result.failure(IllegalStateException("프로필 저장 실패")),
+        )
+        val viewModel = SurveyResultViewModel(
+            "SCA",
+            GetSurveyResultUseCase(FakeSurveyRepository(Result.success(createSurveyDefinition()))),
+            GetBasicInfoUseCase(profileRepository),
+            SaveSurveyResultToProfileUseCase(profileRepository),
+            Dispatchers.Unconfined,
+        )
+
+        assertFalse(viewModel.uiState.value.isLoading)
+        assertNull(viewModel.uiState.value.result)
+        assertNull(profileRepository.savedResult)
+        assertEquals("프로필 저장 실패", viewModel.uiState.value.errorMessage)
     }
 
     @Test

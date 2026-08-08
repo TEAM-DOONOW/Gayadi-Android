@@ -4,6 +4,8 @@ import androidx.lifecycle.SavedStateHandle
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import org.json.JSONArray
+import org.json.JSONObject
 
 class TripViewModelTest {
     @Test
@@ -13,6 +15,37 @@ class TripViewModelTest {
 
         assertEquals("legacy-1", viewModel.trips.value.single().id)
         assertEquals(listOf("제주"), viewModel.trips.value.single().cities)
+    }
+
+    @Test
+    fun restoresLegacyJsonWithEscapedDelimitersCommasAndWhitespace() {
+        val legacyJson = JSONArray()
+            .put(
+                JSONObject()
+                    .put("id", "legacy-1")
+                    .put("name", "A\"},{\"name\":\"inside")
+                    .put("startDate", "2026.08.08")
+                    .put("endDate", "2026.08.10")
+                    .put("cities", JSONArray().put("New York, USA"))
+                    .put("coverImageResList", JSONArray().put(1).put(2)),
+            )
+            .put(
+                JSONObject()
+                    .put("id", "legacy-2")
+                    .put("name", "부산 여행")
+                    .put("startDate", "2026.09.01")
+                    .put("endDate", "2026.09.02")
+                    .put("cities", JSONArray().put("부산"))
+                    .put("coverImageResList", JSONArray()),
+            )
+            .toString(2)
+
+        val trips = TripViewModel(SavedStateHandle(mapOf("saved_trips" to legacyJson))).trips.value
+
+        assertEquals(2, trips.size)
+        assertEquals("A\"},{\"name\":\"inside", trips[0].name)
+        assertEquals(listOf("New York, USA"), trips[0].cities)
+        assertEquals("legacy-2", trips[1].id)
     }
 
     @Test

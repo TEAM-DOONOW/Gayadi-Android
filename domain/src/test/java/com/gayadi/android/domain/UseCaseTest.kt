@@ -6,11 +6,13 @@ import com.gayadi.android.domain.model.SurveyResult
 import com.gayadi.android.domain.model.UserProfile
 import com.gayadi.android.domain.repository.ProfileRepository
 import com.gayadi.android.domain.usecase.CalculateSurveyResultUseCase
+import com.gayadi.android.domain.usecase.ClearUserProfileUseCase
 import com.gayadi.android.domain.usecase.GetSurveyUseCase
 import com.gayadi.android.domain.usecase.GetUserProfileUseCase
 import com.gayadi.android.domain.usecase.SaveBasicInfoUseCase
 import com.gayadi.android.domain.usecase.SaveSurveyResultToProfileUseCase
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
@@ -46,6 +48,19 @@ class UseCaseTest {
             UserProfile("가야디", "여행가", "PNA", "등반잉", "character_pna", listOf("준비"), listOf("유연성")),
             GetUserProfileUseCase(repository)(),
         )
+    }
+
+    @Test
+    fun clearProfile_removesBasicInfoAndSurveyResult() {
+        val repository = FakeProfileRepository()
+        SaveBasicInfoUseCase(repository)("가야디", "여행가")
+        SaveSurveyResultToProfileUseCase(repository)(
+            SurveyResult("PNA", "⛰️", "등반잉", "계획형", emptyList(), emptyList(), emptyList(), "character_pna"),
+        )
+
+        ClearUserProfileUseCase(repository)().getOrThrow()
+
+        assertNull(GetUserProfileUseCase(repository)())
     }
 
     @Test
@@ -106,7 +121,10 @@ private class FakeProfileRepository : ProfileRepository {
     }
 
     override fun getBasicInfo(): BasicInfo? = saved
-    override fun saveSurveyResult(result: SurveyResult) { surveyResult = result }
+    override fun saveSurveyResult(result: SurveyResult): Result<Unit> {
+        surveyResult = result
+        return Result.success(Unit)
+    }
     override fun getProfile(): UserProfile? = saved?.let {
         UserProfile(
             nickname = it.nickname,
@@ -118,5 +136,9 @@ private class FakeProfileRepository : ProfileRepository {
             weaknesses = surveyResult?.weaknesses.orEmpty(),
         )
     }
-    override fun clearProfile(): Result<Unit> = Result.success(Unit)
+    override fun clearProfile(): Result<Unit> {
+        saved = null
+        surveyResult = null
+        return Result.success(Unit)
+    }
 }

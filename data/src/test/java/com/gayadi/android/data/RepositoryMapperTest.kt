@@ -59,6 +59,27 @@ class RepositoryMapperTest {
     }
 
     @Test
+    fun profileRepository_rejectsSurveyWithoutBasicProfile() {
+        val repository = InMemoryProfileRepository(InMemoryProfileLocalDataSource())
+
+        val result = repository.saveSurveyResult(
+            SurveyResult(
+                code = "SCA",
+                emoji = "🔥",
+                name = "즉흥 여행가",
+                summary = "",
+                hashtags = emptyList(),
+                strengths = emptyList(),
+                weaknesses = emptyList(),
+                characterKey = "character_sca",
+            ),
+        )
+
+        assertEquals("기본 프로필이 없습니다.", result.exceptionOrNull()?.message)
+        assertNull(repository.getProfile())
+    }
+
+    @Test
     fun surveyRepository_mapsAggregateToDomainModel() {
         val expectedResult = SurveyResultDto(
             "PNA",

@@ -13,7 +13,7 @@ interface ProfileRepository {
     fun getBasicInfo(): BasicInfo?
 
     /** Merges the completed survey result into the saved profile. */
-    fun saveSurveyResult(result: SurveyResult)
+    fun saveSurveyResult(result: SurveyResult): Result<Unit>
 
     /** Returns the complete locally persisted profile when available. */
     fun getProfile(): UserProfile?

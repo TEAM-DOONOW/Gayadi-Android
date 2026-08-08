@@ -27,8 +27,10 @@ class BasicInfoViewModelTest {
         assertEquals(10, viewModel.uiState.value.nickname.length)
         assertEquals(20, viewModel.uiState.value.introduction.length)
         assertTrue(viewModel.uiState.value.canSubmit)
-        assertTrue(viewModel.onEvent(BasicInfoUiEvent.Submit))
+        viewModel.onEvent(BasicInfoUiEvent.Submit)
         assertEquals(viewModel.uiState.value.nickname, repository.saved?.nickname)
+        assertTrue(viewModel.uiState.value.saveCompleted)
+        assertFalse(viewModel.uiState.value.isSaving)
     }
 
     /** Empty required fields block submission. */
@@ -36,15 +38,36 @@ class BasicInfoViewModelTest {
     fun submitEvent_rejectsEmptyForm() {
         val viewModel = BasicInfoViewModel(SaveBasicInfoUseCase(RecordingProfileRepository()), Dispatchers.Unconfined)
 
-        assertFalse(viewModel.onEvent(BasicInfoUiEvent.Submit))
+        viewModel.onEvent(BasicInfoUiEvent.Submit)
+
+        assertFalse(viewModel.uiState.value.saveCompleted)
+    }
+
+    @Test
+    fun submitEvent_reportsPersistenceFailure() {
+        val repository = RecordingProfileRepository(failure = IllegalStateException("저장 실패"))
+        val viewModel = BasicInfoViewModel(SaveBasicInfoUseCase(repository), Dispatchers.Unconfined)
+        viewModel.onEvent(BasicInfoUiEvent.NicknameChanged("가야디"))
+        viewModel.onEvent(BasicInfoUiEvent.IntroductionChanged("여행가"))
+
+        viewModel.onEvent(BasicInfoUiEvent.Submit)
+
+        assertFalse(viewModel.uiState.value.saveCompleted)
+        assertFalse(viewModel.uiState.value.isSaving)
+        assertEquals("저장 실패", viewModel.uiState.value.errorMessage)
     }
 }
 
-private class RecordingProfileRepository : ProfileRepository {
+private class RecordingProfileRepository(
+    private val failure: Throwable? = null,
+) : ProfileRepository {
     var saved: BasicInfo? = null
-    override fun saveBasicInfo(basicInfo: BasicInfo) { saved = basicInfo }
+    override fun saveBasicInfo(basicInfo: BasicInfo) {
+        failure?.let { throw it }
+        saved = basicInfo
+    }
     override fun getBasicInfo(): BasicInfo? = saved
-    override fun saveSurveyResult(result: SurveyResult) = Unit
+    override fun saveSurveyResult(result: SurveyResult): Result<Unit> = Result.success(Unit)
     override fun getProfile(): UserProfile? = saved?.let {
         UserProfile(nickname = it.nickname, introduction = it.introduction)
     }

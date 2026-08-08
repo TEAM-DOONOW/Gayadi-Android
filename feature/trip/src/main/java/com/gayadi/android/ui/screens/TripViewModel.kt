@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import java.nio.charset.StandardCharsets
 import java.util.Base64
 import java.util.UUID
+import org.json.JSONArray
 
 class TripViewModel(private val savedStateHandle: SavedStateHandle) : ViewModel() {
     private val _trips = MutableStateFlow(decodeTrips(savedStateHandle[TRIPS_KEY] ?: EMPTY_TRIPS_JSON))
@@ -72,38 +73,25 @@ class TripViewModel(private val savedStateHandle: SavedStateHandle) : ViewModel(
     }
 
     private fun decodeLegacyTrips(value: String): List<TripSummary> {
-        require(value.trim().startsWith("["))
-        val content = value.trim().removePrefix("[").removeSuffix("]")
-        if (content.isBlank()) return emptyList()
-        return content.split("},{").map { rawItem ->
-            val item = rawItem.removePrefix("{").removeSuffix("}")
+        val trips = JSONArray(value)
+        return List(trips.length()) { index ->
+            val item = trips.getJSONObject(index)
             TripSummary(
-                id = item.jsonString("id").ifBlank { UUID.randomUUID().toString() },
-                name = item.jsonString("name"),
-                startDate = item.jsonString("startDate"),
-                endDate = item.jsonString("endDate"),
-                cities = item.jsonArray("cities").map(::unescapeJson),
-                coverImageResList = item.jsonArray("coverImageResList").map(String::toInt),
+                id = item.optString("id").ifBlank { UUID.randomUUID().toString() },
+                name = item.getString("name"),
+                startDate = item.getString("startDate"),
+                endDate = item.getString("endDate"),
+                cities = item.getJSONArray("cities").toStringList(),
+                coverImageResList = item.getJSONArray("coverImageResList").toIntList(),
             )
         }
     }
 
-    private fun String.jsonString(key: String): String {
-        val encoded = Regex("\"${Regex.escape(key)}\"\\s*:\\s*\"((?:\\\\.|[^\"\\\\])*)\"")
-            .find(this)?.groupValues?.get(1) ?: error("Missing $key")
-        return unescapeJson(encoded)
-    }
+    private fun JSONArray.toStringList(): List<String> =
+        List(length()) { index -> getString(index) }
 
-    private fun String.jsonArray(key: String): List<String> {
-        val content = Regex("\"${Regex.escape(key)}\"\\s*:\\s*\\[([^\\]]*)\\]")
-            .find(this)?.groupValues?.get(1) ?: error("Missing $key")
-        if (content.isBlank()) return emptyList()
-        return content.split(',').map { it.trim().removeSurrounding("\"") }
-    }
-
-    private fun unescapeJson(value: String): String = value
-        .replace("\\\\\"", "\"")
-        .replace("\\\\\\\\", "\\")
+    private fun JSONArray.toIntList(): List<Int> =
+        List(length()) { index -> getInt(index) }
 
     private fun encodeField(value: String): String =
         Base64.getUrlEncoder().withoutPadding().encodeToString(value.toByteArray(StandardCharsets.UTF_8))

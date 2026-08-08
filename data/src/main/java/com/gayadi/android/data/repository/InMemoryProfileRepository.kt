@@ -32,8 +32,8 @@ class InMemoryProfileRepository(
         BasicInfo(nickname = it.nickname, introduction = it.introduction)
     }
 
-    override fun saveSurveyResult(result: SurveyResult) {
-        val current = getProfile() ?: return
+    override fun saveSurveyResult(result: SurveyResult): Result<Unit> = runCatching {
+        val current = getProfile() ?: error("기본 프로필이 없습니다.")
         localDataSource.saveProfile(
             current.copy(
                 resultCode = result.code,

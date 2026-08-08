@@ -39,14 +39,22 @@ class SurveyResultViewModel(
             getSurveyResult(resultCode) { result ->
                 result.fold(
                     onSuccess = { surveyResult ->
-                        viewModelScope.launch(ioDispatcher) {
-                            saveSurveyResultToProfile(surveyResult)
-                            _uiState.value = SurveyResultUiState(
-                                isLoading = false,
-                                result = surveyResult,
-                                nickname = nickname,
-                            )
-                        }
+                        saveSurveyResultToProfile(surveyResult).fold(
+                            onSuccess = {
+                                _uiState.value = SurveyResultUiState(
+                                    isLoading = false,
+                                    result = surveyResult,
+                                    nickname = nickname,
+                                )
+                            },
+                            onFailure = { error ->
+                                _uiState.value = SurveyResultUiState(
+                                    isLoading = false,
+                                    nickname = nickname,
+                                    errorMessage = error.message ?: "결과를 저장하지 못했습니다.",
+                                )
+                            },
+                        )
                     },
                     onFailure = { error ->
                         _uiState.value = SurveyResultUiState(
