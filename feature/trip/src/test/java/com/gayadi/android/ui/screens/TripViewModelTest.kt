@@ -5,6 +5,7 @@ import com.gayadi.android.domain.model.InvitationStatus
 import com.gayadi.android.domain.model.ScheduleType
 import com.gayadi.android.domain.model.TravelSchedule
 import com.gayadi.android.domain.model.TravelState
+import com.gayadi.android.domain.model.TravelTrip
 import com.gayadi.android.domain.model.TripStatus
 import com.gayadi.android.domain.repository.TravelRepository
 import com.gayadi.android.domain.usecase.GetTravelStateUseCase
@@ -124,6 +125,50 @@ class TripViewModelTest {
     }
 
     @Test
+    fun generatedInviteCodeSkipsCollisionAndPersistsWithTrip() = runTest(dispatcher) {
+        val existingTrip = TravelTrip(
+            id = "existing",
+            name = "기존 여행",
+            startDate = "2026.08.01",
+            endDate = "2026.08.02",
+            cities = listOf("서울"),
+            inviteCode = "ABC123",
+        )
+        val repository = MemoryTravelRepository(TravelState(trips = listOf(existingTrip)))
+        val candidates = listOf("ABC123", "XYZ789").iterator()
+        val viewModel = viewModel(repository, inviteCodeGenerator = candidates::next)
+        advanceUntilIdle()
+
+        val savedTrip = viewModel.addTrip(sampleTrip()).getOrThrow()
+        advanceUntilIdle()
+
+        assertEquals("XYZ789", savedTrip.inviteCode)
+        assertEquals("XYZ789", repository.state.trips.single { it.id == "trip-28" }.inviteCode)
+        assertEquals(2, repository.state.trips.map(TravelTrip::inviteCode).distinct().size)
+    }
+
+    @Test
+    fun inviteCodeGenerationStopsAfterMaximumAttempts() = runTest(dispatcher) {
+        val existingTrip = TravelTrip(
+            id = "existing",
+            name = "기존 여행",
+            startDate = "2026.08.01",
+            endDate = "2026.08.02",
+            cities = listOf("서울"),
+            inviteCode = "ABC123",
+        )
+        val repository = MemoryTravelRepository(TravelState(trips = listOf(existingTrip)))
+        val viewModel = viewModel(repository, inviteCodeGenerator = { "ABC123" })
+        advanceUntilIdle()
+
+        val result = viewModel.addTrip(sampleTrip())
+        advanceUntilIdle()
+
+        assertTrue(result.isFailure)
+        assertEquals(listOf("existing"), repository.state.trips.map(TravelTrip::id))
+    }
+
+    @Test
     fun migratesLegacySavedTripsIntoRepository() = runTest(dispatcher) {
         val legacyJson = """[{"id":"legacy-1","name":"제주 여행","startDate":"2026.08.08","endDate":"2026.08.10","cities":["제주"],"coverImageResList":[1,2]}]"""
         val repository = MemoryTravelRepository()
@@ -137,11 +182,13 @@ class TripViewModelTest {
     private fun viewModel(
         repository: MemoryTravelRepository,
         savedStateHandle: SavedStateHandle = SavedStateHandle(),
+        inviteCodeGenerator: () -> String = { "GAYADI" },
     ) = TripViewModel(
         savedStateHandle,
         GetTravelStateUseCase(repository),
         SaveTravelStateUseCase(repository),
         dispatcher,
+        inviteCodeGenerator,
     )
 
     private fun sampleTrip() = TripSummary(

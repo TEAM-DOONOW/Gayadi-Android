@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -21,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -30,6 +33,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -59,7 +63,7 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
 private enum class DateField { START, END }
-private enum class CreateStep { CITY, DETAILS }
+private enum class CreateStep { CITY, DETAILS, COMPLETE }
 
 private data class CityOption(val name: String, val areas: String, val imageRes: Int)
 
@@ -103,7 +107,9 @@ private val domesticCities = listOf(
 @Composable
 fun TripCreateScreen(
     onBack: () -> Unit,
-    onCreate: (TripSummary) -> Unit,
+    onCreate: (TripSummary) -> Result<TripSummary>,
+    onStartTrip: (TripSummary) -> Unit = {},
+    onInviteFriend: (TripSummary) -> Unit = {},
     initialTrip: TripSummary? = null,
 ) {
     var step by remember(initialTrip?.id) {
@@ -120,6 +126,8 @@ fun TripCreateScreen(
         mutableStateOf(initialTrip?.endDate?.let { runCatching { LocalDate.parse(it, tripDateFormatter) }.getOrNull() })
     }
     var selectingField by remember { mutableStateOf<DateField?>(null) }
+    var createdTrip by remember { mutableStateOf<TripSummary?>(null) }
+    var creationError by remember { mutableStateOf<String?>(null) }
 
     when (step) {
         CreateStep.CITY -> CitySelectionStep(
@@ -136,9 +144,9 @@ fun TripCreateScreen(
             onBack = { step = CreateStep.CITY },
             onSelectStart = { selectingField = DateField.START },
             onSelectEnd = { selectingField = DateField.END },
+            errorMessage = creationError,
             onCreate = {
-                onCreate(
-                    TripSummary(
+                val trip = TripSummary(
                         id = initialTrip?.id ?: java.util.UUID.randomUUID().toString(),
                         name = name.trim(),
                         startDate = startDate!!.format(tripDateFormatter),
@@ -147,10 +155,26 @@ fun TripCreateScreen(
                         coverImageResList = selectedCities.mapNotNull { selectedCity ->
                             domesticCities.firstOrNull { it.name == selectedCity }?.imageRes
                         },
-                    ),
+                    )
+                onCreate(trip).fold(
+                    onSuccess = { savedTrip ->
+                        creationError = null
+                        if (initialTrip == null) {
+                            createdTrip = savedTrip
+                            step = CreateStep.COMPLETE
+                        }
+                    },
+                    onFailure = { creationError = it.message ?: "여행을 만들지 못했어요" },
                 )
             },
         )
+        CreateStep.COMPLETE -> createdTrip?.let { trip ->
+            TripCreationCompleteStep(
+                trip = trip,
+                onInviteFriend = { onInviteFriend(trip) },
+                onStartTrip = { onStartTrip(trip) },
+            )
+        }
     }
 
     selectingField?.let { field ->
@@ -180,6 +204,94 @@ fun TripCreateScreen(
             },
             dismissButton = { TextButton(onClick = { selectingField = null }) { Text("취소") } },
         ) { DatePicker(state = pickerState) }
+    }
+}
+
+@Composable
+private fun TripCreationCompleteStep(
+    trip: TripSummary,
+    onInviteFriend: () -> Unit,
+    onStartTrip: () -> Unit,
+) {
+    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+    val daysUntilTrip = remember(trip.startDate) {
+        runCatching {
+            java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(), LocalDate.parse(trip.startDate, tripDateFormatter))
+        }.getOrDefault(0).coerceAtLeast(0)
+    }
+
+    Column(
+        modifier = Modifier.fillMaxSize().background(Color(0xFFF7F7F9)).padding(horizontal = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Spacer(Modifier.height(118.dp))
+        Text(
+            "새로운 여행이 만들어졌어요!",
+            fontFamily = PretendardSemiBoldFontFamily,
+            fontSize = 25.sp,
+            color = TextPrimary,
+        )
+        Spacer(Modifier.height(14.dp))
+        Box(
+            modifier = Modifier.fillMaxWidth().height(340.dp),
+        ) {
+            Box(
+                modifier = Modifier.fillMaxWidth().height(252.dp).align(Alignment.BottomCenter),
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.gayadi_letter),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.FillBounds,
+                )
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Spacer(Modifier.height(22.dp))
+                    Text(
+                        "D-$daysUntilTrip",
+                        modifier = Modifier.background(Color(0xFFFFDDD4)).padding(horizontal = 8.dp, vertical = 2.dp),
+                        color = Color(0xFFFF5A36),
+                        fontFamily = PretendardSemiBoldFontFamily,
+                        fontSize = 12.sp,
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Text(trip.name, fontFamily = PretendardSemiBoldFontFamily, fontSize = 20.sp, color = TextPrimary)
+                    Spacer(Modifier.height(5.dp))
+                    Text("${trip.startDate} - ${trip.endDate}", fontFamily = PretendardFontFamily, fontSize = 14.sp, color = Color(0xFF9A9CAB))
+                    Spacer(Modifier.weight(0.35f))
+                    Text(trip.inviteCode, fontFamily = PretendardSemiBoldFontFamily, fontSize = 25.sp, color = TextPrimary)
+                    TextButton(onClick = { clipboard.setText(androidx.compose.ui.text.AnnotatedString(trip.inviteCode)) }) {
+                        Icon(Icons.Default.ContentCopy, contentDescription = null, tint = Color(0xFF9295A5), modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("초대코드 복사하기", color = Color(0xFF9295A5), fontFamily = PretendardFontFamily)
+                    }
+                    Spacer(Modifier.weight(0.08f))
+                }
+            }
+            Image(
+                painter = painterResource(R.drawable.ganadi_hello),
+                contentDescription = "편지 위에서 인사하는 가야디",
+                modifier = Modifier.width(280.dp).height(223.dp).align(Alignment.TopCenter).offset(y = (-25).dp),
+                contentScale = ContentScale.Fit,
+            )
+        }
+        Spacer(Modifier.weight(1f))
+        OutlinedButton(
+            onClick = onInviteFriend,
+            modifier = Modifier.fillMaxWidth().height(54.dp),
+            shape = RoundedCornerShape(6.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE0E1E7)),
+        ) { Text("친구에게 초대코드 보내기", color = tripCreateAccentColor, fontFamily = PretendardSemiBoldFontFamily, fontSize = 16.sp) }
+        Spacer(Modifier.height(12.dp))
+        Button(
+            onClick = onStartTrip,
+            modifier = Modifier.fillMaxWidth().height(54.dp),
+            shape = RoundedCornerShape(6.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = tripCreateAccentColor),
+        ) { Text("바로 여행 시작하기", fontFamily = PretendardSemiBoldFontFamily, fontSize = 16.sp) }
+        Spacer(Modifier.height(20.dp))
     }
 }
 
@@ -303,6 +415,7 @@ private fun TripDetailsStep(
     onBack: () -> Unit,
     onSelectStart: () -> Unit,
     onSelectEnd: () -> Unit,
+    errorMessage: String?,
     onCreate: () -> Unit,
 ) {
     val canCreate = name.isNotBlank() && startDate != null && endDate != null
@@ -340,6 +453,10 @@ private fun TripDetailsStep(
             DateField(endDate?.format(tripDateFormatter).orEmpty(), "종료일", onSelectEnd, Modifier.weight(1f))
         }
         Spacer(modifier = Modifier.weight(1f))
+        errorMessage?.let {
+            Text(it, color = Color(0xFFE34D59), fontFamily = PretendardFontFamily, fontSize = 13.sp)
+            Spacer(modifier = Modifier.height(10.dp))
+        }
         Button(
             onClick = onCreate,
             enabled = canCreate,

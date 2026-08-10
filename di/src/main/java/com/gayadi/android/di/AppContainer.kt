@@ -16,6 +16,7 @@ import com.gayadi.android.domain.usecase.SaveBasicInfoUseCase
 import com.gayadi.android.domain.usecase.GetUserProfileUseCase
 import com.gayadi.android.domain.usecase.SaveSurveyResultToProfileUseCase
 import com.gayadi.android.domain.usecase.GetTravelStateUseCase
+import com.gayadi.android.domain.usecase.JoinTripByInviteCodeUseCase
 import com.gayadi.android.domain.usecase.SaveTravelStateUseCase
 import com.google.firebase.firestore.FirebaseFirestore
 import java.io.File
@@ -48,6 +49,9 @@ class AppContainer(profileFile: File, travelFile: File) {
 
     /** Atomically persists the complete Android-local travel aggregate. */
     val saveTravelStateUseCase = SaveTravelStateUseCase(travelRepository)
+
+    /** Resolves a persisted trip invite code and joins the local user to that trip. */
+    val joinTripByInviteCodeUseCase = JoinTripByInviteCodeUseCase(travelRepository)
 
     /** Use case used to retrieve the Firestore-backed travel survey. */
     val getSurveyUseCase = GetSurveyUseCase(surveyRepository)

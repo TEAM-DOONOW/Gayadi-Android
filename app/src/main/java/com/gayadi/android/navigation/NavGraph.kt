@@ -132,12 +132,23 @@ fun GayadiNavHost(appContainer: AppContainer) {
             )
         }
         composable(Routes.FRIEND_ADD) {
-            val friendViewModel: FriendAddViewModel = viewModel(factory = FriendAddViewModel.factory())
+            val friendViewModel: FriendAddViewModel = viewModel(
+                factory = FriendAddViewModel.factory(
+                    joinTripByInviteCode = appContainer.joinTripByInviteCodeUseCase,
+                    localParticipant = TravelParticipant(
+                        id = "local-user",
+                        nickname = sharedProfileUiState.profile?.nickname ?: "나",
+                        characterKey = sharedProfileUiState.profile?.characterKey,
+                    ),
+                ),
+            )
             val friendUiState by friendViewModel.uiState.collectAsStateWithLifecycle()
             FriendAddScreen(
                 uiState = friendUiState,
                 onBack = { navController.popBackStack() },
                 onQueryChange = friendViewModel::updateQuery,
+                onFriendCodeChange = friendViewModel::updateFriendCode,
+                onAddByCode = friendViewModel::addFriendByCode,
                 onAddFriend = friendViewModel::addFriend,
                 onRetry = friendViewModel::retry,
             )
@@ -202,9 +213,15 @@ fun GayadiNavHost(appContainer: AppContainer) {
         composable(Routes.TRIP_CREATE) {
             TripCreateScreen(
                 onBack = { navController.popBackStack() },
-                onCreate = { trip ->
-                    tripViewModel.addTrip(trip)
-                    navController.popBackStack()
+                onCreate = tripViewModel::addTrip,
+                onStartTrip = { trip ->
+                    tripViewModel.selectTrip(trip.id)
+                    navController.navigate(Routes.tripDetail(trip.id)) {
+                        popUpTo(Routes.TRIP_CREATE) { inclusive = true }
+                    }
+                },
+                onInviteFriend = { trip ->
+                    navController.navigate(Routes.tripInvitation(trip.id))
                 },
             )
         }
@@ -247,6 +264,7 @@ fun GayadiNavHost(appContainer: AppContainer) {
                 onCreate = { trip ->
                     tripViewModel.updateTrip(trip)
                     navController.popBackStack()
+                    Result.success(trip)
                 },
             )
         }
