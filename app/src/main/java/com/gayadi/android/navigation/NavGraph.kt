@@ -138,6 +138,8 @@ fun GayadiNavHost(appContainer: AppContainer) {
                 uiState = friendUiState,
                 onBack = { navController.popBackStack() },
                 onQueryChange = friendViewModel::updateQuery,
+                onFriendCodeChange = friendViewModel::updateFriendCode,
+                onAddByCode = friendViewModel::addFriendByCode,
                 onAddFriend = friendViewModel::addFriend,
                 onRetry = friendViewModel::retry,
             )
@@ -202,9 +204,15 @@ fun GayadiNavHost(appContainer: AppContainer) {
         composable(Routes.TRIP_CREATE) {
             TripCreateScreen(
                 onBack = { navController.popBackStack() },
-                onCreate = { trip ->
-                    tripViewModel.addTrip(trip)
-                    navController.popBackStack()
+                onCreate = tripViewModel::addTrip,
+                onStartTrip = { trip ->
+                    tripViewModel.selectTrip(trip.id)
+                    navController.navigate(Routes.tripDetail(trip.id)) {
+                        popUpTo(Routes.TRIP_CREATE) { inclusive = true }
+                    }
+                },
+                onInviteFriend = { trip ->
+                    navController.navigate(Routes.tripInvitation(trip.id))
                 },
             )
         }

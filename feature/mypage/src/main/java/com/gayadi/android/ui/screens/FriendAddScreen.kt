@@ -65,6 +65,8 @@ fun FriendAddScreen(
     uiState: FriendAddUiState,
     onBack: () -> Unit,
     onQueryChange: (String) -> Unit,
+    onFriendCodeChange: (String) -> Unit = {},
+    onAddByCode: () -> Unit = {},
     onAddFriend: (String) -> Unit,
     onRetry: () -> Unit,
 ) {
@@ -82,6 +84,13 @@ fun FriendAddScreen(
             Text("함께할 여행메이트", fontSize = 23.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
         }
         androidx.compose.material3.HorizontalDivider(color = Color(0xFFE5E5E5))
+
+        FriendCodeCard(
+            code = uiState.friendCode,
+            message = uiState.codeMessage,
+            onCodeChange = onFriendCodeChange,
+            onAdd = onAddByCode,
+        )
 
         OutlinedTextField(
             value = uiState.query,
@@ -138,6 +147,53 @@ fun FriendAddScreen(
                     FriendRow(friend = friend, onAdd = { onAddFriend(friend.id) })
                 }
                 item { Spacer(Modifier.height(24.dp)) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FriendCodeCard(
+    code: String,
+    message: String?,
+    onCodeChange: (String) -> Unit,
+    onAdd: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF7F7F9)),
+    ) {
+        Column(Modifier.padding(18.dp)) {
+            Text("친구 초대코드 입력", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+            Spacer(Modifier.height(5.dp))
+            Text("친구에게 받은 6자리 코드를 입력해 주세요", fontSize = 12.sp, color = TextSecondary)
+            Spacer(Modifier.height(14.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = code,
+                    onValueChange = onCodeChange,
+                    modifier = Modifier.weight(1f),
+                    placeholder = { Text("예: GAYADI") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(8.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White,
+                        focusedBorderColor = Color(0xFF343548),
+                        unfocusedBorderColor = Color(0xFFE0E1E7),
+                    ),
+                )
+                Button(
+                    onClick = onAdd,
+                    enabled = code.length == 6,
+                    modifier = Modifier.height(56.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF343548)),
+                ) { Text("추가") }
+            }
+            message?.let {
+                Text(it, modifier = Modifier.padding(top = 10.dp), fontSize = 12.sp, color = PrimaryBlue)
             }
         }
     }

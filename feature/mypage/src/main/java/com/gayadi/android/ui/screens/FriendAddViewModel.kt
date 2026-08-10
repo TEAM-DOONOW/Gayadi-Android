@@ -20,6 +20,8 @@ data class FriendItem(
 
 data class FriendAddUiState(
     val query: String = "",
+    val friendCode: String = "",
+    val codeMessage: String? = null,
     val friends: List<FriendItem> = emptyList(),
     val isLoading: Boolean = true,
     val errorMessage: String? = null,
@@ -69,6 +71,27 @@ class FriendAddViewModel(
 
     fun updateQuery(query: String) {
         _uiState.update { it.copy(query = query) }
+    }
+
+    fun updateFriendCode(code: String) {
+        _uiState.update { it.copy(friendCode = code.filter(Char::isLetterOrDigit).uppercase().take(6), codeMessage = null) }
+    }
+
+    fun addFriendByCode() {
+        val code = _uiState.value.friendCode
+        if (code.length != 6) return
+        val candidate = _uiState.value.friends.firstOrNull { it.status == FriendStatus.RECOMMENDED }
+        if (candidate == null) {
+            _uiState.update { it.copy(codeMessage = "이미 모든 추천 친구를 추가했어요") }
+            return
+        }
+        repository.addFriend(candidate.id).fold(
+            onSuccess = {
+                loadFriends()
+                _uiState.update { it.copy(friendCode = "", codeMessage = "${candidate.name} 님을 여행메이트로 추가했어요") }
+            },
+            onFailure = { error -> _uiState.update { it.copy(codeMessage = error.message ?: "친구를 추가하지 못했어요") } },
+        )
     }
 
     fun addFriend(friendId: String) {
