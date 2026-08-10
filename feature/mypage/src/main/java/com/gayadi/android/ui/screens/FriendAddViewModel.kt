@@ -3,6 +3,7 @@ package com.gayadi.android.ui.screens
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import java.util.Locale
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -36,9 +37,11 @@ data class FriendAddUiState(
 interface FriendRepository {
     fun getFriends(): Result<List<FriendItem>>
     fun addFriend(friendId: String): Result<Unit>
+    fun addFriendByCode(code: String): Result<FriendItem>
 }
 
 class FakeFriendRepository : FriendRepository {
+    private val friendIdsByCode = mapOf("GAYADI" to "friend-4")
     private var friends = listOf(
             FriendItem("friend-1", "석혁", "@sunghyeok", "🐱", FriendStatus.TRAVEL_MATE),
             FriendItem("friend-2", "민수", "@mintsu", "🐶", FriendStatus.TRAVEL_MATE),
@@ -57,6 +60,17 @@ class FakeFriendRepository : FriendRepository {
         }
         return Result.success(Unit)
     }
+
+    override fun addFriendByCode(code: String): Result<FriendItem> {
+        val friendId = friendIdsByCode[code]
+            ?: return Result.failure(IllegalArgumentException("유효하지 않은 초대 코드예요"))
+        val friend = friends.firstOrNull { it.id == friendId }
+            ?: return Result.failure(IllegalArgumentException("친구를 찾을 수 없습니다."))
+        if (friend.status != FriendStatus.RECOMMENDED) {
+            return Result.failure(IllegalStateException("이미 추가된 여행메이트예요"))
+        }
+        return addFriend(friendId).map { friend.copy(status = FriendStatus.ADDED) }
+    }
 }
 
 class FriendAddViewModel(
@@ -74,21 +88,19 @@ class FriendAddViewModel(
     }
 
     fun updateFriendCode(code: String) {
-        _uiState.update { it.copy(friendCode = code.filter(Char::isLetterOrDigit).uppercase().take(6), codeMessage = null) }
+        val normalizedCode = code.uppercase(Locale.ROOT)
+            .filter { it in 'A'..'Z' || it in '0'..'9' }
+            .take(6)
+        _uiState.update { it.copy(friendCode = normalizedCode, codeMessage = null) }
     }
 
     fun addFriendByCode() {
         val code = _uiState.value.friendCode
         if (code.length != 6) return
-        val candidate = _uiState.value.friends.firstOrNull { it.status == FriendStatus.RECOMMENDED }
-        if (candidate == null) {
-            _uiState.update { it.copy(codeMessage = "이미 모든 추천 친구를 추가했어요") }
-            return
-        }
-        repository.addFriend(candidate.id).fold(
-            onSuccess = {
+        repository.addFriendByCode(code).fold(
+            onSuccess = { addedFriend ->
                 loadFriends()
-                _uiState.update { it.copy(friendCode = "", codeMessage = "${candidate.name} 님을 여행메이트로 추가했어요") }
+                _uiState.update { it.copy(friendCode = "", codeMessage = "${addedFriend.name} 님을 여행메이트로 추가했어요") }
             },
             onFailure = { error -> _uiState.update { it.copy(codeMessage = error.message ?: "친구를 추가하지 못했어요") } },
         )
