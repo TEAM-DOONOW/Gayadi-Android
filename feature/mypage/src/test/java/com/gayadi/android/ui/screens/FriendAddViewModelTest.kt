@@ -6,8 +6,16 @@ import org.junit.Test
 
 class FriendAddViewModelTest {
     @Test
-    fun `six character code adds a recommended friend`() {
-        val viewModel = FriendAddViewModel(FakeFriendRepository())
+    fun `invite code adds only the matching friend`() {
+        val friends = listOf(
+            FriendItem("friend-a", "가야", "@gaya", "🐶", FriendStatus.RECOMMENDED),
+            FriendItem("friend-b", "다온", "@daon", "🐱", FriendStatus.RECOMMENDED),
+        )
+        val repository = FakeFriendRepository(
+            initialFriends = friends,
+            friendIdsByCode = mapOf("GAYADI" to "friend-a", "DAON12" to "friend-b"),
+        )
+        val viewModel = FriendAddViewModel(repository)
 
         viewModel.updateFriendCode("ga한y-adi!")
         assertEquals("GAYADI", viewModel.uiState.value.friendCode)
@@ -16,7 +24,8 @@ class FriendAddViewModelTest {
 
         assertEquals("", viewModel.uiState.value.friendCode)
         assertTrue(viewModel.uiState.value.codeMessage?.contains("추가했어요") == true)
-        assertTrue(viewModel.uiState.value.friends.any { it.status == FriendStatus.ADDED })
+        assertEquals(FriendStatus.ADDED, viewModel.uiState.value.friends.single { it.id == "friend-a" }.status)
+        assertEquals(FriendStatus.RECOMMENDED, viewModel.uiState.value.friends.single { it.id == "friend-b" }.status)
     }
 
     @Test
@@ -29,6 +38,18 @@ class FriendAddViewModelTest {
         assertEquals("ABC123", viewModel.uiState.value.friendCode)
         assertEquals("유효하지 않은 초대 코드예요", viewModel.uiState.value.codeMessage)
         assertTrue(viewModel.uiState.value.friends.none { it.status == FriendStatus.ADDED })
+    }
+
+    @Test
+    fun `non ascii input does not change friend list`() {
+        val viewModel = FriendAddViewModel(FakeFriendRepository())
+        val initialFriends = viewModel.uiState.value.friends
+
+        viewModel.updateFriendCode("가나다라마바")
+        viewModel.addFriendByCode()
+
+        assertEquals("", viewModel.uiState.value.friendCode)
+        assertEquals(initialFriends, viewModel.uiState.value.friends)
     }
 
     @Test

@@ -11,6 +11,7 @@ data class TravelTrip(
     val coverImageResList: List<Int> = emptyList(),
     val status: TripStatus = TripStatus.PLANNING,
     val participantIds: List<String> = emptyList(),
+    val inviteCode: String = "",
 )
 
 data class TravelParticipant(

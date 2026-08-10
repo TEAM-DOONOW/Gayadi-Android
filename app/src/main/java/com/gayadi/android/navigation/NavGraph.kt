@@ -255,6 +255,7 @@ fun GayadiNavHost(appContainer: AppContainer) {
                 onCreate = { trip ->
                     tripViewModel.updateTrip(trip)
                     navController.popBackStack()
+                    trip
                 },
             )
         }

@@ -60,6 +60,7 @@ class FileTravelRepository(
                     put("coverImageResList", JSONArray(trip.coverImageResList))
                     put("status", trip.status.name)
                     put("participantIds", JSONArray(trip.participantIds))
+                    put("inviteCode", trip.inviteCode)
                 })
             }
         })
@@ -111,6 +112,7 @@ class FileTravelRepository(
                 coverImageResList = trip.optJSONArray("coverImageResList").ints(),
                 status = trip.optString("status", TripStatus.PLANNING.name).enumOr(TripStatus.PLANNING),
                 participantIds = trip.optJSONArray("participantIds").strings(),
+                inviteCode = trip.optString("inviteCode"),
             )
         },
         participants = root.optJSONArray("participants").objects().map { participant ->

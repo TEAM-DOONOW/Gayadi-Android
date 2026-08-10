@@ -40,14 +40,20 @@ interface FriendRepository {
     fun addFriendByCode(code: String): Result<FriendItem>
 }
 
-class FakeFriendRepository : FriendRepository {
-    private val friendIdsByCode = mapOf("GAYADI" to "friend-4")
-    private var friends = listOf(
+class FakeFriendRepository(
+    initialFriends: List<FriendItem> = defaultFriends,
+    private val friendIdsByCode: Map<String, String> = mapOf("GAYADI" to "friend-4"),
+) : FriendRepository {
+    private var friends = initialFriends
+
+    companion object {
+        private val defaultFriends = listOf(
             FriendItem("friend-1", "석혁", "@sunghyeok", "🐱", FriendStatus.TRAVEL_MATE),
             FriendItem("friend-2", "민수", "@mintsu", "🐶", FriendStatus.TRAVEL_MATE),
             FriendItem("friend-3", "지은", "@jieun", "🐱", FriendStatus.INVITED),
             FriendItem("friend-4", "시연", "@siyeon", "🐶", FriendStatus.RECOMMENDED),
         )
+    }
 
     override fun getFriends(): Result<List<FriendItem>> = Result.success(friends)
 

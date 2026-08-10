@@ -70,6 +70,7 @@ data class TripSummary(
     val coverImageResList: List<Int>,
     val status: TripStatus = TripStatus.PLANNING,
     val participantIds: List<String> = emptyList(),
+    val inviteCode: String = "",
 )
 
 @Composable

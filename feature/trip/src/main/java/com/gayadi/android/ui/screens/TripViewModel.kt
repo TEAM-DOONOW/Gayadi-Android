@@ -44,8 +44,10 @@ class TripViewModel(
     private val getTravelState: GetTravelStateUseCase,
     private val saveTravelState: SaveTravelStateUseCase,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val inviteCodeGenerator: () -> String = ::randomInviteCode,
 ) : ViewModel() {
     private val persistenceMutex = Mutex()
+    private val reservedInviteCodes = mutableSetOf<String>()
     private val legacyTrips = decodeLegacyTrips(savedStateHandle[LEGACY_TRIPS_KEY])
     private val _uiState = MutableStateFlow(TravelUiState())
     val uiState = _uiState.asStateFlow()
@@ -68,8 +70,12 @@ class TripViewModel(
 
     fun consumeMessage() = _uiState.update { it.copy(message = null) }
 
-    fun addTrip(trip: TripSummary) = mutate("여행을 만들었어요") { state ->
-        state.copy(trips = listOf(trip.toDomain()) + state.trips)
+    fun addTrip(trip: TripSummary): TripSummary {
+        val savedTrip = trip.copy(inviteCode = allocateInviteCode())
+        mutate("여행을 만들었어요") { state ->
+            state.copy(trips = listOf(savedTrip.toDomain()) + state.trips)
+        }
+        return savedTrip
     }
 
     fun updateTrip(trip: TripSummary) = mutate("여행 정보를 수정했어요") { state ->
@@ -299,6 +305,14 @@ class TripViewModel(
         }
     }
 
+    private fun allocateInviteCode(): String = synchronized(reservedInviteCodes) {
+        val usedCodes = _uiState.value.travelState.trips.mapTo(reservedInviteCodes) { it.inviteCode }
+        generateSequence(inviteCodeGenerator)
+            .map(::normalizeInviteCode)
+            .first { it.length == INVITE_CODE_LENGTH && it !in usedCodes }
+            .also(reservedInviteCodes::add)
+    }
+
     private fun decodeLegacyTrips(value: String?): List<TripSummary> {
         if (value.isNullOrBlank()) return emptyList()
         return runCatching {
@@ -367,6 +381,7 @@ private fun TravelTrip.toSummary() = TripSummary(
     coverImageResList = coverImageResList,
     status = status,
     participantIds = participantIds,
+    inviteCode = inviteCode,
 )
 
 private fun TripSummary.toDomain(existing: TravelTrip? = null) = TravelTrip(
@@ -378,4 +393,9 @@ private fun TripSummary.toDomain(existing: TravelTrip? = null) = TravelTrip(
     coverImageResList = coverImageResList,
     status = existing?.status ?: status,
     participantIds = existing?.participantIds ?: participantIds,
+    inviteCode = existing?.inviteCode?.ifBlank { inviteCode } ?: inviteCode,
 )
+
+private const val INVITE_CODE_LENGTH = 6
+private fun randomInviteCode(): String = UUID.randomUUID().toString().replace("-", "").take(INVITE_CODE_LENGTH).uppercase()
+private fun normalizeInviteCode(code: String): String = code.uppercase().filter { it in 'A'..'Z' || it in '0'..'9' }.take(INVITE_CODE_LENGTH)

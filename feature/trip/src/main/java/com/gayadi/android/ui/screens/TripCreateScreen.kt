@@ -107,7 +107,7 @@ private val domesticCities = listOf(
 @Composable
 fun TripCreateScreen(
     onBack: () -> Unit,
-    onCreate: (TripSummary) -> Unit,
+    onCreate: (TripSummary) -> TripSummary,
     onStartTrip: (TripSummary) -> Unit = {},
     onInviteFriend: (TripSummary) -> Unit = {},
     initialTrip: TripSummary? = null,
@@ -154,9 +154,9 @@ fun TripCreateScreen(
                             domesticCities.firstOrNull { it.name == selectedCity }?.imageRes
                         },
                     )
-                onCreate(trip)
+                val savedTrip = onCreate(trip)
                 if (initialTrip == null) {
-                    createdTrip = trip
+                    createdTrip = savedTrip
                     step = CreateStep.COMPLETE
                 }
             },
@@ -207,9 +207,6 @@ private fun TripCreationCompleteStep(
     onStartTrip: () -> Unit,
 ) {
     val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
-    val inviteCode = remember(trip.id) {
-        trip.id.filter(Char::isLetterOrDigit).uppercase().padEnd(6, 'G').take(6)
-    }
     val daysUntilTrip = remember(trip.startDate) {
         runCatching {
             java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(), LocalDate.parse(trip.startDate, tripDateFormatter))
@@ -257,8 +254,8 @@ private fun TripCreationCompleteStep(
                     Spacer(Modifier.height(5.dp))
                     Text("${trip.startDate} - ${trip.endDate}", fontFamily = PretendardFontFamily, fontSize = 14.sp, color = Color(0xFF9A9CAB))
                     Spacer(Modifier.weight(0.35f))
-                    Text(inviteCode, fontFamily = PretendardSemiBoldFontFamily, fontSize = 25.sp, color = TextPrimary)
-                    TextButton(onClick = { clipboard.setText(androidx.compose.ui.text.AnnotatedString(inviteCode)) }) {
+                    Text(trip.inviteCode, fontFamily = PretendardSemiBoldFontFamily, fontSize = 25.sp, color = TextPrimary)
+                    TextButton(onClick = { clipboard.setText(androidx.compose.ui.text.AnnotatedString(trip.inviteCode)) }) {
                         Icon(Icons.Default.ContentCopy, contentDescription = null, tint = Color(0xFF9295A5), modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
                         Text("초대코드 복사하기", color = Color(0xFF9295A5), fontFamily = PretendardFontFamily)
