@@ -107,7 +107,7 @@ private val domesticCities = listOf(
 @Composable
 fun TripCreateScreen(
     onBack: () -> Unit,
-    onCreate: (TripSummary) -> TripSummary,
+    onCreate: (TripSummary) -> Result<TripSummary>,
     onStartTrip: (TripSummary) -> Unit = {},
     onInviteFriend: (TripSummary) -> Unit = {},
     initialTrip: TripSummary? = null,
@@ -127,6 +127,7 @@ fun TripCreateScreen(
     }
     var selectingField by remember { mutableStateOf<DateField?>(null) }
     var createdTrip by remember { mutableStateOf<TripSummary?>(null) }
+    var creationError by remember { mutableStateOf<String?>(null) }
 
     when (step) {
         CreateStep.CITY -> CitySelectionStep(
@@ -143,6 +144,7 @@ fun TripCreateScreen(
             onBack = { step = CreateStep.CITY },
             onSelectStart = { selectingField = DateField.START },
             onSelectEnd = { selectingField = DateField.END },
+            errorMessage = creationError,
             onCreate = {
                 val trip = TripSummary(
                         id = initialTrip?.id ?: java.util.UUID.randomUUID().toString(),
@@ -154,11 +156,16 @@ fun TripCreateScreen(
                             domesticCities.firstOrNull { it.name == selectedCity }?.imageRes
                         },
                     )
-                val savedTrip = onCreate(trip)
-                if (initialTrip == null) {
-                    createdTrip = savedTrip
-                    step = CreateStep.COMPLETE
-                }
+                onCreate(trip).fold(
+                    onSuccess = { savedTrip ->
+                        creationError = null
+                        if (initialTrip == null) {
+                            createdTrip = savedTrip
+                            step = CreateStep.COMPLETE
+                        }
+                    },
+                    onFailure = { creationError = it.message ?: "여행을 만들지 못했어요" },
+                )
             },
         )
         CreateStep.COMPLETE -> createdTrip?.let { trip ->
@@ -408,6 +415,7 @@ private fun TripDetailsStep(
     onBack: () -> Unit,
     onSelectStart: () -> Unit,
     onSelectEnd: () -> Unit,
+    errorMessage: String?,
     onCreate: () -> Unit,
 ) {
     val canCreate = name.isNotBlank() && startDate != null && endDate != null
@@ -445,6 +453,10 @@ private fun TripDetailsStep(
             DateField(endDate?.format(tripDateFormatter).orEmpty(), "종료일", onSelectEnd, Modifier.weight(1f))
         }
         Spacer(modifier = Modifier.weight(1f))
+        errorMessage?.let {
+            Text(it, color = Color(0xFFE34D59), fontFamily = PretendardFontFamily, fontSize = 13.sp)
+            Spacer(modifier = Modifier.height(10.dp))
+        }
         Button(
             onClick = onCreate,
             enabled = canCreate,

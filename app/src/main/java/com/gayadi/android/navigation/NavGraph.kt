@@ -132,7 +132,16 @@ fun GayadiNavHost(appContainer: AppContainer) {
             )
         }
         composable(Routes.FRIEND_ADD) {
-            val friendViewModel: FriendAddViewModel = viewModel(factory = FriendAddViewModel.factory())
+            val friendViewModel: FriendAddViewModel = viewModel(
+                factory = FriendAddViewModel.factory(
+                    joinTripByInviteCode = appContainer.joinTripByInviteCodeUseCase,
+                    localParticipant = TravelParticipant(
+                        id = "local-user",
+                        nickname = sharedProfileUiState.profile?.nickname ?: "나",
+                        characterKey = sharedProfileUiState.profile?.characterKey,
+                    ),
+                ),
+            )
             val friendUiState by friendViewModel.uiState.collectAsStateWithLifecycle()
             FriendAddScreen(
                 uiState = friendUiState,
@@ -255,7 +264,7 @@ fun GayadiNavHost(appContainer: AppContainer) {
                 onCreate = { trip ->
                     tripViewModel.updateTrip(trip)
                     navController.popBackStack()
-                    trip
+                    Result.success(trip)
                 },
             )
         }

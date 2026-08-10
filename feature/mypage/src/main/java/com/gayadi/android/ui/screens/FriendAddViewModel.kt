@@ -3,11 +3,17 @@ package com.gayadi.android.ui.screens
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import androidx.lifecycle.viewModelScope
+import com.gayadi.android.domain.model.TravelParticipant
+import com.gayadi.android.domain.usecase.JoinTripByInviteCodeUseCase
 import java.util.Locale
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 enum class FriendStatus { TRAVEL_MATE, INVITED, RECOMMENDED, ADDED }
 
@@ -37,12 +43,10 @@ data class FriendAddUiState(
 interface FriendRepository {
     fun getFriends(): Result<List<FriendItem>>
     fun addFriend(friendId: String): Result<Unit>
-    fun addFriendByCode(code: String): Result<FriendItem>
 }
 
 class FakeFriendRepository(
     initialFriends: List<FriendItem> = defaultFriends,
-    private val friendIdsByCode: Map<String, String> = mapOf("GAYADI" to "friend-4"),
 ) : FriendRepository {
     private var friends = initialFriends
 
@@ -67,20 +71,13 @@ class FakeFriendRepository(
         return Result.success(Unit)
     }
 
-    override fun addFriendByCode(code: String): Result<FriendItem> {
-        val friendId = friendIdsByCode[code]
-            ?: return Result.failure(IllegalArgumentException("유효하지 않은 초대 코드예요"))
-        val friend = friends.firstOrNull { it.id == friendId }
-            ?: return Result.failure(IllegalArgumentException("친구를 찾을 수 없습니다."))
-        if (friend.status != FriendStatus.RECOMMENDED) {
-            return Result.failure(IllegalStateException("이미 추가된 여행메이트예요"))
-        }
-        return addFriend(friendId).map { friend.copy(status = FriendStatus.ADDED) }
-    }
 }
 
 class FriendAddViewModel(
     private val repository: FriendRepository = FakeFriendRepository(),
+    private val joinTripByInviteCode: JoinTripByInviteCodeUseCase? = null,
+    private val localParticipant: TravelParticipant = TravelParticipant("local-user", "나"),
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(FriendAddUiState())
     val uiState: StateFlow<FriendAddUiState> = _uiState.asStateFlow()
@@ -103,13 +100,21 @@ class FriendAddViewModel(
     fun addFriendByCode() {
         val code = _uiState.value.friendCode
         if (code.length != 6) return
-        repository.addFriendByCode(code).fold(
-            onSuccess = { addedFriend ->
-                loadFriends()
-                _uiState.update { it.copy(friendCode = "", codeMessage = "${addedFriend.name} 님을 여행메이트로 추가했어요") }
-            },
-            onFailure = { error -> _uiState.update { it.copy(codeMessage = error.message ?: "친구를 추가하지 못했어요") } },
-        )
+        val joinUseCase = joinTripByInviteCode
+        if (joinUseCase == null) {
+            _uiState.update { it.copy(codeMessage = "초대 코드 저장소를 사용할 수 없어요") }
+            return
+        }
+        viewModelScope.launch(ioDispatcher) {
+            joinUseCase(code, localParticipant).fold(
+                onSuccess = { trip ->
+                    _uiState.update { it.copy(friendCode = "", codeMessage = "${trip.name} 여행에 참여했어요") }
+                },
+                onFailure = { error ->
+                    _uiState.update { it.copy(codeMessage = error.message ?: "여행에 참여하지 못했어요") }
+                },
+            )
+        }
     }
 
     fun addFriend(friendId: String) {
@@ -139,8 +144,12 @@ class FriendAddViewModel(
     }
 
     companion object {
-        fun factory(repository: FriendRepository = FakeFriendRepository()) = viewModelFactory {
-            initializer { FriendAddViewModel(repository) }
+        fun factory(
+            joinTripByInviteCode: JoinTripByInviteCodeUseCase? = null,
+            localParticipant: TravelParticipant = TravelParticipant("local-user", "나"),
+            repository: FriendRepository = FakeFriendRepository(),
+        ) = viewModelFactory {
+            initializer { FriendAddViewModel(repository, joinTripByInviteCode, localParticipant) }
         }
     }
 }

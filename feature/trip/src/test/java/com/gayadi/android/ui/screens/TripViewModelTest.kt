@@ -139,12 +139,33 @@ class TripViewModelTest {
         val viewModel = viewModel(repository, inviteCodeGenerator = candidates::next)
         advanceUntilIdle()
 
-        val savedTrip = viewModel.addTrip(sampleTrip())
+        val savedTrip = viewModel.addTrip(sampleTrip()).getOrThrow()
         advanceUntilIdle()
 
         assertEquals("XYZ789", savedTrip.inviteCode)
         assertEquals("XYZ789", repository.state.trips.single { it.id == "trip-28" }.inviteCode)
         assertEquals(2, repository.state.trips.map(TravelTrip::inviteCode).distinct().size)
+    }
+
+    @Test
+    fun inviteCodeGenerationStopsAfterMaximumAttempts() = runTest(dispatcher) {
+        val existingTrip = TravelTrip(
+            id = "existing",
+            name = "기존 여행",
+            startDate = "2026.08.01",
+            endDate = "2026.08.02",
+            cities = listOf("서울"),
+            inviteCode = "ABC123",
+        )
+        val repository = MemoryTravelRepository(TravelState(trips = listOf(existingTrip)))
+        val viewModel = viewModel(repository, inviteCodeGenerator = { "ABC123" })
+        advanceUntilIdle()
+
+        val result = viewModel.addTrip(sampleTrip())
+        advanceUntilIdle()
+
+        assertTrue(result.isFailure)
+        assertEquals(listOf("existing"), repository.state.trips.map(TravelTrip::id))
     }
 
     @Test
