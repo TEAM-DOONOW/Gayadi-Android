@@ -1,5 +1,6 @@
 package com.gayadi.android.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -23,18 +24,32 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AltRoute
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.gayadi.android.feature.home.R
 import com.gayadi.android.ui.components.BottomNavBar
 import com.gayadi.android.ui.components.BottomTab
 import com.gayadi.android.ui.components.UserCharacterAvatar
@@ -49,17 +64,39 @@ import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary
 import com.gayadi.android.ui.theme.TextTertiary
 
+data class HomeTravelPlan(
+    val title: String,
+    val date: String,
+    val time: String,
+    val isVisited: Boolean,
+)
+
+data class HomeTripDay(
+    val dayNumber: Int,
+    val date: String,
+    val dateLabel: String,
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RealtimeHomeScreen(
     uiState: RealtimeHomeUiState,
     tripTitle: String,
-    tripSubtitle: String,
     nextScheduleName: String?,
+    hasSchedules: Boolean = false,
+    travelPlans: List<HomeTravelPlan> = emptyList(),
+    tripDays: List<HomeTripDay> = emptyList(),
+    participantCount: Int = 0,
+    tripDday: String = "D-day",
+    friendCharacterKeys: List<String?> = emptyList(),
     onNavigateMyTrip: () -> Unit,
     onNavigateMyPage: () -> Unit,
     onNavigatePlaceSearch: () -> Unit,
     onNavigateFriendAdd: () -> Unit,
+    onNavigateParticipants: () -> Unit,
+    onNavigateInvitation: () -> Unit,
+    onNavigateSchedule: () -> Unit,
+    onNavigateRoutes: () -> Unit,
     onOpenReschedule: () -> Unit,
     onDismissReschedule: () -> Unit,
     onAcceptReschedule: () -> Unit,
@@ -69,7 +106,7 @@ fun RealtimeHomeScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.White),
+                .background(Color(0xFFF7F7F9)),
         ) {
             Column(
                 modifier = Modifier
@@ -79,27 +116,102 @@ fun RealtimeHomeScreen(
             ) {
                 Spacer(modifier = Modifier.height(56.dp))
 
-                Text(tripSubtitle, fontSize = 13.sp, color = TextSecondary)
-                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "두근두근 여행 준비",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextSecondary,
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "$tripTitle 여행일까지",
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary,
+                    lineHeight = 28.sp,
+                )
+                Text(
+                    text = buildAnnotatedString {
+                        withStyle(SpanStyle(color = Color(0xFFFF5A2A))) {
+                            append(tripDday)
+                        }
+                        append(" 남았어요!")
+                    },
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary,
+                    lineHeight = 28.sp,
+                )
+                Spacer(modifier = Modifier.height(18.dp))
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(tripTitle, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                    UserCharacterAvatar(
-                        characterKey = uiState.profile?.characterKey,
-                        contentDescription = "${uiState.profile?.nickname.orEmpty()} 여행 성향 캐릭터",
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clickable(onClick = onNavigateMyPage),
+                TravelOverviewCard(
+                    plans = travelPlans,
+                    participantCount = participantCount,
+                    myCharacterKey = uiState.profile?.characterKey,
+                    friendCharacterKeys = friendCharacterKeys,
+                    onParticipants = onNavigateParticipants,
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+                Text("여행 동선", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                Spacer(modifier = Modifier.height(10.dp))
+                TravelRoutePreview(plans = travelPlans, onClick = onNavigateRoutes)
+
+                Spacer(modifier = Modifier.height(24.dp))
+                Text("여행 계획", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                Spacer(modifier = Modifier.height(14.dp))
+                tripDays.forEach { day ->
+                    TripDaySection(
+                        day = day,
+                        plans = travelPlans.filter { it.date == day.date },
+                        onAddPlace = onNavigatePlaceSearch,
+                        onPlanClick = onNavigateSchedule,
                     )
+                    Spacer(modifier = Modifier.height(24.dp))
                 }
 
+                Spacer(modifier = Modifier.height(24.dp))
+
+                if (false) {
                 uiState.profile?.nickname?.let { nickname ->
                     Spacer(modifier = Modifier.height(4.dp))
                     Text("$nickname 님의 맞춤 여행", fontSize = 12.sp, color = TextSecondary)
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FB)),
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                    ) {
+                        TripManagementAction(
+                            label = "참여자",
+                            icon = { Icon(Icons.Filled.Group, contentDescription = null) },
+                            onClick = onNavigateParticipants,
+                        )
+                        TripManagementAction(
+                            label = "초대",
+                            icon = { Icon(Icons.Filled.PersonAdd, contentDescription = null) },
+                            onClick = onNavigateInvitation,
+                        )
+                        TripManagementAction(
+                            label = "일정",
+                            icon = { Icon(Icons.Filled.CalendarMonth, contentDescription = null) },
+                            onClick = onNavigateSchedule,
+                        )
+                        TripManagementAction(
+                            label = "경로",
+                            icon = { Icon(Icons.Filled.AltRoute, contentDescription = null) },
+                            onClick = onNavigateRoutes,
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -177,7 +289,7 @@ fun RealtimeHomeScreen(
                             .padding(16.dp),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Row(
+                        if (hasSchedules) Row(
                             horizontalArrangement = Arrangement.spacedBy(24.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
@@ -186,6 +298,13 @@ fun RealtimeHomeScreen(
                             RouteDot("2", Color(0xFF666666))
                             Text("···", color = TextTertiary)
                             RouteDot("3", Color(0xFF666666))
+                        }
+                        if (!hasSchedules) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("아직 등록된 일정이 없어요", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text("일정을 추가하면 여행 동선이 표시됩니다", fontSize = 12.sp, color = TextSecondary)
+                            }
                         }
                         Text(
                             "실내 구역",
@@ -251,6 +370,7 @@ fun RealtimeHomeScreen(
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
+                }
             }
 
             BottomNavBar(
@@ -272,6 +392,201 @@ fun RealtimeHomeScreen(
                 onAccept = onAcceptReschedule,
             )
         }
+    }
+}
+
+@Composable
+private fun TravelOverviewCard(
+    plans: List<HomeTravelPlan>,
+    participantCount: Int,
+    myCharacterKey: String?,
+    friendCharacterKeys: List<String?>,
+    onParticipants: () -> Unit,
+) {
+    val completed = plans.count { it.isVisited }
+    val progress = if (plans.isEmpty()) 0f else completed.toFloat() / plans.size
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(185.dp),
+    ) {
+        Image(
+            painter = painterResource(R.drawable.gayadi_letter),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.FillBounds,
+        )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 24.dp, vertical = 18.dp),
+        ) {
+            Text(
+                "우리 여행 진행률",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary,
+            )
+            Spacer(Modifier.height(10.dp))
+            LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier.fillMaxWidth().height(12.dp).clip(CircleShape),
+                color = Color(0xFFFF5A2A),
+                trackColor = Color(0xFFFFC9B6),
+            )
+            Spacer(Modifier.height(5.dp))
+            Text(
+                "${(progress * 100).toInt()}%",
+                modifier = Modifier.align(Alignment.End),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFFFF5A2A),
+            )
+            Spacer(Modifier.height(14.dp))
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onParticipants),
+            ) {
+                Text(
+                    "함께 하는 친구",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextPrimary,
+                )
+                Spacer(Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    UserCharacterAvatar(myCharacterKey, "내 캐릭터", Modifier.size(30.dp))
+                    Spacer(Modifier.width(4.dp))
+                    friendCharacterKeys.take(2).forEach { key ->
+                        UserCharacterAvatar(key, "함께하는 친구", Modifier.size(30.dp))
+                        Spacer(Modifier.width(4.dp))
+                    }
+                    Box(Modifier.size(30.dp).clip(CircleShape).background(Color(0xFFECECF1)), contentAlignment = Alignment.Center) {
+                        Text(if (participantCount == 0) "+" else "+$participantCount", fontSize = 10.sp, color = TextSecondary)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TravelRoutePreview(plans: List<HomeTravelPlan>, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FB)),
+    ) {
+        if (plans.isEmpty()) {
+            Column(Modifier.fillMaxWidth().padding(vertical = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("동선이 아직 없어요", fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                Spacer(Modifier.height(5.dp))
+                Text("계획을 추가하면 이곳에 동선이 표시돼요", fontSize = 12.sp, color = TextSecondary)
+            }
+        } else {
+            Row(
+                Modifier.fillMaxWidth().padding(18.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                plans.take(3).forEachIndexed { index, plan ->
+                    if (index > 0) Text("→", color = TextTertiary)
+                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                        RouteDot((index + 1).toString(), if (plan.isVisited) PrimaryBlue else PrimaryAction)
+                        Spacer(Modifier.height(6.dp))
+                        Text(plan.title, maxLines = 1, fontSize = 11.sp, color = TextPrimary)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TravelPlanRow(index: Int, plan: HomeTravelPlan, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE8E8EC)),
+    ) {
+        Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            RouteDot(index.toString(), if (plan.isVisited) PrimaryBlue else PrimaryAction)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(plan.title, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                Text("${plan.date}  ${plan.time}", fontSize = 12.sp, color = TextSecondary)
+            }
+            Text(if (plan.isVisited) "완료" else "예정", fontSize = 11.sp, color = if (plan.isVisited) PrimaryBlue else TextSecondary)
+        }
+    }
+}
+
+@Composable
+private fun TripDaySection(
+    day: HomeTripDay,
+    plans: List<HomeTravelPlan>,
+    onAddPlace: () -> Unit,
+    onPlanClick: () -> Unit,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = "DAY ${day.dayNumber}",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = TextPrimary,
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = day.dateLabel,
+            fontSize = 17.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = TextSecondary,
+        )
+    }
+    if (plans.isNotEmpty()) {
+        Spacer(modifier = Modifier.height(12.dp))
+        plans.forEachIndexed { index, plan ->
+            TravelPlanRow(index = index + 1, plan = plan, onClick = onPlanClick)
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+    }
+    Spacer(modifier = Modifier.height(14.dp))
+    OutlinedButton(
+        onClick = onAddPlace,
+        modifier = Modifier.fillMaxWidth().height(40.dp),
+        shape = RoundedCornerShape(8.dp),
+    ) { Text("장소 추가", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary) }
+}
+
+@Composable
+private fun TripManagementAction(
+    label: String,
+    icon: @Composable () -> Unit,
+    onClick: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(Color.White),
+            contentAlignment = Alignment.Center,
+        ) {
+            androidx.compose.runtime.CompositionLocalProvider(
+                androidx.compose.material3.LocalContentColor provides PrimaryAction,
+                content = icon,
+            )
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(label, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
     }
 }
 
@@ -484,12 +799,16 @@ private fun RealtimeHomePreview() {
         RealtimeHomeScreen(
             uiState = RealtimeHomeUiState(),
             tripTitle = "제주 여행",
-            tripSubtitle = "여행 2일차 · 제주",
             nextScheduleName = "명진전복",
+            hasSchedules = true,
             onNavigateMyTrip = {},
             onNavigateMyPage = {},
             onNavigatePlaceSearch = {},
             onNavigateFriendAdd = {},
+            onNavigateParticipants = {},
+            onNavigateInvitation = {},
+            onNavigateSchedule = {},
+            onNavigateRoutes = {},
             onOpenReschedule = {},
             onDismissReschedule = {},
             onAcceptReschedule = {},

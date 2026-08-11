@@ -50,6 +50,9 @@ import androidx.compose.ui.text.AnnotatedString
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 
 @Composable
 fun GayadiNavHost(appContainer: AppContainer) {
@@ -205,7 +208,7 @@ fun GayadiNavHost(appContainer: AppContainer) {
                 onDeleteTrip = tripViewModel::deleteTrip,
                 onNavigateHome = { tripId ->
                     tripViewModel.selectTrip(tripId)
-                    navController.navigate(Routes.tripDetail(tripId))
+                    navController.navigate(Routes.realtimeHome(tripId))
                 },
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
             )
@@ -216,7 +219,7 @@ fun GayadiNavHost(appContainer: AppContainer) {
                 onCreate = tripViewModel::addTrip,
                 onStartTrip = { trip ->
                     tripViewModel.selectTrip(trip.id)
-                    navController.navigate(Routes.tripDetail(trip.id)) {
+                    navController.navigate(Routes.realtimeHome(trip.id)) {
                         popUpTo(Routes.TRIP_CREATE) { inclusive = true }
                     }
                 },
@@ -400,17 +403,61 @@ fun GayadiNavHost(appContainer: AppContainer) {
                 factory = RealtimeHomeViewModel.factory(appContainer.getUserProfileUseCase),
             )
             val homeUiState by homeViewModel.uiState.collectAsStateWithLifecycle()
-            val nextScheduleName = travelState.schedulesForTrip(tripId)
+            val tripSchedules = travelState.schedulesForTrip(tripId)
+            val tripParticipants = travelState.participantsForTrip(tripId, tripViewModel.availableParticipants)
+            val nextScheduleName = tripSchedules
                 .firstOrNull { !it.isVisited }?.title
             RealtimeHomeScreen(
                 uiState = homeUiState,
                 tripTitle = trip?.name ?: "선택한 여행",
-                tripSubtitle = trip?.let { "${it.startDate} - ${it.endDate} · ${it.cities.joinToString(" · ")}" }.orEmpty(),
                 nextScheduleName = nextScheduleName,
+                hasSchedules = tripSchedules.isNotEmpty(),
+                travelPlans = tripSchedules.map { schedule ->
+                    com.gayadi.android.ui.screens.HomeTravelPlan(
+                        title = schedule.title,
+                        date = schedule.date,
+                        time = schedule.time,
+                        isVisited = schedule.isVisited,
+                    )
+                },
+                tripDays = trip?.let { selectedTrip ->
+                    runCatching {
+                        val formatter = DateTimeFormatter.ofPattern("yyyy.MM.dd")
+                        val start = LocalDate.parse(selectedTrip.startDate, formatter)
+                        val end = LocalDate.parse(selectedTrip.endDate, formatter)
+                        generateSequence(start) { current ->
+                            current.plusDays(1).takeIf { !it.isAfter(end) }
+                        }.mapIndexed { index, date ->
+                            val weekday = listOf("월", "화", "수", "목", "금", "토", "일")[date.dayOfWeek.value - 1]
+                            com.gayadi.android.ui.screens.HomeTripDay(
+                                dayNumber = index + 1,
+                                date = date.format(formatter),
+                                dateLabel = "${date.monthValue}.${date.dayOfMonth}/$weekday",
+                            )
+                        }.toList()
+                    }.getOrDefault(emptyList())
+                }.orEmpty(),
+                participantCount = tripParticipants.size,
+                friendCharacterKeys = tripParticipants.map { it.characterKey },
+                tripDday = trip?.startDate?.let { startDate ->
+                    runCatching {
+                        val date = LocalDate.parse(startDate, DateTimeFormatter.ofPattern("yyyy.MM.dd"))
+                        val days = ChronoUnit.DAYS.between(LocalDate.now(), date)
+                        when {
+                            days > 0 -> "${days}일"
+                            days == 0L -> "D-day"
+                            else -> "여행 중"
+                        }
+                    }.getOrDefault("D-day")
+                } ?: "D-day",
                 onNavigateMyTrip = { navController.navigate(Routes.MY_TRIP) },
                 onNavigateMyPage = { navController.navigate(Routes.MY_PAGE) },
                 onNavigatePlaceSearch = { navController.navigate(Routes.placeSearch(tripId)) },
                 onNavigateFriendAdd = { navController.navigate(Routes.FRIEND_ADD) },
+                onNavigateParticipants = { navController.navigate(Routes.tripParticipants(tripId)) },
+                onNavigateInvitation = { navController.navigate(Routes.tripInvitation(tripId)) },
+                onNavigateSchedule = { navController.navigate(Routes.tripSchedule(tripId)) },
+                onNavigateRoutes = { navController.navigate(Routes.routeHub(tripId)) },
                 onOpenReschedule = homeViewModel::openRescheduleSuggestion,
                 onDismissReschedule = homeViewModel::dismissRescheduleSuggestion,
                 onAcceptReschedule = homeViewModel::acceptRescheduleSuggestion,
