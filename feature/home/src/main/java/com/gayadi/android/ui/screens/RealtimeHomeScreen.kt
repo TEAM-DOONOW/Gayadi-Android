@@ -419,7 +419,7 @@ private fun TravelOverviewCard(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 24.dp, vertical = 18.dp),
+                .padding(horizontal = 24.dp, vertical = 20.dp),
         ) {
             Text(
                 "우리 여행 진행률",
@@ -507,7 +507,7 @@ private fun TravelRoutePreview(plans: List<HomeTravelPlan>, onClick: () -> Unit)
 private fun TravelPlanRow(index: Int, plan: HomeTravelPlan, onClick: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(0.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE8E8EC)),
     ) {
@@ -540,8 +540,8 @@ private fun TripDaySection(
         Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = day.dateLabel,
-            fontSize = 17.sp,
-            fontWeight = FontWeight.SemiBold,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium,
             color = TextSecondary,
         )
     }
@@ -553,11 +553,12 @@ private fun TripDaySection(
         }
     }
     Spacer(modifier = Modifier.height(14.dp))
-    OutlinedButton(
+    Button(
         onClick = onAddPlace,
         modifier = Modifier.fillMaxWidth().height(40.dp),
-        shape = RoundedCornerShape(8.dp),
-    ) { Text("장소 추가", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary) }
+        shape = RoundedCornerShape(0.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = PrimaryAction),
+    ) { Text("장소 추가", fontSize = 14.sp, fontWeight = FontWeight.SemiBold) }
 }
 
 @Composable
