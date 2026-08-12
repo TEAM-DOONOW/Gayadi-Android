@@ -26,6 +26,11 @@ captures/
 
 # Kotlin
 *.class
+__pycache__/
+*.pyc
+
+# Node.js tooling
+node_modules/
 
 # OS
 .DS_Store

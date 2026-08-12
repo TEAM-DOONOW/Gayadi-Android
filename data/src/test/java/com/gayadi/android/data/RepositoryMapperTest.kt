@@ -1,24 +1,51 @@
 package com.gayadi.android.data
 
-import com.gayadi.android.data.datasource.InMemoryProfileLocalDataSource
 import com.gayadi.android.data.datasource.FileProfileLocalDataSource
+import com.gayadi.android.data.datasource.InMemoryProfileLocalDataSource
 import com.gayadi.android.data.datasource.SurveyDataSource
+import com.gayadi.android.data.mapper.toDomain
+import com.gayadi.android.data.model.CompatibleTravelTypeDto
+import com.gayadi.android.data.model.LegalDocumentDto
+import com.gayadi.android.data.model.LegalDocumentSectionDto
 import com.gayadi.android.data.model.SurveyDefinitionDto
 import com.gayadi.android.data.model.SurveyOptionDto
 import com.gayadi.android.data.model.SurveyQuestionDto
 import com.gayadi.android.data.model.SurveyResultDto
+import com.gayadi.android.data.model.TravelRoleDto
 import com.gayadi.android.data.repository.DefaultSurveyRepository
 import com.gayadi.android.data.repository.InMemoryProfileRepository
 import com.gayadi.android.domain.model.BasicInfo
 import com.gayadi.android.domain.model.SurveyResult
 import java.nio.file.Files
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
-import kotlinx.coroutines.test.runTest
 
 /** Verifies repository delegation and data-to-domain mapping. */
 class RepositoryMapperTest {
+    @Test
+    fun legalDocumentMapper_preservesPublicationMetadataAndSections() {
+        val document = LegalDocumentDto(
+            id = "privacy-policy",
+            title = "개인정보처리방침",
+            version = "1.0.0",
+            effectiveDate = "2026-08-12",
+            summary = "개인정보 처리 안내",
+            sections = listOf(LegalDocumentSectionDto("처리 목적", "여행 기능 제공")),
+            reviewNotice = "검토 필요",
+        ).toDomain()
+
+        assertEquals("privacy-policy", document.id)
+        assertEquals("개인정보처리방침", document.title)
+        assertEquals("1.0.0", document.version)
+        assertEquals("2026-08-12", document.effectiveDate)
+        assertEquals("개인정보 처리 안내", document.summary)
+        assertEquals("처리 목적", document.sections.single().title)
+        assertEquals("여행 기능 제공", document.sections.single().body)
+        assertEquals("검토 필요", document.reviewNotice)
+    }
+
     @Test
     fun profileRepository_mapsEntityAndDomainModel() = runTest {
         val repository = InMemoryProfileRepository(InMemoryProfileLocalDataSource())
@@ -83,14 +110,16 @@ class RepositoryMapperTest {
     @Test
     fun surveyRepository_mapsAggregateToDomainModel() {
         val expectedResult = SurveyResultDto(
-            "PNA",
-            "⛰️",
-            "플래너",
-            "소개",
-            listOf("#코스설계"),
-            listOf("미리 조사해요."),
-            listOf("조급해질 수 있어요."),
-            "character_pna",
+            code = "PNA",
+            emoji = "⛰️",
+            name = "플래너",
+            summary = "소개",
+            hashtags = listOf("# 코스 설계"),
+            strengths = listOf("미리 조사해요."),
+            weaknesses = listOf("조급해질 수 있어요."),
+            characterKey = "character_pna",
+            compatibleTypes = listOf(CompatibleTravelTypeDto("PNR", "🏞️", "힐링잉")),
+            travelRole = TravelRoleDto("🧭", "코스 대장", "안전한 동선을 만들어요."),
         )
         val dataSource = object : SurveyDataSource {
             override fun loadSurvey(callback: (Result<SurveyDefinitionDto>) -> Unit) {
@@ -123,15 +152,21 @@ class RepositoryMapperTest {
         var questionTitle: String? = null
         var resultName: String? = null
         var resultCharacterKey: String? = null
+        var compatibleCode: String? = null
+        var travelRoleTitle: String? = null
 
         repository.loadSurvey { questionTitle = it.getOrThrow().questions.single().title }
         repository.loadResult("PNA") {
             resultName = it.getOrThrow().name
             resultCharacterKey = it.getOrThrow().characterKey
+            compatibleCode = it.getOrThrow().compatibleTypes.single().code
+            travelRoleTitle = it.getOrThrow().travelRole?.title
         }
 
         assertEquals("질문", questionTitle)
         assertEquals("플래너", resultName)
         assertEquals("character_pna", resultCharacterKey)
+        assertEquals("PNR", compatibleCode)
+        assertEquals("코스 대장", travelRoleTitle)
     }
 }

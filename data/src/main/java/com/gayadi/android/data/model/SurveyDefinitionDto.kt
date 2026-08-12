@@ -19,4 +19,18 @@ data class SurveyResultDto(
     val strengths: List<String>,
     val weaknesses: List<String>,
     val characterKey: String?,
+    val compatibleTypes: List<CompatibleTravelTypeDto> = emptyList(),
+    val travelRole: TravelRoleDto? = null,
+)
+
+data class CompatibleTravelTypeDto(
+    val code: String,
+    val emoji: String,
+    val name: String,
+)
+
+data class TravelRoleDto(
+    val icon: String,
+    val title: String,
+    val description: String,
 )
