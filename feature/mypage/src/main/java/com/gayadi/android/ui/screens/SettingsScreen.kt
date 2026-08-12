@@ -55,6 +55,8 @@ fun SettingsScreen(
     uiState: ProfileUiState,
     onBack: () -> Unit,
     onEditProfile: () -> Unit,
+    onTermsOfService: () -> Unit,
+    onPrivacyPolicy: () -> Unit,
     onLogout: () -> Unit,
     onDeleteAccount: () -> Unit,
 ) {
@@ -150,6 +152,18 @@ fun SettingsScreen(
             SettingsRow("언어", trailing = { Text("Ko", fontSize = 14.sp, color = TextSecondary) })
             HorizontalDivider(color = Color(0xFFF0F0F0))
             SettingsRow("버전 정보", trailing = { Text("1.0.0", fontSize = 14.sp, color = TextSecondary) })
+            HorizontalDivider(color = Color(0xFFF0F0F0))
+            SettingsRow(
+                label = "이용약관",
+                onClick = onTermsOfService,
+                trailing = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = TextTertiary) },
+            )
+            HorizontalDivider(color = Color(0xFFF0F0F0))
+            SettingsRow(
+                label = "개인정보처리방침",
+                onClick = onPrivacyPolicy,
+                trailing = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = TextTertiary) },
+            )
 
             Spacer(modifier = Modifier.height(32.dp))
 
@@ -184,10 +198,15 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun SettingsRow(label: String, trailing: @Composable () -> Unit) {
+private fun SettingsRow(
+    label: String,
+    onClick: (() -> Unit)? = null,
+    trailing: @Composable () -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .then(if (onClick == null) Modifier else Modifier.clickable(onClick = onClick))
             .padding(vertical = 14.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
@@ -205,6 +224,8 @@ private fun SettingsPreview() {
             uiState = ProfileUiState(UserProfile("가야디", "여행가")),
             onBack = {},
             onEditProfile = {},
+            onTermsOfService = {},
+            onPrivacyPolicy = {},
             onLogout = {},
             onDeleteAccount = {},
         )

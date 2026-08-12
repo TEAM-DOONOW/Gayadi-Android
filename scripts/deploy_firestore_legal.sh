@@ -8,7 +8,7 @@ if [[ ! -x node_modules/.bin/firebase ]]; then
   exit 1
 fi
 
-python3 scripts/seed_firestore_survey.py --project "$project_id"
+python3 scripts/seed_firestore_legal.py --project "$project_id"
 node_modules/.bin/firebase deploy \
   --only firestore:rules \
   --project "$project_id" \

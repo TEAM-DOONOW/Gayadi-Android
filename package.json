@@ -1,0 +1,7 @@
+{
+  "name": "gayadi-android-firebase-tools",
+  "private": true,
+  "devDependencies": {
+    "firebase-tools": "15.26.0"
+  }
+}

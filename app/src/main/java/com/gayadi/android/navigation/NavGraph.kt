@@ -15,6 +15,7 @@ import com.gayadi.android.di.AppContainer
 import com.gayadi.android.domain.model.TravelParticipant
 import com.gayadi.android.domain.model.TravelState
 import com.gayadi.android.domain.model.UserProfile
+import com.gayadi.android.domain.model.LegalDocumentType
 import com.gayadi.android.feature.basicinfo.presentation.BasicInfoRoute
 import com.gayadi.android.feature.basicinfo.presentation.BasicInfoViewModel
 import com.gayadi.android.feature.survey.presentation.SurveyRoute
@@ -36,6 +37,8 @@ import com.gayadi.android.ui.screens.PlaceViewModel
 import com.gayadi.android.ui.screens.RealtimeHomeScreen
 import com.gayadi.android.ui.screens.RealtimeHomeViewModel
 import com.gayadi.android.ui.screens.SettingsScreen
+import com.gayadi.android.ui.screens.LegalDocumentRoute
+import com.gayadi.android.ui.screens.LegalDocumentViewModel
 import com.gayadi.android.ui.screens.TripDetailScreen
 import com.gayadi.android.ui.screens.ParticipantsScreen
 import com.gayadi.android.ui.screens.InvitationScreen
@@ -482,6 +485,12 @@ fun GayadiNavHost(appContainer: AppContainer) {
                 uiState = sharedProfileUiState,
                 onBack = { navController.popBackStack() },
                 onEditProfile = { navController.navigate(Routes.BASIC_INFO) },
+                onTermsOfService = {
+                    navController.navigate(Routes.legalDocument(LegalDocumentType.TERMS_OF_SERVICE.documentId))
+                },
+                onPrivacyPolicy = {
+                    navController.navigate(Routes.legalDocument(LegalDocumentType.PRIVACY_POLICY.documentId))
+                },
                 onLogout = returnToLogin,
                 onDeleteAccount = {
                     appScope.launch(Dispatchers.IO) {
@@ -493,6 +502,20 @@ fun GayadiNavHost(appContainer: AppContainer) {
                     }
                 },
             )
+        }
+        composable(
+            route = Routes.LEGAL_DOCUMENT,
+            arguments = listOf(navArgument("documentId") { type = NavType.StringType }),
+        ) { backStackEntry ->
+            val documentId = requireNotNull(backStackEntry.arguments?.getString("documentId"))
+            val type = requireNotNull(LegalDocumentType.fromDocumentId(documentId)) {
+                "지원하지 않는 법적 문서입니다: $documentId"
+            }
+            val legalViewModel: LegalDocumentViewModel = viewModel(
+                key = "legal-$documentId",
+                factory = LegalDocumentViewModel.factory(type, appContainer.getLegalDocumentUseCase),
+            )
+            LegalDocumentRoute(viewModel = legalViewModel, onBack = { navController.popBackStack() })
         }
     }
 }
