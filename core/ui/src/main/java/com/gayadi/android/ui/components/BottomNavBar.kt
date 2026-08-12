@@ -57,7 +57,13 @@ fun BottomNavBar(
             onClick = { onTabSelected(rightTab) },
             icon = {
                 Icon(
-                    painter = painterResource(R.drawable.bottom_my_trip),
+                    painter = painterResource(
+                        if (rightTab == BottomTab.MY_PAGE) {
+                            R.drawable.bottom_my_page
+                        } else {
+                            R.drawable.bottom_my_trip
+                        },
+                    ),
                     contentDescription = rightTab.label,
                     modifier = Modifier.size(28.dp),
                 )
