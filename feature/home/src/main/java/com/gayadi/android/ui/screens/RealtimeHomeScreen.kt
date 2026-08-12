@@ -265,6 +265,14 @@ private fun TravelOverviewCard(
 ) {
     val completed = plans.count { it.isVisited }
     val progress = if (plans.isEmpty()) 0f else completed.toFloat() / plans.size
+    val visibleFriendCharacterKeys = friendCharacterKeys
+        .filter { it != myCharacterKey }
+        .distinct()
+        .take(2)
+    val displayedParticipantCount = (1 + visibleFriendCharacterKeys.size)
+        .coerceAtMost(participantCount)
+    val remainingParticipantCount = (participantCount - displayedParticipantCount)
+        .coerceAtLeast(0)
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -343,7 +351,7 @@ private fun TravelOverviewCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     UserCharacterAvatar(myCharacterKey, "내 캐릭터", Modifier.requiredSize(30.dp))
                     Spacer(Modifier.width(4.dp))
-                    friendCharacterKeys.take(2).forEach { key ->
+                    visibleFriendCharacterKeys.forEach { key ->
                         UserCharacterAvatar(key, "함께하는 친구", Modifier.requiredSize(30.dp))
                         Spacer(Modifier.width(4.dp))
                     }
@@ -353,7 +361,11 @@ private fun TravelOverviewCard(
                             .background(Color(0xFFECECF1), CircleShape),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(if (participantCount == 0) "+" else "+$participantCount", fontSize = 10.sp, color = TextSecondary)
+                        Text(
+                            if (remainingParticipantCount == 0) "+" else "+$remainingParticipantCount",
+                            fontSize = 10.sp,
+                            color = TextSecondary,
+                        )
                     }
                 }
             }
