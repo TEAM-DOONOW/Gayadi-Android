@@ -1,7 +1,5 @@
 package com.gayadi.android.ui.components
 
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -33,11 +31,9 @@ fun BottomNavBar(
     val rightTab = if (showMyPage) BottomTab.MY_PAGE else BottomTab.MY_TRIP
 
     NavigationBar(
-        modifier = Modifier.height(72.dp),
         containerColor = Color.White,
     ) {
         NavigationBarItem(
-            modifier = Modifier.padding(top = 8.dp),
             selected = currentTab == BottomTab.OUR_TRIP,
             onClick = { onTabSelected(BottomTab.OUR_TRIP) },
             icon = {
@@ -57,7 +53,6 @@ fun BottomNavBar(
             ),
         )
         NavigationBarItem(
-            modifier = Modifier.padding(top = 8.dp),
             selected = currentTab == rightTab,
             onClick = { onTabSelected(rightTab) },
             icon = {
