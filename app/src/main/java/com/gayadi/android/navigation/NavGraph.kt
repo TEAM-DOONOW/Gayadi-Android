@@ -27,6 +27,8 @@ import com.gayadi.android.ui.screens.FriendAddViewModel
 import com.gayadi.android.ui.screens.LoginScreen
 import com.gayadi.android.ui.screens.MyPageScreen
 import com.gayadi.android.ui.screens.MyTravelProfileScreen
+import com.gayadi.android.ui.screens.LegalDocument
+import com.gayadi.android.ui.screens.LegalDocumentScreen
 import com.gayadi.android.ui.screens.ProfileViewModel
 import com.gayadi.android.ui.screens.MyTripScreen
 import com.gayadi.android.ui.screens.TripCreateScreen
@@ -483,6 +485,8 @@ fun GayadiNavHost(appContainer: AppContainer) {
                 uiState = sharedProfileUiState,
                 onBack = { navController.popBackStack() },
                 onOpenTravelProfile = { navController.navigate(Routes.MY_TRAVEL_PROFILE) },
+                onOpenTerms = { navController.navigate(Routes.TERMS) },
+                onOpenPrivacyPolicy = { navController.navigate(Routes.PRIVACY_POLICY) },
                 onLogout = returnToLogin,
                 onDeleteAccount = {
                     appScope.launch(Dispatchers.IO) {
@@ -497,9 +501,16 @@ fun GayadiNavHost(appContainer: AppContainer) {
         }
         composable(Routes.MY_TRAVEL_PROFILE) {
             MyTravelProfileScreen(
-                profile = sharedProfileUiState.profile,
+                uiState = sharedProfileUiState,
                 onBack = { navController.popBackStack() },
+                onRetry = sharedProfileViewModel::reload,
             )
+        }
+        composable(Routes.TERMS) {
+            LegalDocumentScreen(document = LegalDocument.TERMS, onBack = { navController.popBackStack() })
+        }
+        composable(Routes.PRIVACY_POLICY) {
+            LegalDocumentScreen(document = LegalDocument.PRIVACY, onBack = { navController.popBackStack() })
         }
     }
 }

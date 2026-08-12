@@ -58,6 +58,8 @@ fun SettingsScreen(
     uiState: ProfileUiState,
     onBack: () -> Unit,
     onOpenTravelProfile: () -> Unit,
+    onOpenTerms: () -> Unit,
+    onOpenPrivacyPolicy: () -> Unit,
     onLogout: () -> Unit,
     onDeleteAccount: () -> Unit,
 ) {
@@ -193,10 +195,10 @@ fun SettingsScreen(
             })
             SettingsRow("언어", trailing = { Text("Ko", fontSize = 14.sp, color = TextSecondary) })
             SettingsRow("버전 정보", trailing = { Text("1.0.0", fontSize = 14.sp, color = TextSecondary) })
-            SettingsRow("서비스 이용약관", trailing = {
+            SettingsRow("서비스 이용약관", onClick = onOpenTerms, trailing = {
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = TextTertiary)
             })
-            SettingsRow("개인정보처리방침", trailing = {
+            SettingsRow("개인정보처리방침", onClick = onOpenPrivacyPolicy, trailing = {
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = TextTertiary)
             })
 
@@ -234,10 +236,11 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun SettingsRow(label: String, trailing: @Composable () -> Unit) {
+private fun SettingsRow(label: String, onClick: (() -> Unit)? = null, trailing: @Composable () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = 4.dp, vertical = 16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
@@ -255,6 +258,8 @@ private fun SettingsPreview() {
             uiState = ProfileUiState(UserProfile("가야디", "여행가")),
             onBack = {},
             onOpenTravelProfile = {},
+            onOpenTerms = {},
+            onOpenPrivacyPolicy = {},
             onLogout = {},
             onDeleteAccount = {},
         )

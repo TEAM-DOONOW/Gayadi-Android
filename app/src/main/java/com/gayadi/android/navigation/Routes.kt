@@ -24,6 +24,8 @@ object Routes {
     const val MY_PAGE = "my_page"
     const val SETTINGS = "settings"
     const val MY_TRAVEL_PROFILE = "my_travel_profile"
+    const val TERMS = "terms"
+    const val PRIVACY_POLICY = "privacy_policy"
 
     fun placeSearch(tripId: String) = "place_search/$tripId"
     fun placeDetail(tripId: String, placeId: String) = "place_detail/$tripId/$placeId"

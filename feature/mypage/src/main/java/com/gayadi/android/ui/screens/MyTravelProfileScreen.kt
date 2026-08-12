@@ -21,6 +21,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -29,19 +31,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gayadi.android.domain.model.UserProfile
 import com.gayadi.android.ui.components.UserCharacterAvatar
+import com.gayadi.android.ui.components.GayadiLoadingScreen
+import com.gayadi.android.ui.theme.PrimaryAction
 import com.gayadi.android.ui.theme.TagPink
 import com.gayadi.android.ui.theme.TagPinkText
 import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary
 
 @Composable
-fun MyTravelProfileScreen(profile: UserProfile?, onBack: () -> Unit) {
+fun MyTravelProfileScreen(uiState: ProfileUiState, onBack: () -> Unit, onRetry: () -> Unit) {
     Column(modifier = Modifier.fillMaxSize().background(Color.White)) {
         Spacer(modifier = Modifier.height(36.dp))
         Row(
@@ -54,23 +59,42 @@ fun MyTravelProfileScreen(profile: UserProfile?, onBack: () -> Unit) {
             Text("내 여행 프로필", fontSize = 21.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
         }
 
+        when {
+            uiState.isLoading -> GayadiLoadingScreen(modifier = Modifier.weight(1f))
+            uiState.errorMessage != null -> ProfileUnavailable(
+                message = uiState.errorMessage,
+                onRetry = onRetry,
+                modifier = Modifier.weight(1f),
+            )
+            uiState.profile == null -> ProfileUnavailable(
+                message = "저장된 여행 프로필이 없어요.",
+                onRetry = onRetry,
+                modifier = Modifier.weight(1f),
+            )
+            else -> TravelProfileContent(profile = uiState.profile, modifier = Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun TravelProfileContent(profile: UserProfile, modifier: Modifier = Modifier) {
         Column(
             modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Spacer(modifier = Modifier.height(24.dp))
             UserCharacterAvatar(
-                characterKey = profile?.characterKey,
-                contentDescription = "${profile?.nickname.orEmpty()} 여행 캐릭터",
+                characterKey = profile.characterKey,
+                contentDescription = "${profile.nickname} 여행 캐릭터",
                 modifier = Modifier.size(104.dp),
             )
             Spacer(modifier = Modifier.height(14.dp))
-            Text(profile?.nickname ?: "여행자", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+            Text(profile.nickname, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
             Spacer(modifier = Modifier.height(8.dp))
-            TravelStyleBadge(profile?.travelStyleName ?: "여행 성향 미설정")
+            TravelStyleBadge(profile.travelStyleName ?: "여행 성향 미설정")
             Spacer(modifier = Modifier.height(14.dp))
             Text(
-                text = profile?.introduction?.takeIf(String::isNotBlank)
+                text = profile.introduction.takeIf(String::isNotBlank)
                     ?: "나만의 방식으로 여행을 즐기는 여행자예요.",
                 fontSize = 13.sp,
                 lineHeight = 20.sp,
@@ -78,10 +102,30 @@ fun MyTravelProfileScreen(profile: UserProfile?, onBack: () -> Unit) {
                 textAlign = TextAlign.Center,
             )
             Spacer(modifier = Modifier.height(28.dp))
-            ProfileInsightCard("여행할 때\n잘하는 점", profile?.strengths.orEmpty(), "아직 등록된 강점이 없어요.")
+            ProfileInsightCard("여행할 때\n잘하는 점", profile.strengths, "아직 등록된 강점이 없어요.")
             Spacer(modifier = Modifier.height(12.dp))
-            ProfileInsightCard("여행할 때\n챙기면 좋은 점", profile?.weaknesses.orEmpty(), "아직 등록된 보완점이 없어요.")
+            ProfileInsightCard("여행할 때\n챙기면 좋은 점", profile.weaknesses, "아직 등록된 보완점이 없어요.")
             Spacer(modifier = Modifier.height(32.dp))
+        }
+}
+
+@Composable
+private fun ProfileUnavailable(message: String, onRetry: () -> Unit, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier.fillMaxWidth().padding(horizontal = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text("여행 프로필을 불러올 수 없어요", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(message, fontSize = 13.sp, color = TextSecondary, textAlign = TextAlign.Center)
+        Spacer(modifier = Modifier.height(20.dp))
+        Button(
+            onClick = onRetry,
+            shape = RectangleShape,
+            colors = ButtonDefaults.buttonColors(containerColor = PrimaryAction),
+        ) {
+            Text("다시 시도", color = Color.White)
         }
     }
 }
