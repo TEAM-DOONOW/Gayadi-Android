@@ -1,19 +1,20 @@
 package com.gayadi.android.ui.components
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import com.gayadi.android.ui.theme.PrimaryBlue
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
+import com.gayadi.android.core.ui.R
 import com.gayadi.android.ui.theme.TextSecondary
+
+private val BottomNavSelectedColor = Color(0xFF343548)
 
 enum class BottomTab(val label: String) {
     OUR_TRIP("우리여행"),
@@ -37,14 +38,15 @@ fun BottomNavBar(
             onClick = { onTabSelected(BottomTab.OUR_TRIP) },
             icon = {
                 Icon(
-                    imageVector = if (currentTab == BottomTab.OUR_TRIP) Icons.Filled.Home else Icons.Outlined.Home,
+                    painter = painterResource(R.drawable.bottom_our_trip),
                     contentDescription = BottomTab.OUR_TRIP.label,
+                    modifier = Modifier.size(28.dp),
                 )
             },
             label = { Text(BottomTab.OUR_TRIP.label) },
             colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = PrimaryBlue,
-                selectedTextColor = PrimaryBlue,
+                selectedIconColor = BottomNavSelectedColor,
+                selectedTextColor = BottomNavSelectedColor,
                 unselectedIconColor = TextSecondary,
                 unselectedTextColor = TextSecondary,
                 indicatorColor = Color.Transparent,
@@ -55,14 +57,21 @@ fun BottomNavBar(
             onClick = { onTabSelected(rightTab) },
             icon = {
                 Icon(
-                    imageVector = if (currentTab == rightTab) Icons.Filled.Person else Icons.Outlined.Person,
+                    painter = painterResource(
+                        if (rightTab == BottomTab.MY_PAGE) {
+                            R.drawable.bottom_my_page
+                        } else {
+                            R.drawable.bottom_my_trip
+                        },
+                    ),
                     contentDescription = rightTab.label,
+                    modifier = Modifier.size(28.dp),
                 )
             },
             label = { Text(rightTab.label) },
             colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = PrimaryBlue,
-                selectedTextColor = PrimaryBlue,
+                selectedIconColor = BottomNavSelectedColor,
+                selectedTextColor = BottomNavSelectedColor,
                 unselectedIconColor = TextSecondary,
                 unselectedTextColor = TextSecondary,
                 indicatorColor = Color.Transparent,

@@ -30,6 +30,7 @@ android {
 
         buildConfigField("String", "API_BASE_URL", "\"${env("API_BASE_URL", "http://10.0.2.2:8080")}\"")
         buildConfigField("boolean", "DEBUG_LOGGING", env("DEBUG_LOGGING", "true"))
+        buildConfigField("String", "KAKAO_MAP_JAVASCRIPT_SDK", "\"${env("KAKAO_MAP_JAVASCRIPT_SDK")}\"")
     }
 
     buildTypes {
