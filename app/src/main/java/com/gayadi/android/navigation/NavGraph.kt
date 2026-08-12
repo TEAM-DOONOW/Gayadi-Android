@@ -41,6 +41,7 @@ import com.gayadi.android.ui.screens.SettingsScreen
 import com.gayadi.android.ui.screens.LegalDocumentRoute
 import com.gayadi.android.ui.screens.LegalDocumentViewModel
 import com.gayadi.android.ui.screens.TripDetailScreen
+import com.gayadi.android.ui.screens.TravelProfileResultViewModel
 import com.gayadi.android.ui.screens.ParticipantsScreen
 import com.gayadi.android.ui.screens.InvitationScreen
 import com.gayadi.android.ui.screens.ScheduleScreen
@@ -520,10 +521,21 @@ fun GayadiNavHost(appContainer: AppContainer) {
             )
         }
         composable(Routes.MY_TRAVEL_PROFILE) {
+            val resultCode = sharedProfileUiState.profile?.resultCode
+            val resultViewModel: TravelProfileResultViewModel = viewModel(
+                key = "travel-profile-result-${resultCode.orEmpty()}",
+                factory = TravelProfileResultViewModel.factory(
+                    resultCode = resultCode,
+                    getSurveyResult = appContainer.getSurveyResultUseCase,
+                ),
+            )
+            val resultUiState by resultViewModel.uiState.collectAsStateWithLifecycle()
             MyTravelProfileScreen(
                 uiState = sharedProfileUiState,
+                resultUiState = resultUiState,
                 onBack = { navController.popBackStack() },
                 onRetry = sharedProfileViewModel::reload,
+                onResultRetry = resultViewModel::retry,
             )
         }
         composable(
