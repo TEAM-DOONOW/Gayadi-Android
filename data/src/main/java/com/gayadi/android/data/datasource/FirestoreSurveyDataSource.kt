@@ -1,9 +1,11 @@
 package com.gayadi.android.data.datasource
 
+import com.gayadi.android.data.model.CompatibleTravelTypeDto
 import com.gayadi.android.data.model.SurveyDefinitionDto
 import com.gayadi.android.data.model.SurveyOptionDto
 import com.gayadi.android.data.model.SurveyQuestionDto
 import com.gayadi.android.data.model.SurveyResultDto
+import com.gayadi.android.data.model.TravelRoleDto
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.QuerySnapshot
@@ -127,8 +129,37 @@ class FirestoreSurveyDataSource(
             strengths = optionalStringList(document, STRENGTHS_FIELD),
             weaknesses = optionalStringList(document, WEAKNESSES_FIELD),
             characterKey = document.getString(CHARACTER_KEY_FIELD)?.takeIf(String::isNotBlank),
+            compatibleTypes = compatibleTypes(document),
+            travelRole = travelRole(document),
         )
     }
+
+    private fun compatibleTypes(document: DocumentSnapshot): List<CompatibleTravelTypeDto> =
+        optionalMapList(document, COMPATIBLE_TYPES_FIELD).map { item ->
+            CompatibleTravelTypeDto(
+                code = item.requiredString(CODE_FIELD, document),
+                emoji = item.requiredString(EMOJI_FIELD, document),
+                name = item.requiredString(NAME_FIELD, document),
+            )
+        }
+
+    private fun travelRole(document: DocumentSnapshot): TravelRoleDto? {
+        val item = document.get(TRAVEL_ROLE_FIELD) as? Map<*, *> ?: return null
+        return TravelRoleDto(
+            icon = item.requiredString(ICON_FIELD, document),
+            title = item.requiredString(TITLE_FIELD, document),
+            description = item.requiredString(DESCRIPTION_FIELD, document),
+        )
+    }
+
+    private fun optionalMapList(document: DocumentSnapshot, field: String): List<Map<*, *>> =
+        (document.get(field) as? List<*>)
+            ?.map { it as? Map<*, *> ?: error("${document.reference.path}의 $field 값이 올바르지 않습니다.") }
+            .orEmpty()
+
+    private fun Map<*, *>.requiredString(field: String, document: DocumentSnapshot): String =
+        (get(field) as? String)?.takeIf(String::isNotBlank)
+            ?: error("${document.reference.path}의 $field 값이 없습니다.")
 
     private fun requiredString(document: DocumentSnapshot, field: String): String =
         document.getString(field)?.takeIf(String::isNotBlank)
@@ -171,6 +202,10 @@ class FirestoreSurveyDataSource(
         const val STRENGTHS_FIELD = "strengths"
         const val WEAKNESSES_FIELD = "weaknesses"
         const val CHARACTER_KEY_FIELD = "characterKey"
+        const val COMPATIBLE_TYPES_FIELD = "compatibleTypes"
+        const val TRAVEL_ROLE_FIELD = "travelRole"
+        const val ICON_FIELD = "icon"
+        const val DESCRIPTION_FIELD = "description"
         const val EXPECTED_QUESTION_COUNT = 9
         const val EXPECTED_RESULT_COUNT = 8
         const val EXPECTED_DIMENSION_COUNT = 3

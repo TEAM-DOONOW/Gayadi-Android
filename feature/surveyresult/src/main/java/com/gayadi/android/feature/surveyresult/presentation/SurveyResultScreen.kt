@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -23,6 +24,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -46,7 +48,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.gayadi.android.domain.model.CompatibleTravelType
 import com.gayadi.android.domain.model.SurveyResult
+import com.gayadi.android.domain.model.TravelRole
 import com.gayadi.android.ui.components.GayadiLoadingScreen
 import com.gayadi.android.ui.components.rememberMinimumLoadingVisibility
 import com.gayadi.android.ui.theme.GayadiTheme
@@ -192,6 +196,14 @@ private fun ResultContent(result: SurveyResult, nickname: String?, onStart: () -
                 Spacer(modifier = Modifier.height(12.dp))
                 InsightCard(title = "이런점은\n보완해야해요", items = result.weaknesses)
             }
+            if (result.compatibleTypes.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(24.dp))
+                CompatibleTypesCard(result.compatibleTypes)
+            }
+            result.travelRole?.let { role ->
+                Spacer(modifier = Modifier.height(12.dp))
+                TravelRoleCard(role)
+            }
             Spacer(modifier = Modifier.height(28.dp))
         }
         Button(
@@ -323,6 +335,100 @@ private fun InsightCard(title: String, items: List<String>) {
     }
 }
 
+/** Firestore-driven badges for travel types that complement the current result. */
+@Composable
+@OptIn(ExperimentalLayoutApi::class)
+private fun CompatibleTypesCard(types: List<CompatibleTravelType>) {
+    ResultDetailCard(title = "잘 맞는 여행 유형", icon = "🤝") {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            types.forEach { type ->
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFFF2F5FF))
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text(type.emoji, fontSize = 18.sp)
+                    Text(
+                        text = type.name,
+                        fontSize = 12.sp,
+                        lineHeight = 17.sp,
+                        fontFamily = PretendardSemiBoldFontFamily,
+                        color = TextPrimary,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Firestore-driven role badge shown at the bottom of the result details. */
+@Composable
+private fun TravelRoleCard(role: TravelRole) {
+    ResultDetailCard(title = "여행에서 맡는 역할", icon = role.icon) {
+        Text(
+            text = role.title,
+            fontSize = 15.sp,
+            fontFamily = PretendardSemiBoldFontFamily,
+            color = TextPrimary,
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = role.description,
+            fontSize = 12.sp,
+            lineHeight = 18.sp,
+            fontFamily = PretendardFontFamily,
+            color = TextSecondary,
+        )
+    }
+}
+
+@Composable
+private fun ResultDetailCard(
+    title: String,
+    icon: String,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFDFCFA)),
+        border = BorderStroke(1.dp, Color(0xFFEDEDED)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            Box(
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .background(Color(0xFFF0EEFF))
+                    .padding(10.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(icon, fontSize = 21.sp)
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    fontSize = 13.sp,
+                    fontFamily = PretendardSemiBoldFontFamily,
+                    color = TextSecondary,
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                content()
+            }
+        }
+    }
+}
+
 @Preview(showBackground = true)
 @Composable
 private fun SurveyResultPreview() {
@@ -333,7 +439,7 @@ private fun SurveyResultPreview() {
                 emoji = "🔥",
                 name = "그날 끌리는 대로, 인싸잉",
                 summary = "계획은 최소로, 눈앞의 도시를 에너지 넘치게 누비는 여행 스타일",
-                hashtags = listOf("#즉흥출발", "#도시탐험", "#하루꽉꽉"),
+                hashtags = listOf("# 즉흥 출발", "# 도시 탐험", "# 하루 꽉꽉", "# 에너지 만렙"),
                 strengths = listOf(
                     "그날의 분위기에 맞춰 바로 움직여요.",
                     "처음 가는 골목도 망설이지 않아요.",
@@ -347,6 +453,15 @@ private fun SurveyResultPreview() {
                     "무리한 일정으로 다음 날이 힘들어져요.",
                 ),
                 characterKey = "character_sca",
+                compatibleTypes = listOf(
+                    CompatibleTravelType("PCA", "🏙️", "도시 구석까지 훑어, 완주잉"),
+                    CompatibleTravelType("SNA", "🏄", "일단 뛰어들어, 파도잉"),
+                ),
+                travelRole = TravelRole(
+                    icon = "⚡",
+                    title = "분위기 점화 담당",
+                    description = "새로운 제안을 먼저 꺼내고 모두가 움직일 에너지를 만들어요.",
+                ),
             ),
             nickname = "민수",
             onStart = {},

@@ -135,16 +135,35 @@ def validate_source(source: dict[str, Any]) -> None:
     expected_codes = {"PNA", "PNR", "PCA", "PCR", "SNA", "SNR", "SCA", "SCR"}
     if {result["code"] for result in results} != expected_codes:
         raise ValueError("8개 결과 코드 구성이 올바르지 않습니다.")
+    results_by_code = {result["code"]: result for result in results}
     for result in results:
         code = result["code"]
-        for field, expected_length in (("hashtags", 3), ("strengths", 4), ("weaknesses", 4)):
+        for field, expected_length in (("hashtags", 4), ("strengths", 4), ("weaknesses", 4)):
             values = result.get(field)
             if not isinstance(values, list) or len(values) != expected_length:
                 raise ValueError(f"{code} 결과의 {field}는 항목 {expected_length}개의 배열이어야 합니다.")
             if not all(isinstance(value, str) and value.strip() for value in values):
                 raise ValueError(f"{code} 결과의 {field}에 빈 문자열이 있습니다.")
-        if not all(tag.startswith("#") for tag in result["hashtags"]):
-            raise ValueError(f"{code} 결과의 hashtags는 모두 #으로 시작해야 합니다.")
+        if not all(tag.startswith("# ") for tag in result["hashtags"]):
+            raise ValueError(f"{code} 결과의 hashtags는 모두 '# '으로 시작해야 합니다.")
+        compatible_types = result.get("compatibleTypes")
+        if not isinstance(compatible_types, list) or len(compatible_types) != 2:
+            raise ValueError(f"{code} 결과의 compatibleTypes는 항목 2개의 배열이어야 합니다.")
+        compatible_codes = {item.get("code") for item in compatible_types}
+        if code in compatible_codes or not compatible_codes.issubset(expected_codes):
+            raise ValueError(f"{code} 결과의 compatibleTypes 코드가 올바르지 않습니다.")
+        for item in compatible_types:
+            if not all(isinstance(item.get(field), str) and item[field].strip() for field in ("code", "emoji", "name")):
+                raise ValueError(f"{code} 결과의 compatibleTypes에 빈 값이 있습니다.")
+            target = results_by_code[item["code"]]
+            if item["emoji"] != target["emoji"] or item["name"] != target["name"]:
+                raise ValueError(f"{code} 결과의 compatibleTypes 표시 정보가 원본 유형과 다릅니다.")
+        travel_role = result.get("travelRole")
+        if not isinstance(travel_role, dict) or not all(
+            isinstance(travel_role.get(field), str) and travel_role[field].strip()
+            for field in ("icon", "title", "description")
+        ):
+            raise ValueError(f"{code} 결과의 travelRole 값이 올바르지 않습니다.")
 
 
 def document_write(project: str, database: str, path: str, fields: dict[str, Any]) -> dict[str, Any]:
