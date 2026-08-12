@@ -95,12 +95,10 @@ data class HomeTripDay(
 fun RealtimeHomeScreen(
     uiState: RealtimeHomeUiState,
     tripTitle: String,
-    nextScheduleName: String?,
-    hasSchedules: Boolean = false,
     travelPlans: List<HomeTravelPlan> = emptyList(),
     tripDays: List<HomeTripDay> = emptyList(),
     participantCount: Int = 0,
-    tripDday: String = "D-day",
+    tripCountdownText: String = "여행을 준비하고 있어요!",
     tripCoverImageResList: List<Int> = emptyList(),
     kakaoMapJavaScriptKey: String = "",
     kakaoMapBaseUrl: String = "https://localhost",
@@ -108,15 +106,9 @@ fun RealtimeHomeScreen(
     onNavigateMyTrip: () -> Unit,
     onNavigateMyPage: () -> Unit,
     onNavigatePlaceSearch: () -> Unit,
-    onNavigateFriendAdd: () -> Unit,
     onNavigateParticipants: () -> Unit,
-    onNavigateInvitation: () -> Unit,
     onNavigateSchedule: () -> Unit,
     onNavigateRoutes: () -> Unit,
-    onOpenReschedule: () -> Unit,
-    onDismissReschedule: () -> Unit,
-    onAcceptReschedule: () -> Unit,
-    onRejectReschedule: () -> Unit,
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -154,10 +146,15 @@ fun RealtimeHomeScreen(
                         )
                         Text(
                             text = buildAnnotatedString {
-                                withStyle(SpanStyle(color = Color(0xFF10395F))) {
-                                    append(tripDday)
+                                val remainingDays = Regex("^\\d+일").find(tripCountdownText)?.value
+                                if (remainingDays != null) {
+                                    withStyle(SpanStyle(color = Color(0xFF10395F))) {
+                                        append(remainingDays)
+                                    }
+                                    append(tripCountdownText.removePrefix(remainingDays))
+                                } else {
+                                    append(tripCountdownText)
                                 }
-                                append(" 남았어요!")
                             },
                             fontSize = 22.sp,
                             fontWeight = FontWeight.Bold,
@@ -241,206 +238,6 @@ fun RealtimeHomeScreen(
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
-
-                if (false) {
-                uiState.profile?.nickname?.let { nickname ->
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text("$nickname 님의 맞춤 여행", fontSize = 12.sp, color = TextSecondary)
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FB)),
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 16.dp),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                    ) {
-                        TripManagementAction(
-                            label = "참여자",
-                            icon = { Icon(Icons.Filled.Group, contentDescription = null) },
-                            onClick = onNavigateParticipants,
-                        )
-                        TripManagementAction(
-                            label = "초대",
-                            icon = { Icon(Icons.Filled.PersonAdd, contentDescription = null) },
-                            onClick = onNavigateInvitation,
-                        )
-                        TripManagementAction(
-                            label = "일정",
-                            icon = { Icon(Icons.Filled.CalendarMonth, contentDescription = null) },
-                            onClick = onNavigateSchedule,
-                        )
-                        TripManagementAction(
-                            label = "경로",
-                            icon = { Icon(Icons.Filled.AltRoute, contentDescription = null) },
-                            onClick = onNavigateRoutes,
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(onClick = onOpenReschedule)
-                        .then(Modifier.padding(0.dp)),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = AlertBlue),
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("🌧️", fontSize = 18.sp)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("실시간 알림: 방금", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = AlertBlueText)
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            when (uiState.rescheduleDecision) {
-                                RescheduleDecision.PENDING -> "곧 비가 와요, 실내로 다시 바꿀까요?"
-                                RescheduleDecision.ACCEPTED -> "추천 일정으로 변경했어요"
-                                RescheduleDecision.REJECTED -> "기존 일정을 유지해요"
-                            },
-                            fontSize = 14.sp,
-                            color = TextPrimary,
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    HomeQuickAction("장소 찾기", onNavigatePlaceSearch)
-                    HomeQuickAction("여행메이트", onNavigateFriendAdd)
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                ) {
-                    InfoChip("날씨", "14시 비")
-                    InfoChip("혼잡도", "혼잡")
-                    InfoChip("여유", "여유")
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text("오늘의 동선", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-                    Text(
-                        "전체보기",
-                        fontSize = 13.sp,
-                        color = PrimaryBlue,
-                        modifier = Modifier.clickable(onClick = onNavigatePlaceSearch),
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FB)),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(140.dp)
-                            .padding(16.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        if (hasSchedules) Row(
-                            horizontalArrangement = Arrangement.spacedBy(24.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            RouteDot("1", PrimaryBlue)
-                            Text("···", color = TextTertiary)
-                            RouteDot("2", Color(0xFF666666))
-                            Text("···", color = TextTertiary)
-                            RouteDot("3", Color(0xFF666666))
-                        }
-                        if (!hasSchedules) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("아직 등록된 일정이 없어요", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Text("일정을 추가하면 여행 동선이 표시됩니다", fontSize = 12.sp, color = TextSecondary)
-                            }
-                        }
-                        Text(
-                            "실내 구역",
-                            fontSize = 10.sp,
-                            color = TextTertiary,
-                            modifier = Modifier.align(Alignment.TopEnd),
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .border(1.dp, Color(0xFFE8E8E8), RoundedCornerShape(12.dp))
-                            .padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFFF0F0F0)),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text("🍲", fontSize = 22.sp)
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                if (nextScheduleName == null) "다음 일정 없음" else "다음 일정 · 13:00",
-                                fontSize = 11.sp,
-                                color = TextTertiary,
-                            )
-                            Text(
-                                nextScheduleName ?: "장소를 일정에 추가해 보세요",
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = TextPrimary,
-                            )
-                        }
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(PrimaryBlue)
-                                .clickable(onClick = onNavigatePlaceSearch)
-                                .padding(horizontal = 12.dp, vertical = 6.dp),
-                        ) {
-                            Text(
-                                "장소 찾기",
-                                fontSize = 12.sp,
-                                color = Color.White,
-                                fontWeight = FontWeight.Medium,
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-                }
             }
 
             BottomNavBar(
@@ -455,13 +252,6 @@ fun RealtimeHomeScreen(
             )
         }
 
-        if (uiState.showRescheduleSheet) {
-            RescheduleBottomSheet(
-                onDismiss = onDismissReschedule,
-                onKeep = onRejectReschedule,
-                onAccept = onAcceptReschedule,
-            )
-        }
     }
 }
 
@@ -767,58 +557,6 @@ private fun TripDaySection(
 }
 
 @Composable
-private fun TripManagementAction(
-    label: String,
-    icon: @Composable () -> Unit,
-    onClick: () -> Unit,
-) {
-    Column(
-        modifier = Modifier
-            .clip(RoundedCornerShape(14.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 4.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .clip(CircleShape)
-                .background(Color.White),
-            contentAlignment = Alignment.Center,
-        ) {
-            androidx.compose.runtime.CompositionLocalProvider(
-                androidx.compose.material3.LocalContentColor provides PrimaryAction,
-                content = icon,
-            )
-        }
-        Spacer(modifier = Modifier.height(6.dp))
-        Text(label, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
-    }
-}
-
-@Composable
-private fun HomeQuickAction(label: String, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(16.dp))
-            .background(TagBlue)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 7.dp),
-    ) {
-        Text(label, fontSize = 12.sp, color = TagBlueText, fontWeight = FontWeight.Medium)
-    }
-}
-
-@Composable
-private fun InfoChip(label: String, value: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(label, fontSize = 11.sp, color = TextTertiary)
-        Spacer(modifier = Modifier.height(2.dp))
-        Text(value, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-    }
-}
-
-@Composable
 private fun RouteDot(number: String, color: Color) {
     Box(
         modifier = Modifier
@@ -1004,20 +742,12 @@ private fun RealtimeHomePreview() {
         RealtimeHomeScreen(
             uiState = RealtimeHomeUiState(),
             tripTitle = "제주 여행",
-            nextScheduleName = "명진전복",
-            hasSchedules = true,
             onNavigateMyTrip = {},
             onNavigateMyPage = {},
             onNavigatePlaceSearch = {},
-            onNavigateFriendAdd = {},
             onNavigateParticipants = {},
-            onNavigateInvitation = {},
             onNavigateSchedule = {},
             onNavigateRoutes = {},
-            onOpenReschedule = {},
-            onDismissReschedule = {},
-            onAcceptReschedule = {},
-            onRejectReschedule = {},
         )
     }
 }

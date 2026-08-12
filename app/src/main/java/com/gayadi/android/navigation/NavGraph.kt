@@ -406,13 +406,9 @@ fun GayadiNavHost(appContainer: AppContainer) {
             val homeUiState by homeViewModel.uiState.collectAsStateWithLifecycle()
             val tripSchedules = travelState.schedulesForTrip(tripId)
             val tripParticipants = travelState.participantsForTrip(tripId, tripViewModel.availableParticipants)
-            val nextScheduleName = tripSchedules
-                .firstOrNull { !it.isVisited }?.title
             RealtimeHomeScreen(
                 uiState = homeUiState,
                 tripTitle = trip?.name ?: "선택한 여행",
-                nextScheduleName = nextScheduleName,
-                hasSchedules = tripSchedules.isNotEmpty(),
                 travelPlans = tripSchedules.map { schedule ->
                     com.gayadi.android.ui.screens.HomeTravelPlan(
                         title = schedule.title,
@@ -443,29 +439,23 @@ fun GayadiNavHost(appContainer: AppContainer) {
                 kakaoMapJavaScriptKey = com.gayadi.android.BuildConfig.KAKAO_MAP_JAVASCRIPT_SDK,
                 kakaoMapBaseUrl = com.gayadi.android.BuildConfig.API_BASE_URL,
                 friendCharacterKeys = tripParticipants.map { it.characterKey },
-                tripDday = trip?.startDate?.let { startDate ->
+                tripCountdownText = trip?.startDate?.let { startDate ->
                     runCatching {
                         val date = LocalDate.parse(startDate, DateTimeFormatter.ofPattern("yyyy.MM.dd"))
                         val days = ChronoUnit.DAYS.between(LocalDate.now(), date)
                         when {
-                            days > 0 -> "${days}일"
-                            days == 0L -> "D-day"
-                            else -> "여행 중"
+                            days > 0 -> "${days}일 남았어요!"
+                            days == 0L -> "오늘 출발해요!"
+                            else -> "여행 중이에요!"
                         }
-                    }.getOrDefault("D-day")
-                } ?: "D-day",
+                    }.getOrDefault("여행을 준비하고 있어요!")
+                } ?: "여행을 준비하고 있어요!",
                 onNavigateMyTrip = { navController.navigate(Routes.MY_TRIP) },
                 onNavigateMyPage = { navController.navigate(Routes.MY_PAGE) },
                 onNavigatePlaceSearch = { navController.navigate(Routes.placeSearch(tripId)) },
-                onNavigateFriendAdd = { navController.navigate(Routes.FRIEND_ADD) },
                 onNavigateParticipants = { navController.navigate(Routes.tripParticipants(tripId)) },
-                onNavigateInvitation = { navController.navigate(Routes.tripInvitation(tripId)) },
                 onNavigateSchedule = { navController.navigate(Routes.tripSchedule(tripId)) },
                 onNavigateRoutes = { navController.navigate(Routes.routeHub(tripId)) },
-                onOpenReschedule = homeViewModel::openRescheduleSuggestion,
-                onDismissReschedule = homeViewModel::dismissRescheduleSuggestion,
-                onAcceptReschedule = homeViewModel::acceptRescheduleSuggestion,
-                onRejectReschedule = homeViewModel::rejectRescheduleSuggestion,
             )
         }
         composable(Routes.MY_PAGE) {
