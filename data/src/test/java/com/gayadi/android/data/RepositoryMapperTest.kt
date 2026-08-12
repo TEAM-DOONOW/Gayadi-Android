@@ -15,10 +15,30 @@ import java.nio.file.Files
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import com.gayadi.android.data.mapper.toDomain
+import com.gayadi.android.data.model.LegalDocumentDto
+import com.gayadi.android.data.model.LegalDocumentSectionDto
 import kotlinx.coroutines.test.runTest
 
 /** Verifies repository delegation and data-to-domain mapping. */
 class RepositoryMapperTest {
+    @Test
+    fun legalDocumentMapper_preservesPublicationMetadataAndSections() {
+        val document = LegalDocumentDto(
+            id = "privacy-policy",
+            title = "개인정보처리방침",
+            version = "1.0.0",
+            effectiveDate = "2026-08-12",
+            summary = "개인정보 처리 안내",
+            sections = listOf(LegalDocumentSectionDto("처리 목적", "여행 기능 제공")),
+            reviewNotice = "검토 필요",
+        ).toDomain()
+
+        assertEquals("privacy-policy", document.id)
+        assertEquals("처리 목적", document.sections.single().title)
+        assertEquals("여행 기능 제공", document.sections.single().body)
+        assertEquals("검토 필요", document.reviewNotice)
+    }
     @Test
     fun profileRepository_mapsEntityAndDomainModel() = runTest {
         val repository = InMemoryProfileRepository(InMemoryProfileLocalDataSource())

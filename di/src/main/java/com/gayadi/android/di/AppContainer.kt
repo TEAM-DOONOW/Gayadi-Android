@@ -5,6 +5,8 @@ import com.gayadi.android.data.repository.FileTravelRepository
 import com.gayadi.android.data.datasource.FileProfileLocalDataSource
 import com.gayadi.android.data.datasource.FirestoreSurveyDataSource
 import com.gayadi.android.data.repository.DefaultSurveyRepository
+import com.gayadi.android.data.repository.DefaultLegalDocumentRepository
+import com.gayadi.android.data.datasource.FirestoreLegalDocumentDataSource
 import com.gayadi.android.domain.repository.ProfileRepository
 import com.gayadi.android.domain.repository.SurveyRepository
 import com.gayadi.android.domain.usecase.CalculateSurveyResultUseCase
@@ -16,6 +18,7 @@ import com.gayadi.android.domain.usecase.SaveBasicInfoUseCase
 import com.gayadi.android.domain.usecase.GetUserProfileUseCase
 import com.gayadi.android.domain.usecase.SaveSurveyResultToProfileUseCase
 import com.gayadi.android.domain.usecase.GetTravelStateUseCase
+import com.gayadi.android.domain.usecase.GetLegalDocumentUseCase
 import com.gayadi.android.domain.usecase.JoinTripByInviteCodeUseCase
 import com.gayadi.android.domain.usecase.SaveTravelStateUseCase
 import com.google.firebase.firestore.FirebaseFirestore
@@ -23,10 +26,13 @@ import java.io.File
 
 /** Application composition root that wires data implementations to domain use cases. */
 class AppContainer(profileFile: File, travelFile: File) {
+    private val firestore = FirebaseFirestore.getInstance()
     private val profileRepository: ProfileRepository =
         InMemoryProfileRepository(FileProfileLocalDataSource(profileFile))
     private val surveyRepository: SurveyRepository =
-        DefaultSurveyRepository(FirestoreSurveyDataSource(FirebaseFirestore.getInstance()))
+        DefaultSurveyRepository(FirestoreSurveyDataSource(firestore))
+    private val legalDocumentRepository =
+        DefaultLegalDocumentRepository(FirestoreLegalDocumentDataSource(firestore))
     private val travelRepository = FileTravelRepository(travelFile)
 
     /** Use case used to persist onboarding profile input. */
@@ -61,4 +67,7 @@ class AppContainer(profileFile: File, travelFile: File) {
 
     /** Use case used to retrieve one result card from Firestore. */
     val getSurveyResultUseCase = GetSurveyResultUseCase(surveyRepository)
+
+    /** Loads the published terms or privacy policy from Firestore. */
+    val getLegalDocumentUseCase = GetLegalDocumentUseCase(legalDocumentRepository)
 }
