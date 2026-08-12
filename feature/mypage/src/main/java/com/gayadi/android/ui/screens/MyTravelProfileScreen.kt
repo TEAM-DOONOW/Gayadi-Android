@@ -79,7 +79,7 @@ fun MyTravelProfileScreen(uiState: ProfileUiState, onBack: () -> Unit, onRetry: 
 @Composable
 private fun TravelProfileContent(profile: UserProfile, modifier: Modifier = Modifier) {
         Column(
-            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp),
+            modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Spacer(modifier = Modifier.height(24.dp))
