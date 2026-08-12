@@ -37,10 +37,15 @@ def parse_args() -> argparse.Namespace:
 
 def validate_source(source: dict) -> list[dict]:
     documents = source.get("documents")
-    if not isinstance(documents, list) or {document.get("id") for document in documents} != EXPECTED_IDS:
+    if (
+        not isinstance(documents, list)
+        or len(documents) != len(EXPECTED_IDS)
+        or any(not isinstance(document, dict) for document in documents)
+        or {document.get("id") for document in documents} != EXPECTED_IDS
+    ):
         raise ValueError("이용약관과 개인정보처리방침 문서가 각각 하나씩 필요합니다.")
     for document in documents:
-        for field in ("title", "version", "effectiveDate", "summary", "reviewNotice"):
+        for field in ("title", "version", "effectiveDate", "summary", "reviewNotice", "publicationStatus"):
             if not isinstance(document.get(field), str) or not document[field].strip():
                 raise ValueError(f"{document.get('id')} 문서의 {field} 값이 없습니다.")
         sections = document.get("sections")
@@ -56,6 +61,11 @@ def main() -> int:
     args = parse_args()
     source = json.loads(args.data.read_text(encoding="utf-8"))
     documents = validate_source(source)
+    if any(document["publicationStatus"] != "published" for document in documents):
+        if args.dry_run:
+            print(f"Validated {args.data}: draft legal documents are blocked from Firestore publication.")
+            return 0
+        raise ValueError("검토가 완료되지 않은 법적 문서는 Firestore에 공개할 수 없습니다.")
     updated_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     writes = []
     for document in documents:

@@ -13,7 +13,8 @@ service cloud.firestore {
     }
 
     match /legalDocuments/{documentId} {
-      allow read: if documentId in ['terms-of-service', 'privacy-policy'];
+      allow read: if documentId in ['terms-of-service', 'privacy-policy']
+        && resource.data.publicationStatus == 'published';
       allow write: if false;
     }
 

@@ -26,7 +26,6 @@ class RealtimeHomeScreenTest {
                 RealtimeHomeScreen(
                     uiState = state,
                     tripTitle = "제주 여행",
-                    tripSubtitle = "2026.08.08 - 2026.08.10 · 제주",
                     nextScheduleName = null,
                     onNavigateMyTrip = {},
                     onNavigateMyPage = {},
