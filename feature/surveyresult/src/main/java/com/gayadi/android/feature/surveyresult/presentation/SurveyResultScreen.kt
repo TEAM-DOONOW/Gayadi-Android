@@ -20,11 +20,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -52,6 +52,7 @@ import com.gayadi.android.domain.model.CompatibleTravelType
 import com.gayadi.android.domain.model.SurveyResult
 import com.gayadi.android.domain.model.TravelRole
 import com.gayadi.android.ui.components.GayadiLoadingScreen
+import com.gayadi.android.ui.components.UserCharacterAvatar
 import com.gayadi.android.ui.components.rememberMinimumLoadingVisibility
 import com.gayadi.android.ui.theme.GayadiTheme
 import com.gayadi.android.ui.theme.PretendardFontFamily
@@ -202,7 +203,11 @@ private fun ResultContent(result: SurveyResult, nickname: String?, onStart: () -
             }
             result.travelRole?.let { role ->
                 Spacer(modifier = Modifier.height(12.dp))
-                TravelRoleCard(role)
+                TravelRoleCard(
+                    role = role,
+                    characterKey = result.characterKey,
+                    characterName = result.name,
+                )
             }
             Spacer(modifier = Modifier.height(28.dp))
         }
@@ -337,31 +342,15 @@ private fun InsightCard(title: String, items: List<String>) {
 
 /** Firestore-driven badges for travel types that complement the current result. */
 @Composable
-@OptIn(ExperimentalLayoutApi::class)
 private fun CompatibleTypesCard(types: List<CompatibleTravelType>) {
-    ResultDetailCard(title = "잘 맞는 여행 유형", icon = "🤝") {
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
+    ResultDetailCard(title = "잘 맞는 여행 유형") {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             types.forEach { type ->
-                Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFFF2F5FF))
-                        .padding(horizontal = 10.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Text(type.emoji, fontSize = 18.sp)
-                    Text(
-                        text = type.name,
-                        fontSize = 12.sp,
-                        lineHeight = 17.sp,
-                        fontFamily = PretendardSemiBoldFontFamily,
-                        color = TextPrimary,
-                    )
-                }
+                CharacterDetailRow(
+                    characterKey = type.code.toCharacterKey(),
+                    characterName = type.name,
+                    title = type.name,
+                )
             }
         }
     }
@@ -369,21 +358,17 @@ private fun CompatibleTypesCard(types: List<CompatibleTravelType>) {
 
 /** Firestore-driven role badge shown at the bottom of the result details. */
 @Composable
-private fun TravelRoleCard(role: TravelRole) {
-    ResultDetailCard(title = "여행에서 맡는 역할", icon = role.icon) {
-        Text(
-            text = role.title,
-            fontSize = 15.sp,
-            fontFamily = PretendardSemiBoldFontFamily,
-            color = TextPrimary,
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = role.description,
-            fontSize = 12.sp,
-            lineHeight = 18.sp,
-            fontFamily = PretendardFontFamily,
-            color = TextSecondary,
+private fun TravelRoleCard(
+    role: TravelRole,
+    characterKey: String?,
+    characterName: String,
+) {
+    ResultDetailCard(title = "여행에서 맡는 역할") {
+        CharacterDetailRow(
+            characterKey = characterKey,
+            characterName = characterName,
+            title = role.title,
+            description = role.description,
         )
     }
 }
@@ -391,7 +376,6 @@ private fun TravelRoleCard(role: TravelRole) {
 @Composable
 private fun ResultDetailCard(
     title: String,
-    icon: String,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Card(
@@ -401,33 +385,64 @@ private fun ResultDetailCard(
         border = BorderStroke(1.dp, Color(0xFFEDEDED)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.Top,
-        ) {
-            Box(
-                modifier = Modifier
-                    .clip(CircleShape)
-                    .background(Color(0xFFF0EEFF))
-                    .padding(10.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(icon, fontSize = 21.sp)
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = title,
+                fontSize = 13.sp,
+                fontFamily = PretendardSemiBoldFontFamily,
+                color = TextSecondary,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            content()
+        }
+    }
+}
+
+/** Shared image-first row for result types and the role represented by the current character. */
+@Composable
+private fun CharacterDetailRow(
+    characterKey: String?,
+    characterName: String,
+    title: String,
+    description: String? = null,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color(0xFFF6F6F8))
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        UserCharacterAvatar(
+            characterKey = characterKey,
+            contentDescription = "$characterName 캐릭터",
+            modifier = Modifier.size(56.dp),
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                fontSize = 14.sp,
+                lineHeight = 20.sp,
+                fontFamily = PretendardSemiBoldFontFamily,
+                color = TextPrimary,
+            )
+            description?.let {
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = title,
-                    fontSize = 13.sp,
-                    fontFamily = PretendardSemiBoldFontFamily,
+                    text = it,
+                    fontSize = 12.sp,
+                    lineHeight = 18.sp,
+                    fontFamily = PretendardFontFamily,
                     color = TextSecondary,
                 )
-                Spacer(modifier = Modifier.height(10.dp))
-                content()
             }
         }
     }
 }
+
+private fun String.toCharacterKey(): String = "character_${lowercase()}"
 
 @Preview(showBackground = true)
 @Composable

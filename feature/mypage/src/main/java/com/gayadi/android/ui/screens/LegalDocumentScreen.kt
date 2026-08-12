@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -50,27 +51,23 @@ internal fun LegalDocumentScreen(
     when {
         uiState.isLoading -> GayadiLoadingScreen()
         uiState.document == null -> Column(
-            modifier = Modifier.fillMaxSize().padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxSize().background(Color.White).statusBarsPadding(),
         ) {
-            Text(uiState.errorMessage ?: "문서를 불러오지 못했습니다.", color = TextSecondary)
-            Spacer(Modifier.height(16.dp))
-            Button(onClick = onRetry) { Text("다시 시도") }
+            LegalDocumentHeader(title = "법적 문서", onBack = onBack)
+            Column(
+                modifier = Modifier.fillMaxSize().padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Text(uiState.errorMessage ?: "문서를 불러오지 못했습니다.", color = TextSecondary)
+                Spacer(Modifier.height(16.dp))
+                Button(onClick = onRetry) { Text("다시 시도") }
+            }
         }
         else -> {
             val document = uiState.document
-            Column(modifier = Modifier.fillMaxSize().background(Color.White)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로")
-                    }
-                    Text(document.title, fontSize = 21.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-                }
-                HorizontalDivider(color = Color(0xFFE5E5E5))
+            Column(modifier = Modifier.fillMaxSize().background(Color.White).statusBarsPadding()) {
+                LegalDocumentHeader(title = document.title, onBack = onBack)
                 Column(
                     modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
                 ) {
@@ -96,4 +93,18 @@ internal fun LegalDocumentScreen(
             }
         }
     }
+}
+
+@Composable
+private fun LegalDocumentHeader(title: String, onBack: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(onClick = onBack) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로")
+        }
+        Text(title, fontSize = 21.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+    }
+    HorizontalDivider(color = Color(0xFFE5E5E5))
 }

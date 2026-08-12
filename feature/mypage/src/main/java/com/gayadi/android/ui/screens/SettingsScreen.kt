@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,14 +24,8 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,7 +36,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gayadi.android.ui.theme.GayadiTheme
-import com.gayadi.android.ui.theme.PrimaryBlue
 import com.gayadi.android.ui.theme.TagPink
 import com.gayadi.android.ui.theme.TagPinkText
 import com.gayadi.android.ui.theme.TextPrimary
@@ -60,13 +54,11 @@ fun SettingsScreen(
     onLogout: () -> Unit,
     onDeleteAccount: () -> Unit,
 ) {
-    var locationPermission by remember { mutableStateOf(true) }
-    var darkMode by remember { mutableStateOf(false) }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
+            .statusBarsPadding()
             .verticalScroll(rememberScrollState()),
     ) {
         Row(
@@ -126,28 +118,14 @@ fun SettingsScreen(
             Text("계정", fontSize = 13.sp, color = TextTertiary, fontWeight = FontWeight.Medium)
             Spacer(modifier = Modifier.height(8.dp))
 
-            SettingsRow("알림 설정", trailing = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = TextTertiary) })
+            SettingsRow("알림 설정", trailing = { Text("준비 중", fontSize = 14.sp, color = TextSecondary) })
             HorizontalDivider(color = Color(0xFFF0F0F0))
-            SettingsRow("위치 권한", trailing = {
-                Switch(
-                    checked = locationPermission,
-                    onCheckedChange = { locationPermission = it },
-                    colors = SwitchDefaults.colors(checkedTrackColor = PrimaryBlue),
-                )
-            })
-
             Spacer(modifier = Modifier.height(24.dp))
 
             Text("앱", fontSize = 13.sp, color = TextTertiary, fontWeight = FontWeight.Medium)
             Spacer(modifier = Modifier.height(8.dp))
 
-            SettingsRow("다크 모드", trailing = {
-                Switch(
-                    checked = darkMode,
-                    onCheckedChange = { darkMode = it },
-                    colors = SwitchDefaults.colors(checkedTrackColor = PrimaryBlue),
-                )
-            })
+            SettingsRow("다크 모드", trailing = { Text("준비 중", fontSize = 14.sp, color = TextSecondary) })
             HorizontalDivider(color = Color(0xFFF0F0F0))
             SettingsRow("언어", trailing = { Text("Ko", fontSize = 14.sp, color = TextSecondary) })
             HorizontalDivider(color = Color(0xFFF0F0F0))
@@ -176,13 +154,13 @@ fun SettingsScreen(
                     .padding(vertical = 14.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("로그아웃", fontSize = 15.sp, color = Color(0xFFE53935), fontWeight = FontWeight.Medium)
+                Text("시작 화면으로", fontSize = 15.sp, color = Color(0xFFE53935), fontWeight = FontWeight.Medium)
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
             Text(
-                text = "회원 탈퇴",
+                text = "내 데이터 삭제",
                 fontSize = 13.sp,
                 color = TextTertiary,
                 textAlign = TextAlign.Center,

@@ -148,6 +148,22 @@ class TripViewModelTest {
     }
 
     @Test
+    fun clearAllTravelData_removesPersistedAndInMemoryState() = runTest(dispatcher) {
+        val repository = MemoryTravelRepository()
+        val viewModel = viewModel(repository)
+        advanceUntilIdle()
+        viewModel.addTrip(sampleTrip())
+        viewModel.toggleFavorite("place-3")
+        advanceUntilIdle()
+
+        viewModel.clearAllTravelData().getOrThrow()
+
+        assertEquals(TravelState(), repository.state)
+        assertEquals(TravelState(), viewModel.uiState.value.travelState)
+        assertFalse(viewModel.uiState.value.isLoading)
+    }
+
+    @Test
     fun inviteCodeGenerationStopsAfterMaximumAttempts() = runTest(dispatcher) {
         val existingTrip = TravelTrip(
             id = "existing",
