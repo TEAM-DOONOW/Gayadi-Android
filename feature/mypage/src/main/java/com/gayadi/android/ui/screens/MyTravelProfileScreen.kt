@@ -1,6 +1,5 @@
 package com.gayadi.android.ui.screens
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -13,14 +12,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -39,6 +36,7 @@ import androidx.compose.ui.unit.sp
 import com.gayadi.android.domain.model.UserProfile
 import com.gayadi.android.ui.components.UserCharacterAvatar
 import com.gayadi.android.ui.components.GayadiLoadingScreen
+import com.gayadi.android.ui.components.TravelResultDetails
 import com.gayadi.android.ui.theme.PrimaryAction
 import com.gayadi.android.ui.theme.TagPink
 import com.gayadi.android.ui.theme.TagPinkText
@@ -46,9 +44,15 @@ import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary
 
 @Composable
-fun MyTravelProfileScreen(uiState: ProfileUiState, onBack: () -> Unit, onRetry: () -> Unit) {
-    Column(modifier = Modifier.fillMaxSize().background(Color.White)) {
-        Spacer(modifier = Modifier.height(36.dp))
+fun MyTravelProfileScreen(
+    uiState: ProfileUiState,
+    resultUiState: TravelProfileResultUiState,
+    onBack: () -> Unit,
+    onRetry: () -> Unit,
+    onResultRetry: () -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxSize().background(Color.White).statusBarsPadding()) {
+        Spacer(modifier = Modifier.height(12.dp))
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -60,7 +64,9 @@ fun MyTravelProfileScreen(uiState: ProfileUiState, onBack: () -> Unit, onRetry: 
         }
 
         when {
-            uiState.isLoading -> GayadiLoadingScreen(modifier = Modifier.weight(1f))
+            uiState.isLoading || (uiState.profile != null && resultUiState.isLoading) -> {
+                GayadiLoadingScreen(modifier = Modifier.weight(1f))
+            }
             uiState.errorMessage != null -> ProfileUnavailable(
                 message = uiState.errorMessage,
                 onRetry = onRetry,
@@ -71,13 +77,26 @@ fun MyTravelProfileScreen(uiState: ProfileUiState, onBack: () -> Unit, onRetry: 
                 onRetry = onRetry,
                 modifier = Modifier.weight(1f),
             )
-            else -> TravelProfileContent(profile = uiState.profile, modifier = Modifier.weight(1f))
+            resultUiState.result == null -> ProfileUnavailable(
+                message = resultUiState.errorMessage ?: "여행 유형 결과를 불러오지 못했어요.",
+                onRetry = onResultRetry,
+                modifier = Modifier.weight(1f),
+            )
+            else -> TravelProfileContent(
+                profile = uiState.profile,
+                result = resultUiState.result,
+                modifier = Modifier.weight(1f),
+            )
         }
     }
 }
 
 @Composable
-private fun TravelProfileContent(profile: UserProfile, modifier: Modifier = Modifier) {
+private fun TravelProfileContent(
+    profile: UserProfile,
+    result: com.gayadi.android.domain.model.SurveyResult,
+    modifier: Modifier = Modifier,
+) {
         Column(
             modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -101,10 +120,16 @@ private fun TravelProfileContent(profile: UserProfile, modifier: Modifier = Modi
                 color = TextSecondary,
                 textAlign = TextAlign.Center,
             )
-            Spacer(modifier = Modifier.height(28.dp))
-            ProfileInsightCard("여행할 때\n잘하는 점", profile.strengths, "아직 등록된 강점이 없어요.")
-            Spacer(modifier = Modifier.height(12.dp))
-            ProfileInsightCard("여행할 때\n챙기면 좋은 점", profile.weaknesses, "아직 등록된 보완점이 없어요.")
+            Spacer(modifier = Modifier.height(24.dp))
+            Text(
+                text = result.summary,
+                fontSize = 14.sp,
+                lineHeight = 22.sp,
+                color = TextSecondary,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(modifier = Modifier.height(20.dp))
+            TravelResultDetails(result)
             Spacer(modifier = Modifier.height(32.dp))
         }
 }
@@ -141,26 +166,5 @@ private fun TravelStyleBadge(text: String) {
             .padding(horizontal = 9.dp, vertical = 3.dp),
     ) {
         Text(text, fontSize = 12.sp, letterSpacing = 0.6.sp, color = TagPinkText, fontWeight = FontWeight.SemiBold)
-    }
-}
-
-@Composable
-private fun ProfileInsightCard(title: String, items: List<String>, emptyText: String) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, Color(0xFFE6E6EA)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-    ) {
-        Row(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            Text(title, fontSize = 13.sp, lineHeight = 19.sp, fontWeight = FontWeight.Bold, color = TextPrimary, modifier = Modifier.width(86.dp))
-            Spacer(modifier = Modifier.width(14.dp))
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                (items.ifEmpty { listOf(emptyText) }).forEach { item ->
-                    Text("• $item", fontSize = 12.sp, lineHeight = 18.sp, color = TextSecondary)
-                }
-            }
-        }
     }
 }
