@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 
 data class TravelUiState(
@@ -69,6 +70,18 @@ class TripViewModel(
     fun retry() = loadState()
 
     fun consumeMessage() = _uiState.update { it.copy(message = null) }
+
+    /** Removes every locally persisted trip artifact and clears the in-memory state. */
+    suspend fun clearAllTravelData(): Result<Unit> = withContext(ioDispatcher) {
+        persistenceMutex.withLock {
+            saveTravelState(TravelState()).onSuccess {
+                reservedInviteCodes.clear()
+                savedStateHandle[SELECTED_TRIP_ID_KEY] = null
+                savedStateHandle[LEGACY_TRIPS_KEY] = null
+                _uiState.value = TravelUiState(travelState = TravelState(), isLoading = false)
+            }
+        }
+    }
 
     fun addTrip(trip: TripSummary): Result<TripSummary> = allocateInviteCode().map { inviteCode ->
         val savedTrip = trip.copy(inviteCode = inviteCode)

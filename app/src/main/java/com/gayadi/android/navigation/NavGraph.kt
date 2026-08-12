@@ -495,11 +495,26 @@ fun GayadiNavHost(appContainer: AppContainer) {
                 onLogout = returnToLogin,
                 onDeleteAccount = {
                     appScope.launch(Dispatchers.IO) {
-                        appContainer.clearUserProfileUseCase().onSuccess {
-                            withContext(Dispatchers.Main) { returnToLogin() }
-                        }.onFailure { error ->
-                            sharedProfileViewModel.showError(error.message ?: "회원 탈퇴에 실패했어요")
-                        }
+                        appContainer.clearUserProfileUseCase().fold(
+                            onSuccess = {
+                                tripViewModel.clearAllTravelData().fold(
+                                    onSuccess = {
+                                        withContext(Dispatchers.Main) {
+                                            sharedProfileViewModel.reload()
+                                            returnToLogin()
+                                        }
+                                    },
+                                    onFailure = { error ->
+                                        sharedProfileViewModel.showError(
+                                            error.message ?: "여행 데이터를 삭제하지 못했어요",
+                                        )
+                                    },
+                                )
+                            },
+                            onFailure = { error ->
+                                sharedProfileViewModel.showError(error.message ?: "프로필을 삭제하지 못했어요")
+                            },
+                        )
                     }
                 },
             )
