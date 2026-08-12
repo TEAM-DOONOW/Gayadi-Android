@@ -14,7 +14,7 @@ service cloud.firestore {
 
     match /legalDocuments/{documentId} {
       allow read: if documentId in ['terms-of-service', 'privacy-policy']
-        && resource.data.publicationStatus == 'published';
+        && resource.data.publicationStatus in ['prototype', 'published'];
       allow write: if false;
     }
 

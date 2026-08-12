@@ -61,11 +61,8 @@ def main() -> int:
     args = parse_args()
     source = json.loads(args.data.read_text(encoding="utf-8"))
     documents = validate_source(source)
-    if any(document["publicationStatus"] != "published" for document in documents):
-        if args.dry_run:
-            print(f"Validated {args.data}: draft legal documents are blocked from Firestore publication.")
-            return 0
-        raise ValueError("검토가 완료되지 않은 법적 문서는 Firestore에 공개할 수 없습니다.")
+    if any(document["publicationStatus"] not in {"prototype", "published"} for document in documents):
+        raise ValueError("법적 문서의 publicationStatus는 prototype 또는 published여야 합니다.")
     updated_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     writes = []
     for document in documents:

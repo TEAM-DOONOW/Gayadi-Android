@@ -5,9 +5,9 @@
       "title": "가야디 이용약관",
       "version": "1.0.0",
       "effectiveDate": "2026-08-12",
-      "publicationStatus": "draft",
+      "publicationStatus": "prototype",
       "summary": "가야디가 제공하는 여행 성향 분석과 여행 계획 기능의 이용 조건을 안내합니다.",
-      "reviewNotice": "본 문서는 현재 제공 중인 기능을 기준으로 작성되었습니다. 서비스 운영 정보가 확정되거나 기능이 변경되면 함께 개정됩니다.",
+      "reviewNotice": "프로토타입 확인용 예시 문서입니다. 실제 서비스 운영 전 운영 정보 확정과 검토가 필요합니다.",
       "sections": [
         {
           "title": "제1조 목적",
@@ -64,9 +64,9 @@
       "title": "가야디 개인정보처리방침",
       "version": "1.0.0",
       "effectiveDate": "2026-08-12",
-      "publicationStatus": "draft",
+      "publicationStatus": "prototype",
       "summary": "가야디가 어떤 정보를 왜 처리하고, 이용자가 어떻게 권리를 행사할 수 있는지 안내합니다.",
-      "reviewNotice": "본 방침은 현재 Android 앱의 실제 데이터 흐름을 기준으로 작성되었습니다. 운영 주체의 공식 연락처 확정 후 개인정보 보호 담당자 정보를 보완하고 법률 전문가의 검토를 받아야 합니다.",
+      "reviewNotice": "프로토타입 확인용 예시 문서입니다. 실제 서비스 운영 전 공식 연락처와 데이터 흐름을 확정하고 검토해야 합니다.",
       "sections": [
         {
           "title": "1. 개인정보의 처리 목적",
