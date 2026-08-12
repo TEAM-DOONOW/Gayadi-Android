@@ -76,6 +76,7 @@ import com.gayadi.android.ui.theme.TagBlueText
 import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary
 import com.gayadi.android.ui.theme.TextTertiary
+import org.json.JSONArray
 
 data class HomeTravelPlan(
     val title: String,
@@ -395,12 +396,16 @@ private fun TravelRoutePreview(
         return
     }
 
-    val placeNames = plans.joinToString(",") { plan ->
-        "\"${plan.title.replace("\\", "\\\\").replace("\"", "\\\"")}\""
-    }
+    val placeNamesJson = JSONArray(plans.map { it.title })
+        .toString()
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("\u2028", "\\u2028")
+        .replace("\u2029", "\\u2029")
     val secureBaseUrl = runCatching {
         Uri.parse(baseUrl).buildUpon().scheme("https").build().toString()
     }.getOrDefault(baseUrl)
+    val allowedBaseHost = Uri.parse(secureBaseUrl).host
     val html = """
         <!doctype html>
         <html><head><meta charset="utf-8"/>
@@ -438,7 +443,7 @@ private fun TravelRoutePreview(
             map.relayout();
             map.setCenter(options.center);
           }, 300);
-          var names = [$placeNames];
+          var names = $placeNamesJson;
           if (!names.length) return;
           var places = new kakao.maps.services.Places();
           var points = new Array(names.length);
@@ -476,6 +481,17 @@ private fun TravelRoutePreview(
         factory = { context ->
             WebView(context).apply {
                 webViewClient = object : WebViewClient() {
+                    override fun shouldOverrideUrlLoading(
+                        view: WebView?,
+                        request: WebResourceRequest?,
+                    ): Boolean {
+                        if (request?.isForMainFrame != true) return false
+                        val host = request.url.host ?: return true
+                        val isAllowedHost = host == allowedBaseHost ||
+                            host == "kakao.com" || host.endsWith(".kakao.com")
+                        return !isAllowedHost
+                    }
+
                     override fun onReceivedError(
                         view: WebView?,
                         request: WebResourceRequest?,
