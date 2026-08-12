@@ -399,6 +399,7 @@ fun GayadiNavHost(appContainer: AppContainer) {
             val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
             val travelState = travelUiState.travelState
             val trip = travelState.trip(tripId)
+            val tripSummary = trips.firstOrNull { it.id == tripId }
             val homeViewModel: RealtimeHomeViewModel = viewModel(
                 factory = RealtimeHomeViewModel.factory(appContainer.getUserProfileUseCase),
             )
@@ -438,6 +439,9 @@ fun GayadiNavHost(appContainer: AppContainer) {
                     }.getOrDefault(emptyList())
                 }.orEmpty(),
                 participantCount = tripParticipants.size,
+                tripCoverImageResList = tripSummary?.coverImageResList.orEmpty(),
+                kakaoMapJavaScriptKey = com.gayadi.android.BuildConfig.KAKAO_MAP_JAVASCRIPT_SDK,
+                kakaoMapBaseUrl = com.gayadi.android.BuildConfig.API_BASE_URL,
                 friendCharacterKeys = tripParticipants.map { it.characterKey },
                 tripDday = trip?.startDate?.let { startDate ->
                     runCatching {

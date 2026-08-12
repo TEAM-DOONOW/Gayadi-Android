@@ -114,16 +114,16 @@ fun MyTripScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(18.dp))
+        Spacer(modifier = Modifier.height(20.dp))
         Row(modifier = Modifier.fillMaxWidth()) {
             TripTab(
-                text = "진행 중인 여행 (${ongoingTrips.size})",
+                text = "진행 중인 여행",
                 selected = selectedTab == 0,
                 onClick = { selectedTab = 0 },
                 modifier = Modifier.weight(1f),
             )
             TripTab(
-                text = "완료된 여행 (${completedTrips.size})",
+                text = "완료된 여행",
                 selected = selectedTab == 1,
                 onClick = { selectedTab = 1 },
                 modifier = Modifier.weight(1f),
@@ -226,7 +226,7 @@ private fun TripCard(trip: TripSummary, onClick: () -> Unit, onDelete: () -> Uni
             verticalAlignment = Alignment.CenterVertically,
         ) {
             CityImageGrid(
-                imageResources = trip.coverImageResList,
+                imageResources = cityCoverImageResources(trip.cities).ifEmpty { trip.coverImageResList },
                 modifier = Modifier.size(64.dp),
             )
             Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {

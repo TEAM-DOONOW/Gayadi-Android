@@ -103,6 +103,9 @@ private val domesticCities = listOf(
     CityOption("서귀포", "서귀포", R.drawable.city_seoguipo),
 )
 
+internal fun cityCoverImageResources(cities: List<String>): List<Int> =
+    cities.mapNotNull { city -> domesticCities.firstOrNull { it.name == city }?.imageRes }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TripCreateScreen(
@@ -152,9 +155,7 @@ fun TripCreateScreen(
                         startDate = startDate!!.format(tripDateFormatter),
                         endDate = endDate!!.format(tripDateFormatter),
                         cities = selectedCities.toList(),
-                        coverImageResList = selectedCities.mapNotNull { selectedCity ->
-                            domesticCities.firstOrNull { it.name == selectedCity }?.imageRes
-                        },
+                        coverImageResList = cityCoverImageResources(selectedCities),
                     )
                 onCreate(trip).fold(
                     onSuccess = { savedTrip ->

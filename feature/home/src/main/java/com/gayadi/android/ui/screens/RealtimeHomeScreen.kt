@@ -1,18 +1,30 @@
 package com.gayadi.android.ui.screens
 
+import android.annotation.SuppressLint
+import android.net.Uri
+import android.util.Log
+import android.webkit.ConsoleMessage
+import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -47,6 +59,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gayadi.android.feature.home.R
@@ -88,6 +101,9 @@ fun RealtimeHomeScreen(
     tripDays: List<HomeTripDay> = emptyList(),
     participantCount: Int = 0,
     tripDday: String = "D-day",
+    tripCoverImageResList: List<Int> = emptyList(),
+    kakaoMapJavaScriptKey: String = "",
+    kakaoMapBaseUrl: String = "https://localhost",
     friendCharacterKeys: List<String?> = emptyList(),
     onNavigateMyTrip: () -> Unit,
     onNavigateMyPage: () -> Unit,
@@ -118,31 +134,50 @@ fun RealtimeHomeScreen(
 
                 Text(
                     text = "두근두근 여행 준비",
-                    fontSize = 13.sp,
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = TextSecondary,
+                    color = Color(0xFF0B263B),
                 )
                 Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = "$tripTitle 여행일까지",
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary,
-                    lineHeight = 28.sp,
-                )
-                Text(
-                    text = buildAnnotatedString {
-                        withStyle(SpanStyle(color = Color(0xFFFF5A2A))) {
-                            append(tripDday)
-                        }
-                        append(" 남았어요!")
-                    },
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary,
-                    lineHeight = 28.sp,
-                )
-                Spacer(modifier = Modifier.height(18.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "$tripTitle 여행일까지",
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary,
+                            lineHeight = 28.sp,
+                        )
+                        Text(
+                            text = buildAnnotatedString {
+                                withStyle(SpanStyle(color = Color(0xFF10395F))) {
+                                    append(tripDday)
+                                }
+                                append(" 남았어요!")
+                            },
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary,
+                            lineHeight = 28.sp,
+                        )
+                    }
+                    tripCoverImageResList.firstOrNull()?.let { imageRes ->
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Image(
+                            painter = painterResource(imageRes),
+                            contentDescription = "$tripTitle 대표 사진",
+                            modifier = Modifier
+                                .size(56.dp)
+                                .clip(CircleShape),
+                            contentScale = ContentScale.Crop,
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(28.dp))
 
                 TravelOverviewCard(
                     plans = travelPlans,
@@ -152,13 +187,48 @@ fun RealtimeHomeScreen(
                     onParticipants = onNavigateParticipants,
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
-                Text("여행 동선", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                Spacer(modifier = Modifier.height(22.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(Color(0xFFE6E6EA)),
+                )
+                Spacer(modifier = Modifier.height(22.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Image(
+                        painter = painterResource(R.drawable.map),
+                        contentDescription = null,
+                        modifier = Modifier.size(28.dp),
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("여행 동선", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                }
                 Spacer(modifier = Modifier.height(10.dp))
-                TravelRoutePreview(plans = travelPlans, onClick = onNavigateRoutes)
+                TravelRoutePreview(
+                    plans = travelPlans,
+                    javaScriptKey = kakaoMapJavaScriptKey,
+                    baseUrl = kakaoMapBaseUrl,
+                    onClick = onNavigateRoutes,
+                )
 
-                Spacer(modifier = Modifier.height(24.dp))
-                Text("여행 계획", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                Spacer(modifier = Modifier.height(22.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(Color(0xFFE6E6EA)),
+                )
+                Spacer(modifier = Modifier.height(22.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Image(
+                        painter = painterResource(R.drawable.calendar),
+                        contentDescription = null,
+                        modifier = Modifier.size(28.dp),
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("여행 계획", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                }
                 Spacer(modifier = Modifier.height(14.dp))
                 tripDays.forEach { day ->
                     TripDaySection(
@@ -408,7 +478,7 @@ private fun TravelOverviewCard(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(185.dp),
+            .height(199.dp),
     ) {
         Image(
             painter = painterResource(R.drawable.gayadi_letter),
@@ -419,7 +489,7 @@ private fun TravelOverviewCard(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 24.dp, vertical = 20.dp),
+                .padding(horizontal = 24.dp, vertical = 22.dp),
         ) {
             Text(
                 "우리 여행 진행률",
@@ -428,20 +498,45 @@ private fun TravelOverviewCard(
                 color = TextPrimary,
             )
             Spacer(Modifier.height(10.dp))
-            LinearProgressIndicator(
-                progress = { progress },
-                modifier = Modifier.fillMaxWidth().height(12.dp).clip(CircleShape),
-                color = Color(0xFFFF5A2A),
-                trackColor = Color(0xFFFFC9B6),
-            )
+            BoxWithConstraints(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(36.dp),
+            ) {
+                LinearProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(10.dp)
+                        .align(Alignment.Center)
+                        .clip(CircleShape),
+                    color = PrimaryAction,
+                    trackColor = Color(0xFFD9D9DE),
+                    drawStopIndicator = {},
+                )
+                Image(
+                    painter = painterResource(R.drawable.car),
+                    contentDescription = "여행 진행 위치",
+                    modifier = Modifier
+                        .size(52.dp)
+                        .offset(
+                            x = (maxWidth - 52.dp) * progress,
+                            y = (-6).dp,
+                        ),
+                    contentScale = ContentScale.Fit,
+                )
+            }
             Spacer(Modifier.height(5.dp))
-            Text(
-                "${(progress * 100).toInt()}%",
-                modifier = Modifier.align(Alignment.End),
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFFFF5A2A),
-            )
+            Row(modifier = Modifier.fillMaxWidth()) {
+                if (progress > 0f) Spacer(Modifier.weight(progress))
+                Text(
+                    "${(progress * 100).toInt()}%",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = PrimaryAction,
+                )
+                if (progress < 1f) Spacer(Modifier.weight(1f - progress))
+            }
             Spacer(Modifier.height(14.dp))
             Column(
                 Modifier
@@ -454,15 +549,20 @@ private fun TravelOverviewCard(
                     fontWeight = FontWeight.SemiBold,
                     color = TextPrimary,
                 )
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(12.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    UserCharacterAvatar(myCharacterKey, "내 캐릭터", Modifier.size(30.dp))
+                    UserCharacterAvatar(myCharacterKey, "내 캐릭터", Modifier.requiredSize(30.dp))
                     Spacer(Modifier.width(4.dp))
                     friendCharacterKeys.take(2).forEach { key ->
-                        UserCharacterAvatar(key, "함께하는 친구", Modifier.size(30.dp))
+                        UserCharacterAvatar(key, "함께하는 친구", Modifier.requiredSize(30.dp))
                         Spacer(Modifier.width(4.dp))
                     }
-                    Box(Modifier.size(30.dp).clip(CircleShape).background(Color(0xFFECECF1)), contentAlignment = Alignment.Center) {
+                    Box(
+                        Modifier
+                            .requiredSize(30.dp)
+                            .background(Color(0xFFECECF1), CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
                         Text(if (participantCount == 0) "+" else "+$participantCount", fontSize = 10.sp, color = TextSecondary)
                     }
                 }
@@ -472,35 +572,140 @@ private fun TravelOverviewCard(
 }
 
 @Composable
-private fun TravelRoutePreview(plans: List<HomeTravelPlan>, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FB)),
-    ) {
-        if (plans.isEmpty()) {
-            Column(Modifier.fillMaxWidth().padding(vertical = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("동선이 아직 없어요", fontWeight = FontWeight.SemiBold, color = TextPrimary)
-                Spacer(Modifier.height(5.dp))
-                Text("계획을 추가하면 이곳에 동선이 표시돼요", fontSize = 12.sp, color = TextSecondary)
-            }
+@SuppressLint("SetJavaScriptEnabled")
+private fun TravelRoutePreview(
+    plans: List<HomeTravelPlan>,
+    javaScriptKey: String,
+    baseUrl: String,
+    onClick: () -> Unit,
+) {
+    if (javaScriptKey.isBlank()) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(180.dp)
+                .background(Color(0xFFE9E9ED))
+                .clickable(onClick = onClick),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("카카오맵 키를 설정해 주세요", fontSize = 13.sp, color = TextSecondary)
+        }
+        return
+    }
+
+    val placeNames = plans.joinToString(",") { plan ->
+        "\"${plan.title.replace("\\", "\\\\").replace("\"", "\\\"")}\""
+    }
+    val secureBaseUrl = runCatching {
+        Uri.parse(baseUrl).buildUpon().scheme("https").build().toString()
+    }.getOrDefault(baseUrl)
+    val html = """
+        <!doctype html>
+        <html><head><meta charset="utf-8"/>
+        <title>Kakao 지도 시작하기</title>
+        <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+        <style>
+          html,body{width:100%;height:100%;margin:0;padding:0}
+          #map{width:100%;height:200px;background:#e9e9ed}
+          #error{display:none;position:absolute;inset:0;align-items:center;justify-content:center;
+            padding:24px;box-sizing:border-box;text-align:center;color:#666;font:13px sans-serif;background:#e9e9ed}
+        </style>
+        <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=$javaScriptKey&libraries=services"
+          onerror="showError()"></script>
+        </head><body><div id="map"></div><div id="error">카카오맵을 불러오지 못했어요.<br>JavaScript SDK 허용 도메인을 확인해 주세요.</div><script>
+        function showError() {
+          document.getElementById('error').style.display = 'flex';
+        }
+        console.log('Gayadi Kakao map page started');
+        if (!window.kakao || !window.kakao.maps) {
+          console.error('Gayadi Kakao SDK unavailable after script load');
+          showError();
         } else {
-            Row(
-                Modifier.fillMaxWidth().padding(18.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                plans.take(3).forEachIndexed { index, plan ->
-                    if (index > 0) Text("→", color = TextTertiary)
-                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                        RouteDot((index + 1).toString(), if (plan.isVisited) PrimaryBlue else PrimaryAction)
-                        Spacer(Modifier.height(6.dp))
-                        Text(plan.title, maxLines = 1, fontSize = 11.sp, color = TextPrimary)
+        (function() {
+        console.log('Gayadi Kakao SDK available');
+          var container = document.getElementById('map');
+          var options = {
+            center: new kakao.maps.LatLng(33.450701, 126.570667), level: 3
+          };
+          var map = new kakao.maps.Map(container, options);
+          console.log('Gayadi Kakao map instance created');
+          kakao.maps.event.addListener(map, 'tilesloaded', function() {
+            console.log('Gayadi Kakao map tiles loaded');
+          });
+          window.setTimeout(function() {
+            map.relayout();
+            map.setCenter(options.center);
+          }, 300);
+          var names = [$placeNames];
+          if (!names.length) return;
+          var places = new kakao.maps.services.Places();
+          var points = new Array(names.length);
+          var remaining = names.length;
+          names.forEach(function(name, index) {
+            places.keywordSearch(name, function(result, status) {
+              if (status === kakao.maps.services.Status.OK && result.length) {
+                var point = new kakao.maps.LatLng(Number(result[0].y), Number(result[0].x));
+                points[index] = point;
+                new kakao.maps.Marker({ map: map, position: point });
+              }
+              remaining--;
+              if (remaining === 0) {
+                var route = points.filter(Boolean);
+                if (!route.length) return;
+                if (route.length > 1) new kakao.maps.Polyline({
+                  map: map, path: route, strokeWeight: 5,
+                  strokeColor: '#343548', strokeOpacity: 0.9, strokeStyle: 'solid'
+                });
+                var bounds = new kakao.maps.LatLngBounds();
+                route.forEach(function(point) { bounds.extend(point); });
+                map.setBounds(bounds);
+              }
+            });
+          });
+        })();
+        }
+        </script></body></html>
+    """.trimIndent()
+
+    AndroidView(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(200.dp),
+        factory = { context ->
+            WebView(context).apply {
+                webViewClient = object : WebViewClient() {
+                    override fun onReceivedError(
+                        view: WebView?,
+                        request: WebResourceRequest?,
+                        error: WebResourceError?,
+                    ) {
+                        if (request?.isForMainFrame == true || request?.url?.host?.contains("kakao") == true) {
+                            Log.e("KakaoMapWebView", "load error ${error?.errorCode}: ${error?.description}")
+                        }
                     }
                 }
+                webChromeClient = object : WebChromeClient() {
+                    override fun onConsoleMessage(consoleMessage: ConsoleMessage): Boolean {
+                        Log.d(
+                            "KakaoMapWebView",
+                            "${consoleMessage.messageLevel()}: ${consoleMessage.message()}",
+                        )
+                        return true
+                    }
+                }
+                settings.javaScriptEnabled = true
+                settings.domStorageEnabled = true
+                tag = html
+                loadDataWithBaseURL(secureBaseUrl, html, "text/html", "UTF-8", null)
             }
-        }
-    }
+        },
+        update = { webView ->
+            if (webView.tag != html) {
+                webView.tag = html
+                webView.loadDataWithBaseURL(secureBaseUrl, html, "text/html", "UTF-8", null)
+            }
+        },
+    )
 }
 
 @Composable
@@ -533,7 +738,7 @@ private fun TripDaySection(
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
             text = "DAY ${day.dayNumber}",
-            fontSize = 18.sp,
+            fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
             color = TextPrimary,
         )
@@ -618,8 +823,7 @@ private fun RouteDot(number: String, color: Color) {
     Box(
         modifier = Modifier
             .size(28.dp)
-            .clip(CircleShape)
-            .background(color),
+            .background(color = color, shape = CircleShape),
         contentAlignment = Alignment.Center,
     ) {
         Text(number, fontSize = 13.sp, color = Color.White, fontWeight = FontWeight.Bold)
