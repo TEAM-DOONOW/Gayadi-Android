@@ -23,6 +23,7 @@ object Routes {
     const val REALTIME_HOME = "realtime_home/{tripId}"
     const val MY_PAGE = "my_page"
     const val SETTINGS = "settings"
+    const val MY_TRAVEL_PROFILE = "my_travel_profile"
     const val LEGAL_DOCUMENT = "legal_document/{documentId}"
 
     fun placeSearch(tripId: String) = "place_search/$tripId"
