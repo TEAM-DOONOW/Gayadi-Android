@@ -26,6 +26,7 @@ import com.gayadi.android.ui.screens.FriendAddScreen
 import com.gayadi.android.ui.screens.FriendAddViewModel
 import com.gayadi.android.ui.screens.LoginScreen
 import com.gayadi.android.ui.screens.MyPageScreen
+import com.gayadi.android.ui.screens.MyTravelProfileScreen
 import com.gayadi.android.ui.screens.ProfileViewModel
 import com.gayadi.android.ui.screens.MyTripScreen
 import com.gayadi.android.ui.screens.TripCreateScreen
@@ -481,7 +482,7 @@ fun GayadiNavHost(appContainer: AppContainer) {
             SettingsScreen(
                 uiState = sharedProfileUiState,
                 onBack = { navController.popBackStack() },
-                onEditProfile = { navController.navigate(Routes.BASIC_INFO) },
+                onOpenTravelProfile = { navController.navigate(Routes.MY_TRAVEL_PROFILE) },
                 onLogout = returnToLogin,
                 onDeleteAccount = {
                     appScope.launch(Dispatchers.IO) {
@@ -492,6 +493,12 @@ fun GayadiNavHost(appContainer: AppContainer) {
                         }
                     }
                 },
+            )
+        }
+        composable(Routes.MY_TRAVEL_PROFILE) {
+            MyTravelProfileScreen(
+                profile = sharedProfileUiState.profile,
+                onBack = { navController.popBackStack() },
             )
         }
     }
