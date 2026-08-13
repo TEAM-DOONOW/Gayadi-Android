@@ -16,6 +16,8 @@ object Routes {
     const val TRIP_PARTICIPANTS = "trip_participants/{tripId}"
     const val TRIP_INVITATION = "trip_invitation/{tripId}"
     const val TRIP_SCHEDULE = "trip_schedule/{tripId}"
+    const val TRIP_LEDGER = "trip_ledger/{tripId}"
+    const val TRIP_EXPENSE = "trip_expense/{tripId}/{scheduleId}?expenseId={expenseId}"
     const val ROUTE_HUB = "route_hub/{tripId}"
     const val ROUTE_RECOMMENDATION = "route_recommendation/{tripId}/{routeType}"
     const val NEARBY_PLACES = "nearby_places/{tripId}?placeId={placeId}"
@@ -35,6 +37,9 @@ object Routes {
     fun tripParticipants(tripId: String) = "trip_participants/$tripId"
     fun tripInvitation(tripId: String) = "trip_invitation/$tripId"
     fun tripSchedule(tripId: String) = "trip_schedule/$tripId"
+    fun tripLedger(tripId: String) = "trip_ledger/$tripId"
+    fun tripExpense(tripId: String, scheduleId: String, expenseId: String? = null) =
+        "trip_expense/$tripId/$scheduleId" + (expenseId?.let { "?expenseId=$it" } ?: "")
     fun routeHub(tripId: String) = "route_hub/$tripId"
     fun routeRecommendation(tripId: String, routeType: String) = "route_recommendation/$tripId/$routeType"
     fun nearbyPlaces(tripId: String, placeId: String? = null) =

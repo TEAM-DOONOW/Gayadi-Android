@@ -10,7 +10,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -47,6 +49,8 @@ import com.gayadi.android.ui.theme.PrimaryBlue
 import com.gayadi.android.ui.theme.SurfaceCard
 import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary
+import java.text.NumberFormat
+import java.util.Locale
 
 @Composable
 fun TripDetailScreen(
@@ -63,6 +67,8 @@ fun TripDetailScreen(
     onSchedule: () -> Unit,
     onRoutes: () -> Unit,
     onHome: () -> Unit,
+    expenseTotal: Long = 0L,
+    onLedger: () -> Unit = {},
 ) {
     var confirmDelete by remember { mutableStateOf(false) }
     if (trip == null) {
@@ -73,8 +79,18 @@ fun TripDetailScreen(
         return
     }
 
-    Column(Modifier.fillMaxSize().background(Color.White).verticalScroll(rememberScrollState())) {
-        Row(Modifier.fillMaxWidth().padding(top = 36.dp, start = 8.dp, end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(Color.White)
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .verticalScroll(rememberScrollState()),
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(top = 16.dp, start = 8.dp, end = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "뒤로") }
             Column(Modifier.weight(1f)) {
                 Text(trip.name, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
@@ -89,12 +105,14 @@ fun TripDetailScreen(
                 Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     DetailLine("여행 상태", trip.status.label)
                     DetailLine("참여자", "${participants.size}명")
+                    DetailLine("여행 지출", expenseTotal.toKoreanWon())
                 }
             }
 
             TripMenuCard("참여자 관리", "현재 ${participants.size}명", onParticipants)
             TripMenuCard("여행 초대", "초대 코드 생성·수락·거절·취소", onInvitation)
             TripMenuCard("일정 관리", "메인·대체 일정, 순서와 방문 상태", onSchedule)
+            TripMenuCard("여행 가계부", "총 ${expenseTotal.toKoreanWon()} · 지출과 정산 내역", onLedger)
             TripMenuCard("경로 추천", "출발·여행 동선·귀가 경로", onRoutes)
             TripMenuCard("실시간 여행 홈", "날씨·혼잡도와 다음 일정 확인", onHome)
 
@@ -115,7 +133,7 @@ fun TripDetailScreen(
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
             title = { Text("여행을 삭제할까요?") },
-            text = { Text("초대와 일정도 함께 삭제됩니다.") },
+            text = { Text("초대와 일정, 비용도 함께 삭제됩니다.") },
             confirmButton = { TextButton(onClick = { confirmDelete = false; onDelete() }) { Text("삭제") } },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("취소") } },
         )
@@ -151,3 +169,5 @@ private val TripStatus.label: String
         TripStatus.ONGOING -> "여행 중"
         TripStatus.COMPLETED -> "여행 완료"
     }
+
+private fun Long.toKoreanWon(): String = "${NumberFormat.getNumberInstance(Locale.KOREA).format(this)}원"

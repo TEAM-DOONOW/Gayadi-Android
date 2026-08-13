@@ -21,6 +21,7 @@ import com.gayadi.android.domain.usecase.GetTravelStateUseCase
 import com.gayadi.android.domain.usecase.GetLegalDocumentUseCase
 import com.gayadi.android.domain.usecase.JoinTripByInviteCodeUseCase
 import com.gayadi.android.domain.usecase.SaveTravelStateUseCase
+import com.gayadi.android.domain.usecase.UpdateTravelStateUseCase
 import com.google.firebase.firestore.FirebaseFirestore
 import java.io.File
 
@@ -55,6 +56,9 @@ class AppContainer(profileFile: File, travelFile: File) {
 
     /** Atomically persists the complete Android-local travel aggregate. */
     val saveTravelStateUseCase = SaveTravelStateUseCase(travelRepository)
+
+    /** Atomically updates the Android-local travel aggregate without lost writes. */
+    val updateTravelStateUseCase = UpdateTravelStateUseCase(travelRepository)
 
     /** Resolves a persisted trip invite code and joins the local user to that trip. */
     val joinTripByInviteCodeUseCase = JoinTripByInviteCodeUseCase(travelRepository)
