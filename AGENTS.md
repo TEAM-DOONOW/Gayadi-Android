@@ -4,7 +4,7 @@
 
   - Never read, print, parse, copy, modify, or source `.env` or any `.env.*` file.
   - `.env.example` is the only allowed environment-file reference.
-  - Never access secret files such as `*.key`, `*.pem`, `*.p12`, `*.jks`, or files under `secrets/`.
+  - Never access secret files such as `*.key`, `*.pem`, `*.p12`, `*.jks`, `*.keystore`, or files under `secrets/`.
 
   - Never use commands such as `cat .env`, `cat .env.local`, `sed .env`, `grep .env`, `rg .env`, or
 
