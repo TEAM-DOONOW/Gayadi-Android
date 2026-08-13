@@ -23,6 +23,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -74,8 +75,11 @@ fun ExpenseEditorScreen(
     initialPayerId: String?,
     onBack: () -> Unit,
     onSave: (TravelExpense) -> Unit,
+    isEditMode: Boolean = expense != null,
     isSaving: Boolean = false,
     errorMessage: String? = null,
+    hasLoadedTravelState: Boolean = true,
+    isLoadingTravelState: Boolean = false,
 ) {
     val formKey = expense?.id ?: schedule?.id ?: "missing-schedule"
     val draftId = rememberSaveable(formKey) { expense?.id ?: UUID.randomUUID().toString() }
@@ -131,17 +135,41 @@ fun ExpenseEditorScreen(
             }
             Column(Modifier.weight(1f)) {
                 Text(
-                    if (expense == null) "비용 추가" else "비용 수정",
+                    if (isEditMode) "비용 수정" else "비용 추가",
                     fontSize = 21.sp,
                     fontWeight = FontWeight.Bold,
                     color = TextPrimary,
                 )
-                Text(schedule?.title ?: "일정 정보 확인 중", fontSize = 12.sp, color = TextSecondary)
+                Text(
+                    when {
+                        schedule != null -> schedule.title
+                        !hasLoadedTravelState && isLoadingTravelState -> "일정 정보 확인 중"
+                        !hasLoadedTravelState -> "일정 정보 확인 실패"
+                        else -> "일정 정보 없음"
+                    },
+                    fontSize = 12.sp,
+                    color = TextSecondary,
+                )
             }
+        }
+
+        if (!hasLoadedTravelState && isLoadingTravelState) {
+            LoadingScheduleContent()
+            return@Column
+        }
+
+        if (!hasLoadedTravelState) {
+            UnavailableTravelStateContent(onBack = onBack)
+            return@Column
         }
 
         if (schedule == null) {
             MissingScheduleContent(onBack = onBack)
+            return@Column
+        }
+
+        if (isEditMode && expense == null) {
+            MissingExpenseContent(onBack = onBack)
             return@Column
         }
 
@@ -286,13 +314,45 @@ fun ExpenseEditorScreen(
             Text(
                 when {
                     isSaving -> "저장 중…"
-                    expense == null -> "비용 저장하기"
+                    !isEditMode -> "비용 저장하기"
                     else -> "수정 내용 저장하기"
                 },
                 fontWeight = FontWeight.SemiBold,
             )
         }
         Spacer(Modifier.height(16.dp))
+    }
+}
+
+@Composable
+private fun LoadingScheduleContent() {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        CircularProgressIndicator()
+        Spacer(Modifier.height(12.dp))
+        Text("일정 정보를 불러오는 중이에요", fontSize = 14.sp, color = TextSecondary)
+    }
+}
+
+@Composable
+private fun UnavailableTravelStateContent(onBack: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            "여행 정보를 불러오지 못했어요",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = TextPrimary,
+        )
+        Spacer(Modifier.height(6.dp))
+        Text("잠시 후 다시 시도해 주세요.", fontSize = 13.sp, color = TextSecondary)
+        TextButton(onClick = onBack) { Text("돌아가기") }
     }
 }
 
@@ -305,7 +365,26 @@ private fun MissingScheduleContent(onBack: () -> Unit) {
     ) {
         Text("일정을 찾을 수 없어요", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
         Spacer(Modifier.height(6.dp))
-        Text("일정이 삭제되었거나 아직 불러오는 중일 수 있어요.", fontSize = 13.sp, color = TextSecondary)
+        Text("일정이 삭제되었거나 주소가 올바르지 않아요.", fontSize = 13.sp, color = TextSecondary)
+        TextButton(onClick = onBack) { Text("돌아가기") }
+    }
+}
+
+@Composable
+private fun MissingExpenseContent(onBack: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            "비용 내역을 찾을 수 없어요",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = TextPrimary,
+        )
+        Spacer(Modifier.height(6.dp))
+        Text("비용이 삭제되었거나 주소가 올바르지 않아요.", fontSize = 13.sp, color = TextSecondary)
         TextButton(onClick = onBack) { Text("돌아가기") }
     }
 }

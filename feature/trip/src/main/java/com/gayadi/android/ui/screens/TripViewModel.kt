@@ -44,6 +44,7 @@ data class TravelUiState(
     val isLoading: Boolean = true,
     val hasLoadedTravelState: Boolean = false,
     val isSavingExpense: Boolean = false,
+    val expenseErrorMessage: String? = null,
     val errorMessage: String? = null,
     val message: String? = null,
     val savedExpenseId: String? = null,
@@ -83,6 +84,8 @@ class TripViewModel(
     fun consumeMessage() = _uiState.update { it.copy(message = null) }
 
     fun consumeSavedExpense() = _uiState.update { it.copy(savedExpenseId = null) }
+
+    fun clearExpenseError() = _uiState.update { it.copy(expenseErrorMessage = null) }
 
     /** Removes every locally persisted trip artifact and clears the in-memory state. */
     suspend fun clearAllTravelData(): Result<Unit> = withContext(ioDispatcher) {
@@ -257,7 +260,7 @@ class TripViewModel(
 
     fun saveExpense(expense: TravelExpense) {
         if (_uiState.value.isSavingExpense) return
-        _uiState.update { it.copy(isSavingExpense = true, errorMessage = null) }
+        _uiState.update { it.copy(isSavingExpense = true, expenseErrorMessage = null) }
         viewModelScope.launch(ioDispatcher) { persistExpense(expense) }
     }
 
@@ -265,7 +268,7 @@ class TripViewModel(
 
     private suspend fun persistExpense(expense: TravelExpense): Result<Unit> {
         if (!_uiState.value.isSavingExpense) {
-            _uiState.update { it.copy(isSavingExpense = true, errorMessage = null) }
+            _uiState.update { it.copy(isSavingExpense = true, expenseErrorMessage = null) }
         }
         val persistedResult = try {
             persistenceMutex.withLock {
@@ -292,7 +295,7 @@ class TripViewModel(
                         isSavingExpense = false,
                         message = "비용을 저장했어요",
                         savedExpenseId = expense.id,
-                        errorMessage = null,
+                        expenseErrorMessage = null,
                     )
                 }
             },
@@ -300,7 +303,7 @@ class TripViewModel(
                 _uiState.update {
                     it.copy(
                         isSavingExpense = false,
-                        errorMessage = error.message ?: "비용 정보를 저장하지 못했어요",
+                        expenseErrorMessage = error.message ?: "비용 정보를 저장하지 못했어요",
                     )
                 }
             },
@@ -319,7 +322,7 @@ class TripViewModel(
         _uiState.value.travelState.expenses.filter { it.tripId == tripId }
             .sortedWith(compareBy(TravelExpense::date, TravelExpense::time, TravelExpense::id))
 
-    fun settlementForTrip(tripId: String): ExpenseSettlementSummary =
+    fun settlementForTrip(tripId: String): Result<ExpenseSettlementSummary> =
         CalculateExpenseSettlementUseCase()(
             expensesForTrip(tripId),
             _uiState.value.travelState.participantIdsForTrip(tripId),
@@ -432,8 +435,10 @@ class TripViewModel(
         viewModelScope.launch(ioDispatcher) {
             persistenceMutex.withLock {
                 val result = updateTravelState?.invoke(transform) ?: run {
-                    val candidate = transform(_uiState.value.travelState)
-                    saveTravelState(candidate).map { candidate }
+                    runCatching { transform(_uiState.value.travelState) }.fold(
+                        onSuccess = { candidate -> saveTravelState(candidate).map { candidate } },
+                        onFailure = { Result.failure(it) },
+                    )
                 }
                 result.fold(
                     onSuccess = { persisted ->

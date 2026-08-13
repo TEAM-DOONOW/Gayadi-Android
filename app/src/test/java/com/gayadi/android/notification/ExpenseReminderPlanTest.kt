@@ -4,6 +4,7 @@ import com.gayadi.android.domain.model.TravelSchedule
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneId
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
@@ -12,6 +13,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.yield
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -211,6 +213,53 @@ class ExpenseReminderPlanTest {
         }
 
         assertFalse(ledgerCommitted)
+    }
+
+    @Test
+    fun failedSignatureCommitCancelsNewlyEnqueuedWorkBeforeThrowing() {
+        val plan = initialPlan(schedule())
+        val workName = plan.remindersToEnqueue.single().workName
+        val events = mutableListOf<String>()
+
+        try {
+            applyExpenseReminderSyncPlan(
+                plan = plan,
+                cancelWork = { events += "cancel:$it" },
+                enqueueReminder = { events += "enqueue:${it.workName}" },
+                commitDesiredSignatures = {
+                    events += "commit"
+                    false
+                },
+            )
+            fail("Expected signature commit failure")
+        } catch (failure: IllegalStateException) {
+            assertEquals("비용 알림 예약 상태를 저장하지 못했어요", failure.message)
+        }
+
+        assertEquals(
+            listOf("enqueue:$workName", "commit", "cancel:$workName"),
+            events,
+        )
+    }
+
+    @Test
+    fun cancellationIsRethrownInsteadOfConvertedToFailureResult() = runBlocking {
+        val cancellation = CancellationException("cancel sync")
+
+        try {
+            runCatchingPreservingCancellation<Unit> { throw cancellation }
+            fail("Expected cancellation")
+        } catch (caught: CancellationException) {
+            assertSame(cancellation, caught)
+        }
+    }
+
+    @Test
+    fun nonCancellationFailureRemainsAResultFailure() = runBlocking {
+        val result = runCatchingPreservingCancellation<Unit> { error("sync failed") }
+
+        assertTrue(result.isFailure)
+        assertEquals("sync failed", result.exceptionOrNull()?.message)
     }
 
     @Test

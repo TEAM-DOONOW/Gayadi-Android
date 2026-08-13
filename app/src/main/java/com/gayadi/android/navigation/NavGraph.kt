@@ -16,6 +16,7 @@ import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
 import com.gayadi.android.notification.ExpenseReminderScheduler
 import com.gayadi.android.di.AppContainer
+import com.gayadi.android.domain.model.ExpenseSettlementSummary
 import com.gayadi.android.domain.model.TravelParticipant
 import com.gayadi.android.domain.model.TravelState
 import com.gayadi.android.domain.model.UserProfile
@@ -380,12 +381,19 @@ fun GayadiNavHost(appContainer: AppContainer) {
         ) { backStackEntry ->
             val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
             val travelState = travelUiState.travelState
+            val settlementResult = tripViewModel.settlementForTrip(tripId)
+            val settlementErrorMessage = settlementResult.exceptionOrNull()?.let { error ->
+                error.message ?: "비용 정산 정보를 계산하지 못했어요"
+            }
             TravelLedgerScreen(
                 tripName = travelState.trip(tripId)?.name.orEmpty(),
                 expenses = tripViewModel.expensesForTrip(tripId),
                 schedules = travelState.schedulesForTrip(tripId),
                 participants = travelState.participantsForTrip(tripId, tripViewModel.availableParticipants),
-                settlementSummary = tripViewModel.settlementForTrip(tripId),
+                settlementSummary = settlementResult.getOrElse {
+                    ExpenseSettlementSummary(0L, emptyList(), emptyList())
+                },
+                settlementErrorMessage = settlementErrorMessage,
                 onBack = { navController.popBackStack() },
                 onAddExpense = { scheduleId ->
                     navController.navigate(Routes.tripExpense(tripId, scheduleId))
@@ -415,6 +423,12 @@ fun GayadiNavHost(appContainer: AppContainer) {
             val scheduleId = requireNotNull(backStackEntry.arguments?.getString("scheduleId"))
             val expenseId = backStackEntry.arguments?.getString("expenseId")
             val travelState = travelUiState.travelState
+            val expense = expenseId?.let { id ->
+                travelState.expenses.find {
+                    it.id == id && it.tripId == tripId && it.scheduleId == scheduleId
+                }
+            }
+            LaunchedEffect(backStackEntry) { tripViewModel.clearExpenseError() }
             LaunchedEffect(travelUiState.savedExpenseId, expenseId) {
                 travelUiState.savedExpenseId?.let { savedId ->
                     tripViewModel.consumeSavedExpense()
@@ -424,14 +438,17 @@ fun GayadiNavHost(appContainer: AppContainer) {
                 }
             }
             ExpenseEditorScreen(
-                expense = expenseId?.let(tripViewModel::expenseById),
+                expense = expense,
+                isEditMode = expenseId != null,
                 schedule = travelState.schedules.find { it.id == scheduleId && it.tripId == tripId },
                 participants = travelState.participantsForTrip(tripId, tripViewModel.availableParticipants),
                 initialPayerId = travelState.currentUserId,
                 onBack = { navController.popBackStack() },
                 onSave = tripViewModel::saveExpense,
                 isSaving = travelUiState.isSavingExpense,
-                errorMessage = travelUiState.errorMessage,
+                errorMessage = travelUiState.expenseErrorMessage,
+                hasLoadedTravelState = travelUiState.hasLoadedTravelState,
+                isLoadingTravelState = travelUiState.isLoading,
             )
         }
         composable(

@@ -26,8 +26,9 @@ internal fun applyExpenseReminderSyncPlan(
 ) {
     plan.workNamesToCancel.forEach(cancelWork)
     plan.remindersToEnqueue.forEach(enqueueReminder)
-    check(commitDesiredSignatures(plan.desiredSignatures)) {
-        "비용 알림 예약 상태를 저장하지 못했어요"
+    if (!commitDesiredSignatures(plan.desiredSignatures)) {
+        plan.remindersToEnqueue.forEach { reminder -> cancelWork(reminder.workName) }
+        error("비용 알림 예약 상태를 저장하지 못했어요")
     }
 }
 

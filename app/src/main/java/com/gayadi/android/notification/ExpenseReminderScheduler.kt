@@ -8,25 +8,27 @@ import androidx.work.WorkManager
 import com.gayadi.android.domain.model.TravelSchedule
 import java.time.Clock
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+
+private val processWideExpenseReminderSyncGate = ExpenseReminderSyncGate()
 
 class ExpenseReminderScheduler(
     context: Context,
     private val workManager: WorkManager = WorkManager.getInstance(context.applicationContext),
     private val clock: Clock = Clock.systemDefaultZone(),
 ) {
-    private val syncGate = ExpenseReminderSyncGate()
     private val preferences = context.applicationContext.getSharedPreferences(
         PREFERENCES_NAME,
         Context.MODE_PRIVATE,
     )
 
-    suspend fun sync(schedules: List<TravelSchedule>): Result<Unit> = runCatching {
+    suspend fun sync(schedules: List<TravelSchedule>): Result<Unit> = runCatchingPreservingCancellation {
         withContext(Dispatchers.IO) {
-            syncGate.run {
+            processWideExpenseReminderSyncGate.run {
                 val previouslyScheduledNames = preferences
                     .getStringSet(SCHEDULED_NAMES_KEY, emptySet())
                     .orEmpty()
@@ -76,9 +78,9 @@ class ExpenseReminderScheduler(
         }
     }
 
-    suspend fun cancelAll(): Result<Unit> = runCatching {
+    suspend fun cancelAll(): Result<Unit> = runCatchingPreservingCancellation {
         withContext(Dispatchers.IO) {
-            syncGate.run {
+            processWideExpenseReminderSyncGate.run {
                 workManager.cancelAllWorkByTag(EXPENSE_REMINDER_TAG).result.get()
                 val scheduledNames = preferences.getStringSet(SCHEDULED_NAMES_KEY, emptySet()).orEmpty()
                 val committed = preferences.edit().apply {
@@ -97,6 +99,16 @@ class ExpenseReminderScheduler(
         const val SCHEDULED_NAMES_KEY = "scheduled-work-names"
         const val SIGNATURE_KEY_PREFIX = "scheduled-signature:"
     }
+}
+
+internal suspend fun <T> runCatchingPreservingCancellation(
+    block: suspend () -> T,
+): Result<T> = try {
+    Result.success(block())
+} catch (failure: CancellationException) {
+    throw failure
+} catch (failure: Throwable) {
+    Result.failure(failure)
 }
 
 internal class ExpenseReminderSyncGate {

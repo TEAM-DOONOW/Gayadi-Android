@@ -23,8 +23,9 @@ import com.gayadi.android.domain.model.SettlementTransfer
 import com.gayadi.android.domain.model.TravelExpense
 import com.gayadi.android.domain.model.TravelParticipant
 import com.gayadi.android.ui.theme.GayadiTheme
-import org.junit.Assert.assertTrue
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -314,6 +315,80 @@ class TravelFlowScreenTest {
     }
 
     @Test
+    fun expenseEditorShowsLoadingBeforeTravelStateIsAvailable() {
+        composeRule.setContent {
+            GayadiTheme {
+                ExpenseEditorScreen(
+                    expense = null,
+                    schedule = null,
+                    participants = emptyList(),
+                    initialPayerId = null,
+                    onBack = {},
+                    onSave = {},
+                    hasLoadedTravelState = false,
+                    isLoadingTravelState = true,
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("일정 정보를 불러오는 중이에요").assertIsDisplayed()
+        composeRule.onNodeWithText("일정을 찾을 수 없어요").assertDoesNotExist()
+    }
+
+    @Test
+    fun expenseEditorDistinguishesTravelLoadFailureFromMissingSchedule() {
+        composeRule.setContent {
+            GayadiTheme {
+                ExpenseEditorScreen(
+                    expense = null,
+                    schedule = null,
+                    participants = emptyList(),
+                    initialPayerId = null,
+                    onBack = {},
+                    onSave = {},
+                    hasLoadedTravelState = false,
+                    isLoadingTravelState = false,
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("여행 정보를 불러오지 못했어요").assertIsDisplayed()
+        composeRule.onNodeWithText("일정 정보를 불러오는 중이에요").assertDoesNotExist()
+        composeRule.onNodeWithText("일정을 찾을 수 없어요").assertDoesNotExist()
+    }
+
+    @Test
+    fun expenseEditorBlocksMissingExpenseEditInsteadOfCreatingNewExpense() {
+        val schedule = TravelSchedule(
+            id = "schedule-1",
+            tripId = "trip-28",
+            title = "성산일출봉",
+            date = "2026.08.08",
+            time = "10:00",
+            order = 0,
+        )
+        var saved = false
+        composeRule.setContent {
+            GayadiTheme {
+                ExpenseEditorScreen(
+                    expense = null,
+                    isEditMode = true,
+                    schedule = schedule,
+                    participants = listOf(TravelParticipant("local-user", "나")),
+                    initialPayerId = "local-user",
+                    onBack = {},
+                    onSave = { saved = true },
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("비용 수정").assertIsDisplayed()
+        composeRule.onNodeWithText("비용 내역을 찾을 수 없어요").assertIsDisplayed()
+        composeRule.onNodeWithText("수정 내용 저장하기").assertDoesNotExist()
+        composeRule.runOnIdle { assertFalse(saved) }
+    }
+
+    @Test
     fun repeatedExpenseSubmissionReusesTheSameDraftId() {
         val participant = TravelParticipant("local-user", "나")
         val schedule = TravelSchedule(
@@ -527,5 +602,29 @@ class TravelFlowScreenTest {
         composeRule.onNodeWithText("비용을 삭제할까요?").assertIsDisplayed()
         composeRule.onNodeWithText("삭제").performClick()
         composeRule.runOnIdle { assertEquals("expense-1", deletedExpenseId) }
+    }
+
+    @Test
+    fun ledgerShowsSettlementFailureInsteadOfMisleadingZeroTotal() {
+        composeRule.setContent {
+            GayadiTheme {
+                TravelLedgerScreen(
+                    tripName = "제주 여행",
+                    expenses = emptyList(),
+                    schedules = emptyList(),
+                    participants = emptyList(),
+                    settlementSummary = ExpenseSettlementSummary(0L, emptyList(), emptyList()),
+                    settlementErrorMessage = "결제자를 선택해 주세요.",
+                    onBack = {},
+                    onAddExpense = {},
+                    onEditExpense = { _, _ -> },
+                    onDeleteExpense = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("합계 계산 불가").assertIsDisplayed()
+        composeRule.onNodeWithText("정산 정보를 계산하지 못했어요").assertIsDisplayed()
+        composeRule.onNodeWithText("결제자를 선택해 주세요.").assertIsDisplayed()
     }
 }

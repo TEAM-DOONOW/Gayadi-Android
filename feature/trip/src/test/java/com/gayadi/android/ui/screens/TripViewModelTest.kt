@@ -123,7 +123,7 @@ class TripViewModelTest {
         assertTrue(viewModel.upsertExpense(sampleExpense(amount = 1_001L)).isSuccess)
         advanceUntilIdle()
 
-        val summary = viewModel.settlementForTrip("trip-28")
+        val summary = viewModel.settlementForTrip("trip-28").getOrThrow()
         assertEquals(1_001L, summary.totalAmount)
         assertEquals(1_001L, summary.balances.sumOf { it.paidAmount })
         assertEquals(1_001L, summary.balances.sumOf { it.owedAmount })
@@ -143,6 +143,33 @@ class TripViewModelTest {
         recreated.deleteSchedule("schedule-1")
         advanceUntilIdle()
         assertTrue(repository.state.expenses.isEmpty())
+    }
+
+    @Test
+    fun invalidSavedExpenseShowsSettlementErrorWithoutThrowing() = runTest(dispatcher) {
+        val trip = sampleTrip().toExistingDomain().copy(
+            participantIds = listOf("local-user", "user-101"),
+        )
+        val invalidExpense = sampleExpense().copy(payerId = "")
+        val repository = MemoryTravelRepository(
+            TravelState(
+                trips = listOf(trip),
+                participants = listOf(
+                    TravelParticipant("local-user", "나"),
+                    TravelParticipant("user-101", "여행곰"),
+                ),
+                schedules = listOf(sampleSchedule("schedule-1")),
+                expenses = listOf(invalidExpense),
+            ),
+        )
+        val viewModel = viewModel(repository)
+        advanceUntilIdle()
+
+        val summary = viewModel.settlementForTrip("trip-28")
+
+        assertTrue(summary.isFailure)
+        assertEquals("결제자를 선택해 주세요.", summary.exceptionOrNull()?.message)
+        assertNull(viewModel.uiState.value.errorMessage)
     }
 
     @Test
@@ -189,6 +216,25 @@ class TripViewModelTest {
     }
 
     @Test
+    fun fallbackMutationCapturesTransformFailure() = runTest(dispatcher) {
+        val repository = MemoryTravelRepository()
+        val viewModel = viewModelWithoutAtomicUpdate(repository)
+        advanceUntilIdle()
+        viewModel.addTrip(sampleTrip())
+        viewModel.addParticipant("trip-28", "user-101")
+        viewModel.upsertSchedule(sampleSchedule("schedule-1"))
+        advanceUntilIdle()
+
+        viewModel.saveExpense(sampleExpense())
+        viewModel.removeParticipant("trip-28", "user-101")
+        advanceUntilIdle()
+
+        assertTrue(repository.state.expenses.any { "user-101" in it.participantIds })
+        assertTrue("user-101" in repository.state.trips.single().participantIds)
+        assertEquals("비용 내역에 포함된 참여자는 내보낼 수 없어요", viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
     fun expenseSaveFailureKeepsEditorStateAndOverflowIsRejected() = runTest(dispatcher) {
         val repository = MemoryTravelRepository()
         val viewModel = viewModel(repository)
@@ -202,7 +248,17 @@ class TripViewModelTest {
         val failedWrite = viewModel.upsertExpense(sampleExpense())
         assertTrue(failedWrite.isFailure)
         assertFalse(viewModel.uiState.value.isSavingExpense)
+        assertNull(viewModel.uiState.value.errorMessage)
+        assertEquals("저장 실패", viewModel.uiState.value.expenseErrorMessage)
         assertTrue(viewModel.expensesForTrip("trip-28").isEmpty())
+
+        viewModel.clearExpenseError()
+        assertNull(viewModel.uiState.value.expenseErrorMessage)
+
+        viewModel.upsertSchedule(sampleSchedule("schedule-2"))
+        advanceUntilIdle()
+        assertEquals("저장 실패", viewModel.uiState.value.errorMessage)
+        assertNull(viewModel.uiState.value.expenseErrorMessage)
 
         repository.failWrites = false
         assertTrue(viewModel.upsertExpense(sampleExpense(Long.MAX_VALUE)).isSuccess)
@@ -379,6 +435,16 @@ class TripViewModelTest {
         dispatcher,
         inviteCodeGenerator,
         UpdateTravelStateUseCase(repository),
+    )
+
+    private fun viewModelWithoutAtomicUpdate(
+        repository: MemoryTravelRepository,
+    ) = TripViewModel(
+        SavedStateHandle(),
+        GetTravelStateUseCase(repository),
+        SaveTravelStateUseCase(repository),
+        dispatcher,
+        updateTravelState = null,
     )
 
     private fun sampleTrip() = TripSummary(

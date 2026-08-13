@@ -72,6 +72,7 @@ fun TravelLedgerScreen(
     schedules: List<TravelSchedule>,
     participants: List<TravelParticipant>,
     settlementSummary: ExpenseSettlementSummary,
+    settlementErrorMessage: String? = null,
     onBack: () -> Unit,
     onAddExpense: (String) -> Unit,
     onEditExpense: (String, String) -> Unit,
@@ -109,10 +110,13 @@ fun TravelLedgerScreen(
             ) {
                 item {
                     LedgerTotalCard(
-                        total = settlementSummary.totalAmount,
+                        total = settlementSummary.totalAmount.takeIf { settlementErrorMessage == null },
                         expenseCount = expenses.size,
                         participantCount = participants.size,
                     )
+                }
+                settlementErrorMessage?.let { message ->
+                    item { SettlementErrorCard(message) }
                 }
                 if (expenses.isEmpty()) {
                     item { EmptyLedger(onAdd = { choosingSchedule = true }) }
@@ -127,11 +131,13 @@ fun TravelLedgerScreen(
                             onDelete = { deletingExpenseId = it },
                         )
                     }
-                    item {
-                        SettlementSection(
-                            summary = settlementSummary,
-                            participantById = participantById,
-                        )
+                    if (settlementErrorMessage == null) {
+                        item {
+                            SettlementSection(
+                                summary = settlementSummary,
+                                participantById = participantById,
+                            )
+                        }
                     }
                 }
             }
@@ -186,7 +192,7 @@ fun TravelLedgerScreen(
 }
 
 @Composable
-private fun LedgerTotalCard(total: Long, expenseCount: Int, participantCount: Int) {
+private fun LedgerTotalCard(total: Long?, expenseCount: Int, participantCount: Int) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = PrimaryAction),
@@ -195,13 +201,33 @@ private fun LedgerTotalCard(total: Long, expenseCount: Int, participantCount: In
         Column(Modifier.fillMaxWidth().padding(20.dp)) {
             Text("여행 총지출", fontSize = 13.sp, color = Color.White.copy(alpha = 0.72f))
             Spacer(Modifier.height(4.dp))
-            Text(total.toWon(), fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Text(
+                total?.toWon() ?: "합계 계산 불가",
+                fontSize = if (total == null) 22.sp else 28.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+            )
             Spacer(Modifier.height(10.dp))
             Text(
                 "비용 ${expenseCount}건 · 참여자 ${participantCount}명",
                 fontSize = 12.sp,
                 color = Color.White.copy(alpha = 0.72f),
             )
+        }
+    }
+}
+
+@Composable
+private fun SettlementErrorCard(message: String) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = LedgerDanger.copy(alpha = 0.1f)),
+        shape = RoundedCornerShape(12.dp),
+    ) {
+        Column(Modifier.fillMaxWidth().padding(14.dp)) {
+            Text("정산 정보를 계산하지 못했어요", fontWeight = FontWeight.SemiBold, color = LedgerDanger)
+            Spacer(Modifier.height(4.dp))
+            Text(message, fontSize = 12.sp, color = TextSecondary)
         }
     }
 }

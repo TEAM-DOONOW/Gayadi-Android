@@ -81,5 +81,5 @@ private fun createNotificationChannel(context: Context) {
     ).apply {
         description = "일정이 끝나면 비용 입력을 알려드려요"
     }
-    context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+    context.getSystemService(NotificationManager::class.java)?.createNotificationChannel(channel)
 }

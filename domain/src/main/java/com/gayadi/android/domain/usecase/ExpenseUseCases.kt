@@ -59,7 +59,7 @@ class CalculateExpenseSettlementUseCase(
     operator fun invoke(
         expenses: List<TravelExpense>,
         participantIds: Collection<String> = emptyList(),
-    ): ExpenseSettlementSummary {
+    ): Result<ExpenseSettlementSummary> = runCatching {
         val totals = linkedMapOf<String, MutableParticipantTotals>()
         participantIds.filter(String::isNotBlank).distinct().forEach { participantId ->
             totals[participantId] = MutableParticipantTotals()
@@ -94,7 +94,7 @@ class CalculateExpenseSettlementUseCase(
         check(balances.sumOf(ParticipantExpenseBalance::paidAmount) == totalAmount)
         check(balances.sumOf(ParticipantExpenseBalance::owedAmount) == totalAmount)
 
-        return ExpenseSettlementSummary(
+        ExpenseSettlementSummary(
             totalAmount = totalAmount,
             balances = balances,
             transfers = calculateTransfers(balances),

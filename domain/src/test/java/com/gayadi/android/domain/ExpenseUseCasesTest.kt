@@ -33,7 +33,7 @@ class ExpenseUseCasesTest {
                     participantIds = listOf("c", "a", "b"),
                 ),
             ),
-        )
+        ).getOrThrow()
 
         assertEquals(101L, summary.totalAmount)
         assertEquals(
@@ -62,7 +62,7 @@ class ExpenseUseCasesTest {
             expense(id = "taxi", amount = 50L, payerId = "b", participantIds = listOf("b", "a")),
         )
 
-        val summary = calculateSettlement(expenses)
+        val summary = calculateSettlement(expenses).getOrThrow()
 
         assertEquals(150L, summary.totalAmount)
         assertEquals(
@@ -87,7 +87,7 @@ class ExpenseUseCasesTest {
         val summary = calculateSettlement(
             expenses = emptyList(),
             participantIds = listOf("b", "a", "b", ""),
-        )
+        ).getOrThrow()
 
         assertEquals(
             listOf(
@@ -97,6 +97,15 @@ class ExpenseUseCasesTest {
             summary.balances,
         )
         assertTrue(summary.transfers.isEmpty())
+    }
+
+    @Test
+    fun invalidSavedExpenseReturnsFailureInsteadOfThrowing() {
+        val result = calculateSettlement(
+            expenses = listOf(expense(payerId = "")),
+        )
+
+        assertTrue(result.isFailure)
     }
 
     private fun expense(
