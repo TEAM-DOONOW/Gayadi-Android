@@ -18,6 +18,7 @@ private val BottomNavSelectedColor = Color(0xFF343548)
 
 enum class BottomTab(val label: String) {
     OUR_TRIP("우리여행"),
+    LEDGER("가계부"),
     MY_TRIP("나의여행"),
     MY_PAGE("마이"),
 }
@@ -26,6 +27,7 @@ enum class BottomTab(val label: String) {
 fun BottomNavBar(
     currentTab: BottomTab,
     showMyPage: Boolean = false,
+    showLedger: Boolean = false,
     onTabSelected: (BottomTab) -> Unit,
 ) {
     val rightTab = if (showMyPage) BottomTab.MY_PAGE else BottomTab.MY_TRIP
@@ -52,6 +54,27 @@ fun BottomNavBar(
                 indicatorColor = Color.Transparent,
             ),
         )
+        if (showLedger) {
+            NavigationBarItem(
+                selected = currentTab == BottomTab.LEDGER,
+                onClick = { onTabSelected(BottomTab.LEDGER) },
+                icon = {
+                    Icon(
+                        painter = painterResource(R.drawable.bottom_my_money),
+                        contentDescription = BottomTab.LEDGER.label,
+                        modifier = Modifier.size(28.dp),
+                    )
+                },
+                label = { Text(BottomTab.LEDGER.label) },
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = BottomNavSelectedColor,
+                    selectedTextColor = BottomNavSelectedColor,
+                    unselectedIconColor = TextSecondary,
+                    unselectedTextColor = TextSecondary,
+                    indicatorColor = Color.Transparent,
+                ),
+            )
+        }
         NavigationBarItem(
             selected = currentTab == rightTab,
             onClick = { onTabSelected(rightTab) },

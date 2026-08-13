@@ -12,6 +12,8 @@ data class TravelTrip(
     val status: TripStatus = TripStatus.PLANNING,
     val participantIds: List<String> = emptyList(),
     val inviteCode: String = "",
+    val isGroupTrip: Boolean = false,
+    val dateAvailability: Map<String, List<String>> = emptyMap(),
 )
 
 data class TravelParticipant(

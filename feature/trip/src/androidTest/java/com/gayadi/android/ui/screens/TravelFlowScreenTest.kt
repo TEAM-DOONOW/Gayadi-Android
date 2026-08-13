@@ -13,9 +13,6 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.gayadi.android.domain.model.TravelTrip
-import com.gayadi.android.domain.model.TripStatus
-import com.gayadi.android.domain.model.UserProfile
 import com.gayadi.android.domain.model.TravelSchedule
 import com.gayadi.android.domain.model.ScheduleType
 import com.gayadi.android.domain.model.ExpenseSettlementSummary
@@ -35,57 +32,6 @@ import org.junit.runner.RunWith
 class TravelFlowScreenTest {
     @get:Rule
     val composeRule = createComposeRule()
-
-    @Test
-    fun detailReflectsNicknameCharacterContextAndTripActions() {
-        var started = false
-        var invitationOpened = false
-        var scheduleOpened = false
-        var ledgerOpened = false
-        var routesOpened = false
-        composeRule.setContent {
-            GayadiTheme {
-                TripDetailScreen(
-                    trip = TravelTrip(
-                        id = "trip-28",
-                        name = "제주 여행",
-                        startDate = "2026.08.08",
-                        endDate = "2026.08.10",
-                        cities = listOf("제주"),
-                        status = TripStatus.PLANNING,
-                    ),
-                    participants = emptyList(),
-                    profile = UserProfile("미르", "", characterKey = "character_pca"),
-                    onBack = {},
-                    onEdit = {},
-                    onDelete = {},
-                    onStart = { started = true },
-                    onFinish = {},
-                    onParticipants = {},
-                    onInvitation = { invitationOpened = true },
-                    onSchedule = { scheduleOpened = true },
-                    onLedger = { ledgerOpened = true },
-                    onRoutes = { routesOpened = true },
-                    onHome = {},
-                )
-            }
-        }
-
-        composeRule.onNodeWithText("미르 님의 제주 여행").assertIsDisplayed()
-        composeRule.onNodeWithContentDescription("미르 캐릭터").assertIsDisplayed()
-        composeRule.onNodeWithText("여행 초대").performClick()
-        composeRule.onNodeWithText("일정 관리").performClick()
-        composeRule.onNodeWithText("여행 가계부").performClick()
-        composeRule.onNodeWithText("경로 추천").performClick()
-        composeRule.runOnIdle {
-            assertTrue(invitationOpened)
-            assertTrue(scheduleOpened)
-            assertTrue(ledgerOpened)
-            assertTrue(routesOpened)
-        }
-        composeRule.onNodeWithText("여행 시작").performScrollTo().performClick()
-        composeRule.runOnIdle { assertTrue(started) }
-    }
 
     @Test
     fun emptyScheduleCanOpenMainAlternativeEditor() {

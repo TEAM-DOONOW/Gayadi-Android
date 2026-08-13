@@ -73,6 +73,8 @@ data class TripSummary(
     val status: TripStatus = TripStatus.PLANNING,
     val participantIds: List<String> = emptyList(),
     val inviteCode: String = "",
+    val isGroupTrip: Boolean = false,
+    val dateAvailability: Map<String, List<String>> = emptyMap(),
 )
 
 @Composable
@@ -264,10 +266,10 @@ private fun TripCard(trip: TripSummary, onClick: () -> Unit, onDelete: () -> Uni
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    "${trip.startDate} - ${trip.endDate}",
+                    if (trip.isGroupTrip && trip.startDate.isBlank()) "가능한 날짜 정하기" else "${trip.startDate} - ${trip.endDate}",
                     fontFamily = PretendardFontFamily,
                     fontSize = 13.sp,
-                    color = Color(0xFF9A9BA2),
+                    color = if (trip.isGroupTrip && trip.startDate.isBlank()) TripAccentColor else Color(0xFF9A9BA2),
                 )
             }
         }
