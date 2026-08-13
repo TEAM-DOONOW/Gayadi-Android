@@ -48,7 +48,6 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 
-private const val HOST_ID = "trip-host"
 private val GroupAccent = Color(0xFF343548)
 private val CommonDate = Color(0xFFBFDCC5)
 private val ParticipantColors = listOf(
@@ -63,6 +62,7 @@ private val savedDateFormatter = DateTimeFormatter.ofPattern("yyyy.MM.dd")
 @Composable
 fun GroupDateCoordinationScreen(
     trip: TravelTrip?,
+    currentUserId: String,
     participants: List<TravelParticipant>,
     onBack: () -> Unit,
     onSubmit: (String, List<String>) -> Unit,
@@ -70,13 +70,15 @@ fun GroupDateCoordinationScreen(
 ) {
     if (trip == null) return
     val context = LocalContext.current
-    val members = remember(participants) {
-        listOf(HOST_ID to "나") + participants.map { it.id to it.nickname }
+    val members = remember(currentUserId, participants) {
+        listOf(currentUserId to "나") + participants
+            .filterNot { it.id == currentUserId }
+            .map { it.id to it.nickname }
     }
     val memberColors = remember(members) {
         members.mapIndexed { index, member -> member.first to ParticipantColors[index % ParticipantColors.size] }.toMap()
     }
-    var activeMemberId by remember { mutableStateOf(HOST_ID) }
+    var activeMemberId by remember(currentUserId) { mutableStateOf(currentUserId) }
     var visibleMonth by remember { mutableStateOf(YearMonth.now()) }
     var selectedDates by remember(activeMemberId, trip.dateAvailability) {
         mutableStateOf(trip.dateAvailability[activeMemberId].orEmpty().toSet())

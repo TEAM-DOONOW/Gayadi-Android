@@ -336,6 +336,7 @@ fun GayadiNavHost(appContainer: AppContainer) {
             val travelState = travelUiState.travelState
             GroupDateCoordinationScreen(
                 trip = travelState.trip(tripId),
+                currentUserId = travelState.currentUserId,
                 participants = travelState.participantsForTrip(tripId, tripViewModel.availableParticipants),
                 onBack = { navController.popBackStack() },
                 onSubmit = { participantId, dates ->
@@ -345,7 +346,7 @@ fun GayadiNavHost(appContainer: AppContainer) {
                     tripViewModel.finalizeGroupTripDates(tripId, startDate, endDate)
                     tripViewModel.selectTrip(tripId)
                     navController.navigate(Routes.realtimeHome(tripId)) {
-                        popUpTo(Routes.TRIP_CREATE) { inclusive = true }
+                        popUpTo(Routes.MY_TRIP)
                     }
                 },
             )
