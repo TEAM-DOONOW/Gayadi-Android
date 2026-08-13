@@ -661,23 +661,30 @@ class TravelFlowScreenTest {
             time = "18:00",
             order = 0,
         )
-        val expense = TravelExpense(
-            id = "expense-1",
+        val localExpense = TravelExpense(
+            id = "expense-local",
             tripId = "trip-28",
             scheduleId = schedule.id,
-            title = "공동 경비",
-            amount = 27_000,
+            title = "저녁 식사",
+            amount = 15_000,
             payerId = "local-user",
             participantIds = participants.map(TravelParticipant::id),
             date = schedule.date,
             time = schedule.time,
+        )
+        val friendExpense = localExpense.copy(
+            id = "expense-friend",
+            title = "카페",
+            amount = 12_000,
+            payerId = "friend-1",
+            time = "18:30",
         )
 
         composeRule.setContent {
             GayadiTheme {
                 TravelLedgerScreen(
                     tripName = "친구 여행",
-                    expenses = listOf(expense),
+                    expenses = listOf(localExpense, friendExpense),
                     schedules = listOf(schedule),
                     participants = participants,
                     settlementSummary = ExpenseSettlementSummary(
@@ -705,7 +712,10 @@ class TravelFlowScreenTest {
         composeRule.onNodeWithText("6,000원").assertIsDisplayed()
         composeRule.onNodeWithText("바다별 → 여행곰").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("3,000원").assertIsDisplayed()
+        composeRule.onNodeWithText("저녁 식사").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("카페").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("18:00 · minji 결제").assertDoesNotExist()
+        composeRule.onNodeWithText("18:30 · 여행곰 결제").assertDoesNotExist()
         composeRule.onNodeWithText("분담 minji · 여행곰 · 바다별").assertDoesNotExist()
     }
 
