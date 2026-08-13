@@ -1,6 +1,6 @@
 # [AGENTS.md](http://AGENTS.md)
 
-  ## Secrets and environment files
+## Secrets and environment files
 
   - Never read, print, parse, copy, modify, or source `.env`.
 
