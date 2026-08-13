@@ -375,30 +375,21 @@ private fun ParticipantSettlementSection(
     participantById: Map<String, TravelParticipant>,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("각자 정산", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-        if (summary.balances.all { it.netAmount == 0L }) {
+        Text("정산 내역", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+        if (summary.transfers.isEmpty()) {
             Text("정산할 금액이 없어요", fontSize = 13.sp, color = TextSecondary)
         } else {
-            summary.balances
-                .sortedWith(
-                    compareBy<ParticipantExpenseBalance> { it.netAmount >= 0L }
-                        .thenByDescending { kotlin.math.abs(it.netAmount) }
-                        .thenBy { participantById[it.participantId]?.nickname ?: it.participantId },
-                )
-                .forEach { balance ->
-                    ParticipantSettlementRow(
-                        balance = balance,
-                        participant = participantById[balance.participantId],
-                    )
-                }
+            summary.transfers.forEach { transfer ->
+                SettlementTransferRow(transfer = transfer, participantById = participantById)
+            }
         }
     }
 }
 
 @Composable
-private fun ParticipantSettlementRow(
-    balance: ParticipantExpenseBalance,
-    participant: TravelParticipant?,
+private fun SettlementTransferRow(
+    transfer: SettlementTransfer,
+    participantById: Map<String, TravelParticipant>,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -407,17 +398,13 @@ private fun ParticipantSettlementRow(
     ) {
         Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(
-                participant?.nickname ?: balance.participantId,
+                "${participantById[transfer.fromParticipantId]?.nickname ?: transfer.fromParticipantId} → " +
+                    (participantById[transfer.toParticipantId]?.nickname ?: transfer.toParticipantId),
                 modifier = Modifier.weight(1f),
                 fontWeight = FontWeight.Medium,
                 color = TextPrimary,
             )
-            val settlementText = when {
-                balance.netAmount < 0L -> "${(-balance.netAmount).toWon()} 보내기"
-                balance.netAmount > 0L -> "${balance.netAmount.toWon()} 받기"
-                else -> "정산 완료"
-            }
-            Text(settlementText, fontWeight = FontWeight.Bold, color = PrimaryBlue)
+            Text(transfer.amount.toWon(), fontWeight = FontWeight.Bold, color = PrimaryBlue)
         }
     }
 }
