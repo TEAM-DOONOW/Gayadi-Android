@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -55,7 +54,6 @@ import com.gayadi.android.domain.model.SettlementTransfer
 import com.gayadi.android.domain.model.TravelExpense
 import com.gayadi.android.domain.model.TravelParticipant
 import com.gayadi.android.domain.model.TravelSchedule
-import com.gayadi.android.ui.components.UserCharacterAvatar
 import com.gayadi.android.ui.theme.GayadiTheme
 import com.gayadi.android.ui.theme.PrimaryAction
 import com.gayadi.android.ui.theme.PrimaryBlue
@@ -113,12 +111,22 @@ fun TravelLedgerScreen(
 
             LazyColumn(
                 modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 96.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
+                contentPadding = PaddingValues(
+                    start = 20.dp,
+                    top = 20.dp,
+                    end = 20.dp,
+                    bottom = 96.dp,
+                ),
+                verticalArrangement = Arrangement.spacedBy(24.dp),
             ) {
                 item {
                     LedgerTotalCard(
                         total = settlementSummary.totalAmount.takeIf { settlementErrorMessage == null },
+                        perPersonAmount = settlementSummary.balances
+                            .map(ParticipantExpenseBalance::owedAmount)
+                            .distinct()
+                            .singleOrNull()
+                            ?.takeIf { settlementErrorMessage == null && it > 0L },
                         expenseCount = expenses.size,
                         participantCount = participants.size,
                     )
@@ -134,14 +142,13 @@ fun TravelLedgerScreen(
                             date = key.first,
                             schedule = scheduleById[key.second],
                             expenses = group,
-                            participantById = participantById,
                             onEdit = onEditExpense,
                             onDelete = { deletingExpenseId = it },
                         )
                     }
                     if (settlementErrorMessage == null) {
                         item {
-                            SettlementSection(
+                            ParticipantSettlementSection(
                                 summary = settlementSummary,
                                 participantById = participantById,
                             )
@@ -200,7 +207,12 @@ fun TravelLedgerScreen(
 }
 
 @Composable
-private fun LedgerTotalCard(total: Long?, expenseCount: Int, participantCount: Int) {
+private fun LedgerTotalCard(
+    total: Long?,
+    perPersonAmount: Long?,
+    expenseCount: Int,
+    participantCount: Int,
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = PrimaryAction),
@@ -221,6 +233,15 @@ private fun LedgerTotalCard(total: Long?, expenseCount: Int, participantCount: I
                 fontSize = 12.sp,
                 color = Color.White.copy(alpha = 0.72f),
             )
+            perPersonAmount?.let {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "1인당 ${it.toWon()}",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White,
+                )
+            }
         }
     }
 }
@@ -262,7 +283,6 @@ private fun ExpenseGroup(
     date: String,
     schedule: TravelSchedule?,
     expenses: List<TravelExpense>,
-    participantById: Map<String, TravelParticipant>,
     onEdit: (String, String) -> Unit,
     onDelete: (String) -> Unit,
 ) {
@@ -277,8 +297,6 @@ private fun ExpenseGroup(
         expenses.forEach { expense ->
             ExpenseRow(
                 expense = expense,
-                payer = participantById[expense.payerId],
-                splitParticipants = expense.participantIds.mapNotNull(participantById::get),
                 onEdit = { onEdit(expense.id, expense.scheduleId) },
                 onDelete = { onDelete(expense.id) },
             )
@@ -289,8 +307,6 @@ private fun ExpenseGroup(
 @Composable
 private fun ExpenseRow(
     expense: TravelExpense,
-    payer: TravelParticipant?,
-    splitParticipants: List<TravelParticipant>,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -304,12 +320,7 @@ private fun ExpenseRow(
             modifier = Modifier.fillMaxWidth().padding(start = 14.dp, top = 14.dp, bottom = 14.dp),
             verticalAlignment = Alignment.Top,
         ) {
-            UserCharacterAvatar(
-                characterKey = payer?.characterKey,
-                contentDescription = "${payer?.nickname ?: "알 수 없는 결제자"} 캐릭터",
-                modifier = Modifier.size(38.dp),
-            )
-            Column(Modifier.weight(1f).padding(start = 10.dp)) {
+            Column(Modifier.weight(1f).padding(start = 14.dp)) {
                 Text(
                     expense.title,
                     maxLines = 2,
@@ -318,15 +329,8 @@ private fun ExpenseRow(
                     color = TextPrimary,
                 )
                 Text(
-                    "${expense.time} · ${payer?.nickname ?: "알 수 없음"} 결제",
+                    expense.time,
                     fontSize = 12.sp,
-                    color = TextSecondary,
-                )
-                Text(
-                    "분담 ${participantNames(splitParticipants, expense.participantIds)}",
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    fontSize = 11.sp,
                     color = TextSecondary,
                 )
                 if (expense.memo.isNotBlank()) {
@@ -366,63 +370,35 @@ private fun ExpenseRow(
 }
 
 @Composable
-private fun SettlementSection(
+private fun ParticipantSettlementSection(
     summary: ExpenseSettlementSummary,
     participantById: Map<String, TravelParticipant>,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("사람별 정산", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-        summary.balances.forEach { balance ->
-            BalanceRow(balance = balance, participant = participantById[balance.participantId])
-        }
-        Spacer(Modifier.height(4.dp))
-        Text("보낼 돈", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-        if (summary.transfers.isEmpty()) {
+        Text("각자 정산", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+        if (summary.balances.all { it.netAmount == 0L }) {
             Text("정산할 금액이 없어요", fontSize = 13.sp, color = TextSecondary)
         } else {
-            summary.transfers.forEach { transfer ->
-                TransferRow(
-                    transfer = transfer,
-                    from = participantById[transfer.fromParticipantId],
-                    to = participantById[transfer.toParticipantId],
+            summary.balances
+                .sortedWith(
+                    compareBy<ParticipantExpenseBalance> { it.netAmount >= 0L }
+                        .thenByDescending { kotlin.math.abs(it.netAmount) }
+                        .thenBy { participantById[it.participantId]?.nickname ?: it.participantId },
                 )
-            }
+                .forEach { balance ->
+                    ParticipantSettlementRow(
+                        balance = balance,
+                        participant = participantById[balance.participantId],
+                    )
+                }
         }
     }
 }
 
 @Composable
-private fun BalanceRow(balance: ParticipantExpenseBalance, participant: TravelParticipant?) {
-    Row(
-        modifier = Modifier.fillMaxWidth().background(SurfaceCard, RoundedCornerShape(10.dp)).padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        UserCharacterAvatar(
-            characterKey = participant?.characterKey,
-            contentDescription = "${participant?.nickname ?: "알 수 없는 참여자"} 캐릭터",
-            modifier = Modifier.size(34.dp),
-        )
-        Column(Modifier.weight(1f).padding(start = 10.dp)) {
-            Text(participant?.nickname ?: balance.participantId, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-            Text(
-                "결제 ${balance.paidAmount.toWon()} · 부담 ${balance.owedAmount.toWon()}",
-                fontSize = 11.sp,
-                color = TextSecondary,
-            )
-        }
-        Text(
-            signedWon(balance.netAmount),
-            fontWeight = FontWeight.Bold,
-            color = if (balance.netAmount >= 0L) PrimaryBlue else LedgerDanger,
-        )
-    }
-}
-
-@Composable
-private fun TransferRow(
-    transfer: SettlementTransfer,
-    from: TravelParticipant?,
-    to: TravelParticipant?,
+private fun ParticipantSettlementRow(
+    balance: ParticipantExpenseBalance,
+    participant: TravelParticipant?,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -431,12 +407,17 @@ private fun TransferRow(
     ) {
         Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(
-                "${from?.nickname ?: transfer.fromParticipantId} → ${to?.nickname ?: transfer.toParticipantId}",
+                participant?.nickname ?: balance.participantId,
                 modifier = Modifier.weight(1f),
                 fontWeight = FontWeight.Medium,
                 color = TextPrimary,
             )
-            Text(transfer.amount.toWon(), fontWeight = FontWeight.Bold, color = PrimaryBlue)
+            val settlementText = when {
+                balance.netAmount < 0L -> "${(-balance.netAmount).toWon()} 보내기"
+                balance.netAmount > 0L -> "${balance.netAmount.toWon()} 받기"
+                else -> "정산 완료"
+            }
+            Text(settlementText, fontWeight = FontWeight.Bold, color = PrimaryBlue)
         }
     }
 }
@@ -475,22 +456,7 @@ private fun SchedulePickerDialog(
     )
 }
 
-private fun participantNames(
-    participants: List<TravelParticipant>,
-    originalIds: List<String>,
-): String = if (participants.isEmpty()) {
-    if (originalIds.isEmpty()) "없음" else "알 수 없는 참여자 ${originalIds.size}명"
-} else {
-    participants.joinToString(" · ", transform = TravelParticipant::nickname)
-}
-
 private fun Long.toWon(): String = "${NumberFormat.getNumberInstance(Locale.KOREA).format(this)}원"
-
-private fun signedWon(amount: Long): String = when {
-    amount > 0L -> "+${amount.toWon()}"
-    amount < 0L -> "-${(-amount).toWon()}"
-    else -> "0원"
-}
 
 @Preview(showBackground = true, heightDp = 900)
 @Composable

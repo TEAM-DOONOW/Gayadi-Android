@@ -623,8 +623,14 @@ class TravelFlowScreenTest {
 
         composeRule.onAllNodesWithText("45,001원").onFirst().assertIsDisplayed()
         composeRule.onNodeWithText("비용 2건 · 참여자 2명").assertIsDisplayed()
-        composeRule.onNodeWithText("여행곰 → 나").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("22,501원").assertIsDisplayed()
+        composeRule.onNodeWithText("각자 정산").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("사람별 정산").assertDoesNotExist()
+        composeRule.onNodeWithText("여행곰").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("22,501원 보내기").assertIsDisplayed()
+        composeRule.onNodeWithText("22,501원 받기").assertIsDisplayed()
+        composeRule.onNodeWithText("나 → 여행곰").assertDoesNotExist()
+        composeRule.onNodeWithText("12:00 · 나 결제").assertDoesNotExist()
+        composeRule.onNodeWithText("분담 나 · 여행곰").assertDoesNotExist()
         composeRule.onNodeWithContentDescription("점심 식사 메뉴").performClick()
         composeRule.onNodeWithText("삭제").performClick()
         composeRule.onNodeWithText("비용을 삭제할까요?").assertIsDisplayed()
@@ -634,10 +640,12 @@ class TravelFlowScreenTest {
         composeRule.onNodeWithText("점심 식사").assertDoesNotExist()
         composeRule.onNodeWithText("비용 1건 · 참여자 2명").assertIsDisplayed()
         composeRule.onAllNodesWithText("10,000원").onFirst().assertIsDisplayed()
+        composeRule.onNodeWithText("1인당 5,000원").assertIsDisplayed()
         composeRule.onNodeWithText("45,001원").assertDoesNotExist()
-        composeRule.onNodeWithText("여행곰 → 나").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("5,000원").assertIsDisplayed()
-        composeRule.onNodeWithText("22,501원").assertDoesNotExist()
+        composeRule.onNodeWithText("여행곰").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("5,000원 보내기").assertIsDisplayed()
+        composeRule.onNodeWithText("5,000원 받기").assertIsDisplayed()
+        composeRule.onNodeWithText("22,501원 보내기").assertDoesNotExist()
     }
 
     @Test
