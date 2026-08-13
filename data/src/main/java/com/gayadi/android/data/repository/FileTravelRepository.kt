@@ -91,6 +91,12 @@ class FileTravelRepository(
                     put("status", trip.status.name)
                     put("participantIds", JSONArray(trip.participantIds))
                     put("inviteCode", trip.inviteCode)
+                    put("isGroupTrip", trip.isGroupTrip)
+                    put("dateAvailability", JSONObject().apply {
+                        trip.dateAvailability.forEach { (participantId, dates) ->
+                            put(participantId, JSONArray(dates))
+                        }
+                    })
                 })
             }
         })
@@ -165,6 +171,12 @@ class FileTravelRepository(
                 status = trip.optString("status", TripStatus.PLANNING.name).enumOr(TripStatus.PLANNING),
                 participantIds = trip.optJSONArray("participantIds").strings(),
                 inviteCode = trip.optString("inviteCode"),
+                isGroupTrip = trip.optBoolean("isGroupTrip"),
+                dateAvailability = trip.optJSONObject("dateAvailability")?.let { availability ->
+                    availability.keys().asSequence().associateWith { participantId ->
+                        availability.optJSONArray(participantId).strings()
+                    }
+                }.orEmpty(),
             )
         },
         participants = root.optJSONArray("participants").objects().map { participant ->

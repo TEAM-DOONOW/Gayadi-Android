@@ -194,10 +194,27 @@ class TripViewModel(
                             (expense.payerId == participantId || participantId in expense.participantIds)
                     },
                 ) { "비용 내역에 포함된 참여자는 내보낼 수 없어요" }
-                current.updateTrip(tripId) { it.copy(participantIds = it.participantIds - participantId) }
+                current.updateTrip(tripId) {
+                    it.copy(
+                        participantIds = it.participantIds - participantId,
+                        dateAvailability = it.dateAvailability - participantId,
+                    )
+                }
             }
         }
     }
+
+    fun submitDateAvailability(tripId: String, participantId: String, dates: List<String>) =
+        mutate("가능한 날짜를 저장했어요") { state ->
+            state.updateTrip(tripId) { trip ->
+                trip.copy(dateAvailability = trip.dateAvailability + (participantId to dates.distinct().sorted()))
+            }
+        }
+
+    fun finalizeGroupTripDates(tripId: String, startDate: String, endDate: String) =
+        mutate("여행 날짜를 확정했어요") { state ->
+            state.updateTrip(tripId) { it.copy(startDate = startDate, endDate = endDate) }
+        }
 
     fun createInvitation(tripId: String, inviteeId: String): String {
         val invitation = TravelInvitation(
@@ -584,6 +601,8 @@ private fun TravelTrip.toSummary() = TripSummary(
     status = status,
     participantIds = participantIds,
     inviteCode = inviteCode,
+    isGroupTrip = isGroupTrip,
+    dateAvailability = dateAvailability,
 )
 
 private fun TripSummary.toDomain(existing: TravelTrip? = null) = TravelTrip(
@@ -596,6 +615,8 @@ private fun TripSummary.toDomain(existing: TravelTrip? = null) = TravelTrip(
     status = existing?.status ?: status,
     participantIds = existing?.participantIds ?: participantIds,
     inviteCode = existing?.inviteCode?.ifBlank { inviteCode } ?: inviteCode,
+    isGroupTrip = existing?.isGroupTrip ?: isGroupTrip,
+    dateAvailability = existing?.dateAvailability ?: dateAvailability,
 )
 
 private const val INVITE_CODE_LENGTH = 6

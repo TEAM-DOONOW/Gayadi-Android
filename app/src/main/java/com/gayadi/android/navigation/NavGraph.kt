@@ -46,10 +46,10 @@ import com.gayadi.android.ui.screens.RealtimeHomeViewModel
 import com.gayadi.android.ui.screens.SettingsScreen
 import com.gayadi.android.ui.screens.LegalDocumentRoute
 import com.gayadi.android.ui.screens.LegalDocumentViewModel
-import com.gayadi.android.ui.screens.TripDetailScreen
 import com.gayadi.android.ui.screens.TravelProfileResultViewModel
 import com.gayadi.android.ui.screens.ParticipantsScreen
 import com.gayadi.android.ui.screens.InvitationScreen
+import com.gayadi.android.ui.screens.GroupDateCoordinationScreen
 import com.gayadi.android.ui.screens.ScheduleScreen
 import com.gayadi.android.ui.screens.RouteHubScreen
 import com.gayadi.android.ui.screens.RouteRecommendationScreen
@@ -246,7 +246,15 @@ fun GayadiNavHost(appContainer: AppContainer) {
                 trips = trips,
                 onAddTrip = { navController.navigate(Routes.TRIP_CREATE) },
                 onDeleteTrip = tripViewModel::deleteTrip,
-                onOpenTripDetail = { tripId -> navController.navigate(Routes.tripDetail(tripId)) },
+                onOpenTripDetail = { tripId ->
+                    val trip = travelUiState.travelState.trip(tripId)
+                    if (trip?.isGroupTrip == true && trip.startDate.isBlank()) {
+                        navController.navigate(Routes.groupDateCoordination(tripId))
+                    } else {
+                        tripViewModel.selectTrip(tripId)
+                        navController.navigate(Routes.realtimeHome(tripId))
+                    }
+                },
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
             )
         }
@@ -263,35 +271,8 @@ fun GayadiNavHost(appContainer: AppContainer) {
                 onInviteFriend = { trip ->
                     navController.navigate(Routes.tripInvitation(trip.id))
                 },
-            )
-        }
-        composable(
-            route = Routes.TRIP_DETAIL,
-            arguments = listOf(navArgument("tripId") { type = NavType.StringType }),
-        ) { backStackEntry ->
-            val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
-            val travelState = travelUiState.travelState
-            TripDetailScreen(
-                trip = travelState.trip(tripId),
-                participants = travelState.participantsForTrip(tripId, tripViewModel.availableParticipants),
-                profile = sharedProfileUiState.profile,
-                expenseTotal = travelState.expenses.filter { it.tripId == tripId }.sumOf { it.amount },
-                onBack = { navController.popBackStack() },
-                onEdit = { navController.navigate(Routes.tripEdit(tripId)) },
-                onDelete = {
-                    tripViewModel.deleteTrip(tripId)
-                    navController.popBackStack()
-                },
-                onStart = { tripViewModel.startTrip(tripId) },
-                onFinish = { tripViewModel.finishTrip(tripId) },
-                onParticipants = { navController.navigate(Routes.tripParticipants(tripId)) },
-                onInvitation = { navController.navigate(Routes.tripInvitation(tripId)) },
-                onSchedule = { navController.navigate(Routes.tripSchedule(tripId)) },
-                onLedger = { navController.navigate(Routes.tripLedger(tripId)) },
-                onRoutes = { navController.navigate(Routes.routeHub(tripId)) },
-                onHome = {
-                    tripViewModel.selectTrip(tripId)
-                    navController.navigate(Routes.realtimeHome(tripId))
+                onCoordinateDates = { trip ->
+                    navController.navigate(Routes.groupDateCoordination(trip.id))
                 },
             )
         }
@@ -345,6 +326,28 @@ fun GayadiNavHost(appContainer: AppContainer) {
                 onAccept = tripViewModel::acceptInvitation,
                 onDecline = tripViewModel::declineInvitation,
                 onCancel = tripViewModel::cancelInvitation,
+            )
+        }
+        composable(
+            route = Routes.GROUP_DATE_COORDINATION,
+            arguments = listOf(navArgument("tripId") { type = NavType.StringType }),
+        ) { backStackEntry ->
+            val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
+            val travelState = travelUiState.travelState
+            GroupDateCoordinationScreen(
+                trip = travelState.trip(tripId),
+                participants = travelState.participantsForTrip(tripId, tripViewModel.availableParticipants),
+                onBack = { navController.popBackStack() },
+                onSubmit = { participantId, dates ->
+                    tripViewModel.submitDateAvailability(tripId, participantId, dates)
+                },
+                onFinalize = { startDate, endDate ->
+                    tripViewModel.finalizeGroupTripDates(tripId, startDate, endDate)
+                    tripViewModel.selectTrip(tripId)
+                    navController.navigate(Routes.realtimeHome(tripId)) {
+                        popUpTo(Routes.TRIP_CREATE) { inclusive = true }
+                    }
+                },
             )
         }
         composable(
@@ -559,6 +562,8 @@ fun GayadiNavHost(appContainer: AppContainer) {
                     }.getOrDefault(emptyList())
                 }.orEmpty(),
                 participantCount = tripParticipants.size,
+                tripStartDate = trip?.startDate.orEmpty(),
+                tripEndDate = trip?.endDate.orEmpty(),
                 tripCoverImageResList = tripSummary?.coverImageResList.orEmpty(),
                 kakaoMapJavaScriptKey = com.gayadi.android.BuildConfig.KAKAO_MAP_JAVASCRIPT_SDK,
                 kakaoMapBaseUrl = com.gayadi.android.BuildConfig.API_BASE_URL,
@@ -576,6 +581,7 @@ fun GayadiNavHost(appContainer: AppContainer) {
                 } ?: "여행을 준비하고 있어요!",
                 onNavigateMyTrip = { navController.navigate(Routes.MY_TRIP) },
                 onNavigateMyPage = { navController.navigate(Routes.MY_PAGE) },
+                onNavigateLedger = { navController.navigate(Routes.tripLedger(tripId)) },
                 onNavigatePlaceSearch = { navController.navigate(Routes.placeSearch(tripId)) },
                 onNavigateParticipants = { navController.navigate(Routes.tripParticipants(tripId)) },
                 onNavigateSchedule = { navController.navigate(Routes.tripSchedule(tripId)) },

@@ -77,6 +77,9 @@ import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary
 import com.gayadi.android.ui.theme.TextTertiary
 import org.json.JSONArray
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 
 data class HomeTravelPlan(
     val title: String,
@@ -99,6 +102,8 @@ fun RealtimeHomeScreen(
     travelPlans: List<HomeTravelPlan> = emptyList(),
     tripDays: List<HomeTripDay> = emptyList(),
     participantCount: Int = 0,
+    tripStartDate: String = "",
+    tripEndDate: String = "",
     tripCountdownText: String = "여행을 준비하고 있어요!",
     tripCoverImageResList: List<Int> = emptyList(),
     kakaoMapJavaScriptKey: String = "",
@@ -106,6 +111,7 @@ fun RealtimeHomeScreen(
     friendCharacterKeys: List<String?> = emptyList(),
     onNavigateMyTrip: () -> Unit,
     onNavigateMyPage: () -> Unit,
+    onNavigateLedger: () -> Unit = {},
     onNavigatePlaceSearch: () -> Unit,
     onNavigateParticipants: () -> Unit,
     onNavigateSchedule: () -> Unit,
@@ -178,7 +184,7 @@ fun RealtimeHomeScreen(
                 Spacer(modifier = Modifier.height(28.dp))
 
                 TravelOverviewCard(
-                    plans = travelPlans,
+                    progress = calculateTripProgress(tripStartDate, tripEndDate),
                     participantCount = participantCount,
                     myCharacterKey = uiState.profile?.characterKey,
                     friendCharacterKeys = friendCharacterKeys,
@@ -241,13 +247,15 @@ fun RealtimeHomeScreen(
                 Spacer(modifier = Modifier.height(24.dp))
             }
 
-            BottomNavBar(
-                currentTab = BottomTab.OUR_TRIP,
-                onTabSelected = { tab ->
-                    when (tab) {
-                        BottomTab.MY_TRIP -> onNavigateMyTrip()
-                        BottomTab.MY_PAGE -> onNavigateMyPage()
-                        else -> {}
+        BottomNavBar(
+            currentTab = BottomTab.OUR_TRIP,
+            showLedger = true,
+            onTabSelected = { tab ->
+                when (tab) {
+                    BottomTab.MY_TRIP -> onNavigateMyTrip()
+                    BottomTab.MY_PAGE -> onNavigateMyPage()
+                    BottomTab.LEDGER -> onNavigateLedger()
+                    else -> {}
                     }
                 },
             )
@@ -258,14 +266,12 @@ fun RealtimeHomeScreen(
 
 @Composable
 private fun TravelOverviewCard(
-    plans: List<HomeTravelPlan>,
+    progress: Float,
     participantCount: Int,
     myCharacterKey: String?,
     friendCharacterKeys: List<String?>,
     onParticipants: () -> Unit,
 ) {
-    val completed = plans.count { it.isVisited }
-    val progress = if (plans.isEmpty()) 0f else completed.toFloat() / plans.size
     val visibleFriendCharacterKeys = friendCharacterKeys
         .filter { it != myCharacterKey }
         .distinct()
@@ -373,6 +379,26 @@ private fun TravelOverviewCard(
         }
     }
 }
+
+internal fun calculateTripProgress(
+    startDate: String,
+    endDate: String,
+    today: LocalDate = LocalDate.now(),
+): Float = runCatching {
+    val formatter = DateTimeFormatter.ofPattern("yyyy.MM.dd")
+    val start = LocalDate.parse(startDate, formatter)
+    val end = LocalDate.parse(endDate, formatter)
+    when {
+        end.isBefore(start) -> 0f
+        today.isBefore(start) -> 0f
+        !today.isBefore(end) -> 1f
+        else -> {
+            val totalDays = ChronoUnit.DAYS.between(start, end)
+            if (totalDays == 0L) 1f
+            else ChronoUnit.DAYS.between(start, today).toFloat() / totalDays
+        }
+    }
+}.getOrDefault(0f)
 
 @Composable
 @SuppressLint("SetJavaScriptEnabled")
