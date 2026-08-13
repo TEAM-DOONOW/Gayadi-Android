@@ -1,7 +1,9 @@
 package com.gayadi.android.data.repository
 
 import com.gayadi.android.domain.model.InvitationStatus
+import com.gayadi.android.domain.model.LOCAL_CURRENT_USER_ID
 import com.gayadi.android.domain.model.ScheduleType
+import com.gayadi.android.domain.model.TravelExpense
 import com.gayadi.android.domain.model.TravelInvitation
 import com.gayadi.android.domain.model.TravelParticipant
 import com.gayadi.android.domain.model.TravelSchedule
@@ -10,6 +12,7 @@ import com.gayadi.android.domain.model.TravelTrip
 import com.gayadi.android.domain.model.TripStatus
 import com.gayadi.android.domain.repository.TravelRepository
 import java.io.File
+import java.nio.file.StandardCopyOption
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -24,28 +27,55 @@ class FileTravelRepository(
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : TravelRepository {
     override suspend fun getTravelState(): Result<TravelState> = withContext(ioDispatcher) {
-        runCatching {
-            if (!file.exists() || file.readText().isBlank()) TravelState()
-            else decode(JSONObject(file.readText()))
+        mutexFor(file).withLock {
+            runCatching(::readState)
         }
     }
 
     override suspend fun saveTravelState(state: TravelState): Result<Unit> = withContext(ioDispatcher) {
         mutexFor(file).withLock {
+            runCatching { writeState(state) }
+        }
+    }
+
+    override suspend fun updateTravelState(
+        transform: (TravelState) -> TravelState,
+    ): Result<TravelState> = withContext(ioDispatcher) {
+        mutexFor(file).withLock {
             runCatching {
-                file.parentFile?.mkdirs()
-                val temporary = File(file.parentFile, "${file.name}.tmp")
-                try {
-                    temporary.writeText(encode(state).toString())
-                    check(temporary.renameTo(file)) { "여행 정보를 저장하지 못했습니다." }
-                } finally {
-                    if (temporary.exists()) temporary.delete()
-                }
+                val updated = transform(readState())
+                writeState(updated)
+                updated
             }
         }
     }
 
+    private fun readState(): TravelState {
+        if (!file.exists()) return TravelState()
+        val content = file.readText()
+        return if (content.isBlank()) TravelState() else decode(JSONObject(content))
+    }
+
+    private fun writeState(state: TravelState) {
+        requireValidExpenseTotals(state)
+        file.parentFile?.mkdirs()
+        val temporary = File(file.parentFile, "${file.name}.tmp")
+        try {
+            temporary.writeText(encode(state).toString())
+            java.nio.file.Files.move(
+                temporary.toPath(),
+                file.toPath(),
+                StandardCopyOption.REPLACE_EXISTING,
+                StandardCopyOption.ATOMIC_MOVE,
+            )
+        } finally {
+            if (temporary.exists()) temporary.delete()
+        }
+    }
+
     private fun encode(state: TravelState) = JSONObject().apply {
+        put("schemaVersion", CURRENT_SCHEMA_VERSION)
+        put("currentUserId", state.currentUserId)
         put("selectedTripId", state.selectedTripId ?: JSONObject.NULL)
         put("favoritePlaceIds", JSONArray(state.favoritePlaceIds.toList()))
         put("appliedRouteIds", JSONObject(state.appliedRouteIds))
@@ -96,12 +126,34 @@ class FileTravelRepository(
                     put("type", schedule.type.name)
                     put("order", schedule.order)
                     put("isVisited", schedule.isVisited)
+                    put("endTime", schedule.endTime ?: JSONObject.NULL)
+                })
+            }
+        })
+        put("expenses", JSONArray().apply {
+            state.expenses.forEach { expense ->
+                put(JSONObject().apply {
+                    put("id", expense.id)
+                    put("tripId", expense.tripId)
+                    put("scheduleId", expense.scheduleId)
+                    put("title", expense.title)
+                    put("memo", expense.memo)
+                    put("amount", expense.amount)
+                    put("payerId", expense.payerId)
+                    put("participantIds", JSONArray(expense.participantIds))
+                    put("date", expense.date)
+                    put("time", expense.time)
                 })
             }
         })
     }
 
-    private fun decode(root: JSONObject) = TravelState(
+    private fun decode(root: JSONObject): TravelState {
+        val schemaVersion = readSchemaVersion(root)
+        require(schemaVersion in LEGACY_SCHEMA_VERSION..CURRENT_SCHEMA_VERSION) {
+            "지원하지 않는 여행 데이터 스키마 버전입니다: $schemaVersion"
+        }
+        return TravelState(
         trips = root.optJSONArray("trips").objects().map { trip ->
             TravelTrip(
                 id = trip.getString("id"),
@@ -143,12 +195,52 @@ class FileTravelRepository(
                 type = schedule.optString("type", ScheduleType.MAIN.name).enumOr(ScheduleType.MAIN),
                 order = schedule.optInt("order"),
                 isVisited = schedule.optBoolean("isVisited"),
+                endTime = schedule.optNullableString("endTime"),
             )
         },
         favoritePlaceIds = root.optJSONArray("favoritePlaceIds").strings().toSet(),
         appliedRouteIds = root.optJSONObject("appliedRouteIds").stringMap(),
         selectedTripId = root.optNullableString("selectedTripId"),
-    )
+        expenses = root.optJSONArray("expenses").objects().map { expense ->
+            TravelExpense(
+                id = expense.getString("id"),
+                tripId = expense.getString("tripId"),
+                scheduleId = expense.getString("scheduleId"),
+                title = expense.getString("title"),
+                memo = expense.optString("memo"),
+                amount = expense.getLong("amount"),
+                payerId = expense.getString("payerId"),
+                participantIds = expense.optJSONArray("participantIds").strings(),
+                date = expense.getString("date"),
+                time = expense.getString("time"),
+            )
+        },
+        currentUserId = root.optNullableString("currentUserId") ?: LOCAL_CURRENT_USER_ID,
+    ).also(::requireValidExpenseTotals)
+    }
+
+    private fun readSchemaVersion(root: JSONObject): Int {
+        if (!root.has("schemaVersion")) return LEGACY_SCHEMA_VERSION
+        val rawVersion = root.get("schemaVersion")
+        require(rawVersion is Int || rawVersion is Long) {
+            "여행 데이터 스키마 버전은 정수여야 합니다."
+        }
+        val version = (rawVersion as Number).toLong()
+        require(version in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong()) {
+            "여행 데이터 스키마 버전 범위를 벗어났습니다: $version"
+        }
+        return version.toInt()
+    }
+
+    private fun requireValidExpenseTotals(state: TravelState) {
+        state.expenses.groupBy(TravelExpense::tripId).forEach { (tripId, expenses) ->
+            try {
+                expenses.fold(0L) { total, expense -> Math.addExact(total, expense.amount) }
+            } catch (error: ArithmeticException) {
+                throw IllegalArgumentException("여행 $tripId 비용 총액이 지원 범위를 벗어났습니다.", error)
+            }
+        }
+    }
 
     private fun JSONArray?.objects(): List<JSONObject> =
         if (this == null) emptyList() else List(length(), ::getJSONObject)
@@ -169,6 +261,8 @@ class FileTravelRepository(
         enumValues<T>().firstOrNull { it.name == this } ?: default
 
     companion object {
+        internal const val CURRENT_SCHEMA_VERSION = 2
+        private const val LEGACY_SCHEMA_VERSION = 1
         private val fileMutexes = java.util.concurrent.ConcurrentHashMap<String, Mutex>()
 
         private fun mutexFor(file: File): Mutex =

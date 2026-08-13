@@ -42,7 +42,46 @@ data class TravelSchedule(
     val type: ScheduleType = ScheduleType.MAIN,
     val order: Int,
     val isVisited: Boolean = false,
+    val endTime: String? = null,
 )
+
+/** One manually entered expense associated with a travel schedule. */
+data class TravelExpense(
+    val id: String,
+    val tripId: String,
+    val scheduleId: String,
+    val title: String,
+    val memo: String = "",
+    val amount: Long,
+    val payerId: String,
+    val participantIds: List<String>,
+    val date: String,
+    val time: String,
+)
+
+/** Per-person totals used by the trip ledger. Positive net amounts are receivable. */
+data class ParticipantExpenseBalance(
+    val participantId: String,
+    val paidAmount: Long,
+    val owedAmount: Long,
+    val netAmount: Long,
+)
+
+/** One suggested payment from an original debtor to an original creditor. */
+data class SettlementTransfer(
+    val fromParticipantId: String,
+    val toParticipantId: String,
+    val amount: Long,
+)
+
+data class ExpenseSettlementSummary(
+    val totalAmount: Long,
+    val balances: List<ParticipantExpenseBalance>,
+    val transfers: List<SettlementTransfer>,
+)
+
+/** Stable identifier used for the device-local user until server authentication provides one. */
+const val LOCAL_CURRENT_USER_ID = "local-user"
 
 data class TravelState(
     val trips: List<TravelTrip> = emptyList(),
@@ -52,4 +91,6 @@ data class TravelState(
     val favoritePlaceIds: Set<String> = emptySet(),
     val appliedRouteIds: Map<String, String> = emptyMap(),
     val selectedTripId: String? = null,
+    val expenses: List<TravelExpense> = emptyList(),
+    val currentUserId: String = LOCAL_CURRENT_USER_ID,
 )

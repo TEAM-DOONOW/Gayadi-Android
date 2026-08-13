@@ -2,7 +2,9 @@ package com.gayadi.android.data
 
 import com.gayadi.android.data.repository.FileTravelRepository
 import com.gayadi.android.domain.model.InvitationStatus
+import com.gayadi.android.domain.model.LOCAL_CURRENT_USER_ID
 import com.gayadi.android.domain.model.ScheduleType
+import com.gayadi.android.domain.model.TravelExpense
 import com.gayadi.android.domain.model.TravelInvitation
 import com.gayadi.android.domain.model.TravelParticipant
 import com.gayadi.android.domain.model.TravelSchedule
@@ -17,7 +19,9 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.Dispatchers
 import java.util.concurrent.CyclicBarrier
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -78,6 +82,99 @@ class FileTravelRepositoryTest {
         }
     }
 
+    @Test
+    fun legacyJsonDefaultsNewFieldsAndNextSaveWritesSchemaVersionTwo() = runTest {
+        val directory = Files.createTempDirectory("travel-repository-legacy-test").toFile()
+        try {
+            val file = directory.resolve("travel-state.json")
+            file.writeText(
+                """{"trips":[{"id":"trip-1","name":"제주 여행","startDate":"2026.08.08","endDate":"2026.08.10","cities":["제주"]}],"schedules":[{"id":"schedule-1","tripId":"trip-1","title":"점심","date":"2026.08.08","time":"12:00","order":0}]}""",
+            )
+            val repository = FileTravelRepository(file, StandardTestDispatcher(testScheduler))
+
+            val restored = repository.getTravelState().getOrThrow()
+
+            assertEquals(null, restored.schedules.single().endTime)
+            assertTrue(restored.expenses.isEmpty())
+            assertEquals(LOCAL_CURRENT_USER_ID, restored.currentUserId)
+
+            repository.saveTravelState(restored).getOrThrow()
+            assertEquals(2, JSONObject(file.readText()).getInt("schemaVersion"))
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun concurrentAtomicUpdatesDoNotLoseExpenses() = runTest {
+        val directory = Files.createTempDirectory("travel-repository-update-test").toFile()
+        try {
+            val file = directory.resolve("travel-state.json")
+            val updateCount = 20
+            val barrier = CyclicBarrier(updateCount)
+            (1..updateCount).map { index ->
+                async(Dispatchers.IO) {
+                    barrier.await()
+                    FileTravelRepository(file, Dispatchers.IO).updateTravelState { state ->
+                        state.copy(expenses = state.expenses + expense("expense-$index"))
+                    }.getOrThrow()
+                }
+            }.awaitAll()
+
+            val restored = FileTravelRepository(file, Dispatchers.IO).getTravelState().getOrThrow()
+            assertEquals(updateCount, restored.expenses.size)
+            assertEquals(updateCount, restored.expenses.map(TravelExpense::id).distinct().size)
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun rejectsFutureFractionalAndTextSchemaVersions() = runTest {
+        val directory = Files.createTempDirectory("travel-repository-schema-test").toFile()
+        try {
+            val file = directory.resolve("travel-state.json")
+            val repository = FileTravelRepository(file, StandardTestDispatcher(testScheduler))
+            listOf("3", "2.5", "\"future\"").forEach { schemaVersion ->
+                file.writeText("""{"schemaVersion":$schemaVersion}""")
+                assertTrue("schemaVersion=$schemaVersion", repository.getTravelState().isFailure)
+            }
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun failedTransformAndOverflowLeavePreviousFileIntact() = runTest {
+        val directory = Files.createTempDirectory("travel-repository-failure-test").toFile()
+        try {
+            val file = directory.resolve("travel-state.json")
+            val repository = FileTravelRepository(file, StandardTestDispatcher(testScheduler))
+            val original = fullState().copy(expenses = listOf(expense("expense-1").copy(amount = 10L)))
+            repository.saveTravelState(original).getOrThrow()
+
+            val transformFailure = repository.updateTravelState {
+                throw IllegalStateException("변환 실패")
+            }
+            assertTrue(transformFailure.isFailure)
+            assertEquals(original, repository.getTravelState().getOrThrow())
+
+            val overflow = repository.updateTravelState { state ->
+                state.copy(
+                    expenses = listOf(
+                        expense("expense-max").copy(amount = Long.MAX_VALUE),
+                        expense("expense-over").copy(amount = 1L),
+                    ),
+                )
+            }
+            assertTrue(overflow.isFailure)
+            assertFalse(directory.resolve("${file.name}.tmp").exists())
+            assertEquals(original, repository.getTravelState().getOrThrow())
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
     private fun fullState() = TravelState(
         trips = listOf(
             TravelTrip(
@@ -107,10 +204,26 @@ class FileTravelRepositoryTest {
                 type = ScheduleType.ALTERNATIVE,
                 order = 0,
                 isVisited = true,
+                endTime = "11:30",
             ),
         ),
         favoritePlaceIds = setOf("place-3"),
         appliedRouteIds = mapOf("trip-28:ITINERARY" to "balanced"),
         selectedTripId = "trip-28",
+        expenses = listOf(expense("expense-1")),
+        currentUserId = "device-user-42",
+    )
+
+    private fun expense(id: String) = TravelExpense(
+        id = id,
+        tripId = "trip-28",
+        scheduleId = "schedule-1",
+        title = "점심",
+        memo = "흑돼지",
+        amount = 45_001L,
+        payerId = "user-101",
+        participantIds = listOf("user-101", "user-102"),
+        date = "2026.08.08",
+        time = "11:00",
     )
 }
