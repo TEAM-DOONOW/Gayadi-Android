@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.outlined.Luggage
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -26,6 +27,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -77,7 +79,7 @@ data class TripSummary(
 fun MyTripScreen(
     trips: List<TripSummary>,
     onAddTrip: () -> Unit,
-    onNavigateHome: (String) -> Unit,
+    onOpenTripDetail: (String) -> Unit,
     onDeleteTrip: (String) -> Unit,
     onOpenSettings: () -> Unit,
 ) {
@@ -137,7 +139,7 @@ fun MyTripScreen(
                     visibleTrips.forEach { trip ->
                         TripCard(
                             trip = trip,
-                            onClick = { onNavigateHome(trip.id) },
+                            onClick = { onOpenTripDetail(trip.id) },
                             onDelete = { onDeleteTrip(trip.id) },
                         )
                     }
@@ -215,6 +217,7 @@ private fun EmptyTrips(
 @Composable
 private fun TripCard(trip: TripSummary, onClick: () -> Unit, onDelete: () -> Unit) {
     var showDelete by remember(trip.id) { mutableStateOf(false) }
+    var confirmDelete by remember(trip.id) { mutableStateOf(false) }
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         shape = RoundedCornerShape(8.dp),
@@ -242,7 +245,7 @@ private fun TripCard(trip: TripSummary, onClick: () -> Unit, onDelete: () -> Uni
                         modifier = Modifier.weight(1f),
                     )
                     IconButton(
-                        onClick = { if (showDelete) onDelete() else showDelete = true },
+                        onClick = { if (showDelete) confirmDelete = true else showDelete = true },
                         modifier = Modifier.size(36.dp),
                     ) {
                         Icon(
@@ -268,6 +271,30 @@ private fun TripCard(trip: TripSummary, onClick: () -> Unit, onDelete: () -> Uni
                 )
             }
         }
+    }
+
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = {
+                confirmDelete = false
+                showDelete = false
+            },
+            title = { Text("여행을 삭제할까요?") },
+            text = { Text("일정과 연결된 모든 비용, 초대 정보도 함께 삭제되며 되돌릴 수 없어요.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDelete = false
+                    showDelete = false
+                    onDelete()
+                }) { Text("여행 삭제", color = Color(0xFFE45858)) }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    confirmDelete = false
+                    showDelete = false
+                }) { Text("취소") }
+            },
+        )
     }
 }
 
@@ -354,7 +381,7 @@ private fun MyTripPreview() {
         MyTripScreen(
             trips = emptyList(),
             onAddTrip = {},
-            onNavigateHome = {},
+            onOpenTripDetail = {},
             onDeleteTrip = {},
             onOpenSettings = {},
         )

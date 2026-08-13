@@ -7,7 +7,10 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.gayadi.android.domain.model.InvitationStatus
+import com.gayadi.android.domain.model.ExpenseSettlementSummary
+import com.gayadi.android.domain.model.LOCAL_CURRENT_USER_ID
 import com.gayadi.android.domain.model.ScheduleType
+import com.gayadi.android.domain.model.TravelExpense
 import com.gayadi.android.domain.model.TravelInvitation
 import com.gayadi.android.domain.model.TravelParticipant
 import com.gayadi.android.domain.model.TravelSchedule
@@ -16,6 +19,9 @@ import com.gayadi.android.domain.model.TravelTrip
 import com.gayadi.android.domain.model.TripStatus
 import com.gayadi.android.domain.usecase.GetTravelStateUseCase
 import com.gayadi.android.domain.usecase.SaveTravelStateUseCase
+import com.gayadi.android.domain.usecase.CalculateExpenseSettlementUseCase
+import com.gayadi.android.domain.usecase.UpdateTravelStateUseCase
+import com.gayadi.android.domain.usecase.ValidateTravelExpenseUseCase
 import java.util.UUID
 import java.nio.charset.StandardCharsets
 import java.util.Base64
@@ -36,8 +42,11 @@ import org.json.JSONArray
 data class TravelUiState(
     val travelState: TravelState = TravelState(),
     val isLoading: Boolean = true,
+    val hasLoadedTravelState: Boolean = false,
+    val isSavingExpense: Boolean = false,
     val errorMessage: String? = null,
     val message: String? = null,
+    val savedExpenseId: String? = null,
 )
 
 class TripViewModel(
@@ -46,6 +55,7 @@ class TripViewModel(
     private val saveTravelState: SaveTravelStateUseCase,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val inviteCodeGenerator: () -> String = ::randomInviteCode,
+    private val updateTravelState: UpdateTravelStateUseCase? = null,
 ) : ViewModel() {
     private val persistenceMutex = Mutex()
     private val reservedInviteCodes = mutableSetOf<String>()
@@ -58,6 +68,7 @@ class TripViewModel(
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     val availableParticipants = listOf(
+        TravelParticipant(LOCAL_CURRENT_USER_ID, "나"),
         TravelParticipant("user-101", "여행곰", "character_pca"),
         TravelParticipant("user-102", "바다별", "character_sca"),
         TravelParticipant("user-103", "산책러", "character_snr"),
@@ -71,6 +82,8 @@ class TripViewModel(
 
     fun consumeMessage() = _uiState.update { it.copy(message = null) }
 
+    fun consumeSavedExpense() = _uiState.update { it.copy(savedExpenseId = null) }
+
     /** Removes every locally persisted trip artifact and clears the in-memory state. */
     suspend fun clearAllTravelData(): Result<Unit> = withContext(ioDispatcher) {
         persistenceMutex.withLock {
@@ -78,7 +91,11 @@ class TripViewModel(
                 reservedInviteCodes.clear()
                 savedStateHandle[SELECTED_TRIP_ID_KEY] = null
                 savedStateHandle[LEGACY_TRIPS_KEY] = null
-                _uiState.value = TravelUiState(travelState = TravelState(), isLoading = false)
+                _uiState.value = TravelUiState(
+                    travelState = TravelState(),
+                    isLoading = false,
+                    hasLoadedTravelState = true,
+                )
             }
         }
     }
@@ -86,9 +103,30 @@ class TripViewModel(
     fun addTrip(trip: TripSummary): Result<TripSummary> = allocateInviteCode().map { inviteCode ->
         val savedTrip = trip.copy(inviteCode = inviteCode)
         mutate("여행을 만들었어요") { state ->
-            state.copy(trips = listOf(savedTrip.toDomain()) + state.trips)
+            val currentUser = state.localCurrentUser()
+            state.copy(
+                trips = listOf(
+                    savedTrip.toDomain().copy(participantIds = listOf(state.currentUserId)),
+                ) + state.trips,
+                participants = (state.participants + currentUser).distinctBy(TravelParticipant::id),
+            )
         }
         savedTrip
+    }
+
+    /** Keeps the device-local user selectable as payer and split participant for every trip. */
+    fun syncCurrentUser(nickname: String?, characterKey: String?) = mutate(null) { state ->
+        val currentUser = TravelParticipant(
+            id = state.currentUserId,
+            nickname = nickname?.trim()?.takeIf { it.isNotBlank() } ?: "나",
+            characterKey = characterKey,
+        )
+        state.copy(
+            participants = (state.participants.filterNot { it.id == state.currentUserId } + currentUser),
+            trips = state.trips.map { trip ->
+                trip.copy(participantIds = (listOf(state.currentUserId) + trip.participantIds).distinct())
+            },
+        )
     }
 
     fun updateTrip(trip: TripSummary) = mutate("여행 정보를 수정했어요") { state ->
@@ -100,6 +138,7 @@ class TripViewModel(
             trips = state.trips.filterNot { it.id == tripId },
             invitations = state.invitations.filterNot { it.tripId == tripId },
             schedules = state.schedules.filterNot { it.tripId == tripId },
+            expenses = state.expenses.filterNot { it.tripId == tripId },
             appliedRouteIds = state.appliedRouteIds.filterKeys { !it.startsWith("$tripId:") },
             selectedTripId = state.selectedTripId.takeUnless { it == tripId },
         )
@@ -132,8 +171,29 @@ class TripViewModel(
         )
     }
 
-    fun removeParticipant(tripId: String, participantId: String) = mutate("참여자를 내보냈어요") { state ->
-        state.updateTrip(tripId) { it.copy(participantIds = it.participantIds - participantId) }
+    fun removeParticipant(tripId: String, participantId: String) {
+        val state = _uiState.value.travelState
+        when {
+            participantId == state.currentUserId -> {
+                _uiState.update { it.copy(message = "본인은 여행에서 제외할 수 없어요") }
+            }
+            state.expenses.any { expense ->
+                expense.tripId == tripId &&
+                    (expense.payerId == participantId || participantId in expense.participantIds)
+            } -> {
+                _uiState.update { it.copy(message = "비용 내역에 포함된 참여자는 내보낼 수 없어요") }
+            }
+            else -> mutate("참여자를 내보냈어요") { current ->
+                require(participantId != current.currentUserId) { "본인은 여행에서 제외할 수 없어요" }
+                require(
+                    current.expenses.none { expense ->
+                        expense.tripId == tripId &&
+                            (expense.payerId == participantId || participantId in expense.participantIds)
+                    },
+                ) { "비용 내역에 포함된 참여자는 내보낼 수 없어요" }
+                current.updateTrip(tripId) { it.copy(participantIds = it.participantIds - participantId) }
+            }
+        }
     }
 
     fun createInvitation(tripId: String, inviteeId: String): String {
@@ -189,8 +249,81 @@ class TripViewModel(
 
     fun deleteSchedule(scheduleId: String) = mutate("일정을 삭제했어요") { state ->
         val tripId = state.schedules.find { it.id == scheduleId }?.tripId ?: return@mutate state
-        state.copy(schedules = state.schedules.filterNot { it.id == scheduleId }.normalizeOrders(tripId))
+        state.copy(
+            schedules = state.schedules.filterNot { it.id == scheduleId }.normalizeOrders(tripId),
+            expenses = state.expenses.filterNot { it.scheduleId == scheduleId },
+        )
     }
+
+    fun saveExpense(expense: TravelExpense) {
+        if (_uiState.value.isSavingExpense) return
+        _uiState.update { it.copy(isSavingExpense = true, errorMessage = null) }
+        viewModelScope.launch(ioDispatcher) { persistExpense(expense) }
+    }
+
+    internal suspend fun upsertExpense(expense: TravelExpense): Result<Unit> = persistExpense(expense)
+
+    private suspend fun persistExpense(expense: TravelExpense): Result<Unit> {
+        if (!_uiState.value.isSavingExpense) {
+            _uiState.update { it.copy(isSavingExpense = true, errorMessage = null) }
+        }
+        val persistedResult = try {
+            persistenceMutex.withLock {
+                val transform: (TravelState) -> TravelState = { state -> state.withValidatedExpense(expense) }
+                updateTravelState?.invoke(transform) ?: run {
+                    runCatching { transform(_uiState.value.travelState) }.fold(
+                        onSuccess = { candidate -> saveTravelState(candidate).map { candidate } },
+                        onFailure = { Result.failure(it) },
+                    )
+                }
+            }
+        } catch (cancellation: kotlinx.coroutines.CancellationException) {
+            _uiState.update { it.copy(isSavingExpense = false) }
+            throw cancellation
+        } catch (error: Throwable) {
+            Result.failure(error)
+        }
+        persistedResult.fold(
+            onSuccess = { persisted ->
+                savedStateHandle[SELECTED_TRIP_ID_KEY] = persisted.selectedTripId
+                _uiState.update {
+                    it.copy(
+                        travelState = persisted,
+                        isSavingExpense = false,
+                        message = "비용을 저장했어요",
+                        savedExpenseId = expense.id,
+                        errorMessage = null,
+                    )
+                }
+            },
+            onFailure = { error ->
+                _uiState.update {
+                    it.copy(
+                        isSavingExpense = false,
+                        errorMessage = error.message ?: "비용 정보를 저장하지 못했어요",
+                    )
+                }
+            },
+        )
+        return persistedResult.map { Unit }
+    }
+
+    fun deleteExpense(expenseId: String) = mutate("비용을 삭제했어요") { state ->
+        state.copy(expenses = state.expenses.filterNot { it.id == expenseId })
+    }
+
+    fun expenseById(expenseId: String): TravelExpense? =
+        _uiState.value.travelState.expenses.find { it.id == expenseId }
+
+    fun expensesForTrip(tripId: String): List<TravelExpense> =
+        _uiState.value.travelState.expenses.filter { it.tripId == tripId }
+            .sortedWith(compareBy(TravelExpense::date, TravelExpense::time, TravelExpense::id))
+
+    fun settlementForTrip(tripId: String): ExpenseSettlementSummary =
+        CalculateExpenseSettlementUseCase()(
+            expensesForTrip(tripId),
+            _uiState.value.travelState.participantIdsForTrip(tripId),
+        )
 
     fun moveSchedule(scheduleId: String, direction: Int) = mutate(null) { state ->
         val schedule = state.schedules.find { it.id == scheduleId } ?: return@mutate state
@@ -279,7 +412,11 @@ class TripViewModel(
                         state.copy(trips = legacyTrips.map(TripSummary::toDomain))
                     } else state
                     savedStateHandle[SELECTED_TRIP_ID_KEY] = restored.selectedTripId
-                    _uiState.value = TravelUiState(travelState = restored, isLoading = false)
+                    _uiState.value = TravelUiState(
+                        travelState = restored,
+                        isLoading = false,
+                        hasLoadedTravelState = true,
+                    )
                     if (restored !== state) persistLatest()
                 },
                 onFailure = { error ->
@@ -294,9 +431,13 @@ class TripViewModel(
     private fun mutate(message: String?, transform: (TravelState) -> TravelState) {
         viewModelScope.launch(ioDispatcher) {
             persistenceMutex.withLock {
-                val candidate = transform(_uiState.value.travelState)
-                saveTravelState(candidate).fold(
-                    onSuccess = {
+                val result = updateTravelState?.invoke(transform) ?: run {
+                    val candidate = transform(_uiState.value.travelState)
+                    saveTravelState(candidate).map { candidate }
+                }
+                result.fold(
+                    onSuccess = { persisted ->
+                        val candidate = persisted
                         savedStateHandle[SELECTED_TRIP_ID_KEY] = candidate.selectedTripId
                         _uiState.update {
                             it.copy(travelState = candidate, message = message, errorMessage = null)
@@ -378,12 +519,52 @@ class TripViewModel(
         private const val SELECTED_TRIP_ID_KEY = "selected_trip_id"
         private const val LEGACY_TRIPS_KEY = "saved_trips"
 
-        fun factory(getTravelState: GetTravelStateUseCase, saveTravelState: SaveTravelStateUseCase) = viewModelFactory {
+        fun factory(
+            getTravelState: GetTravelStateUseCase,
+            saveTravelState: SaveTravelStateUseCase,
+            updateTravelState: UpdateTravelStateUseCase? = null,
+        ) = viewModelFactory {
             initializer {
-                TripViewModel(createSavedStateHandle(), getTravelState, saveTravelState)
+                TripViewModel(
+                    createSavedStateHandle(),
+                    getTravelState,
+                    saveTravelState,
+                    updateTravelState = updateTravelState,
+                )
             }
         }
     }
+}
+
+private fun TravelState.localCurrentUser(): TravelParticipant =
+    participants.find { it.id == currentUserId } ?: TravelParticipant(currentUserId, "나")
+
+private fun TravelState.participantIdsForTrip(tripId: String): Set<String> =
+    trips.find { it.id == tripId }?.participantIds.orEmpty().toSet() + currentUserId
+
+private fun TravelState.withValidatedExpense(expense: TravelExpense): TravelState {
+    ValidateTravelExpenseUseCase()(expense).getOrThrow()
+    require(trips.any { it.id == expense.tripId }) { "여행을 찾을 수 없어요." }
+    require(schedules.any { it.id == expense.scheduleId && it.tripId == expense.tripId }) {
+        "일정을 찾을 수 없어요."
+    }
+    val tripParticipantIds = participantIdsForTrip(expense.tripId)
+    require(expense.payerId in tripParticipantIds) { "결제자를 여행 참여자 중에서 선택해 주세요." }
+    require(expense.participantIds.all { it in tripParticipantIds }) {
+        "분담 참여자를 여행 참여자 중에서 선택해 주세요."
+    }
+    val existing = expenses.find { it.id == expense.id }
+    require(existing == null || existing.tripId == expense.tripId) {
+        "비용을 다른 여행으로 옮길 수 없어요."
+    }
+    try {
+        expenses.asSequence()
+            .filter { it.tripId == expense.tripId && it.id != expense.id }
+            .fold(expense.amount) { total, item -> Math.addExact(total, item.amount) }
+    } catch (error: ArithmeticException) {
+        throw IllegalArgumentException("여행 총액이 너무 커요. 비용 금액을 줄여 주세요.", error)
+    }
+    return copy(expenses = expenses.filterNot { it.id == expense.id } + expense)
 }
 
 private fun routeKey(tripId: String, routeType: String) = "$tripId:$routeType"

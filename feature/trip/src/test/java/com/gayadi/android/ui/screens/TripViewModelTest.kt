@@ -3,6 +3,8 @@ package com.gayadi.android.ui.screens
 import androidx.lifecycle.SavedStateHandle
 import com.gayadi.android.domain.model.InvitationStatus
 import com.gayadi.android.domain.model.ScheduleType
+import com.gayadi.android.domain.model.TravelExpense
+import com.gayadi.android.domain.model.TravelParticipant
 import com.gayadi.android.domain.model.TravelSchedule
 import com.gayadi.android.domain.model.TravelState
 import com.gayadi.android.domain.model.TravelTrip
@@ -10,13 +12,17 @@ import com.gayadi.android.domain.model.TripStatus
 import com.gayadi.android.domain.repository.TravelRepository
 import com.gayadi.android.domain.usecase.GetTravelStateUseCase
 import com.gayadi.android.domain.usecase.SaveTravelStateUseCase
+import com.gayadi.android.domain.usecase.UpdateTravelStateUseCase
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.async
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -51,7 +57,7 @@ class TripViewModelTest {
 
         val trip = viewModel.domainTripById("trip-28")!!
         assertEquals(TripStatus.COMPLETED, trip.status)
-        assertEquals(listOf("user-101"), trip.participantIds)
+        assertEquals(listOf("local-user", "user-101"), trip.participantIds)
         assertEquals("trip-28", viewModel.selectedTripId.value)
 
         viewModel.deleteTrip("trip-28")
@@ -102,6 +108,154 @@ class TripViewModelTest {
         viewModel.deleteSchedule("main")
         advanceUntilIdle()
         assertEquals(listOf(0), viewModel.schedulesForTrip("trip-28").map { it.order })
+    }
+
+    @Test
+    fun expenseCrudSettlementPersistenceAndScheduleCascadeDelete() = runTest(dispatcher) {
+        val repository = MemoryTravelRepository()
+        val viewModel = viewModel(repository)
+        advanceUntilIdle()
+        viewModel.addTrip(sampleTrip())
+        viewModel.addParticipant("trip-28", "user-101")
+        viewModel.upsertSchedule(sampleSchedule("schedule-1"))
+        advanceUntilIdle()
+
+        assertTrue(viewModel.upsertExpense(sampleExpense(amount = 1_001L)).isSuccess)
+        advanceUntilIdle()
+
+        val summary = viewModel.settlementForTrip("trip-28")
+        assertEquals(1_001L, summary.totalAmount)
+        assertEquals(1_001L, summary.balances.sumOf { it.paidAmount })
+        assertEquals(1_001L, summary.balances.sumOf { it.owedAmount })
+        assertEquals(500L, summary.transfers.single().amount)
+        assertEquals("user-101", summary.transfers.single().fromParticipantId)
+        assertEquals("local-user", summary.transfers.single().toParticipantId)
+
+        val recreated = viewModel(repository)
+        advanceUntilIdle()
+        assertEquals(1_001L, recreated.expensesForTrip("trip-28").single().amount)
+
+        assertTrue(recreated.upsertExpense(sampleExpense(amount = 2_000L).copy(title = "수정 비용")).isSuccess)
+        advanceUntilIdle()
+        assertEquals(2_000L, repository.state.expenses.single().amount)
+        assertEquals("수정 비용", repository.state.expenses.single().title)
+
+        recreated.deleteSchedule("schedule-1")
+        advanceUntilIdle()
+        assertTrue(repository.state.expenses.isEmpty())
+    }
+
+    @Test
+    fun invalidExpenseIsRejectedAndReferencedParticipantCannotBeRemoved() = runTest(dispatcher) {
+        val repository = MemoryTravelRepository()
+        val viewModel = viewModel(repository)
+        advanceUntilIdle()
+        viewModel.addTrip(sampleTrip())
+        viewModel.addParticipant("trip-28", "user-101")
+        viewModel.upsertSchedule(sampleSchedule("schedule-1"))
+        advanceUntilIdle()
+
+        assertTrue(viewModel.upsertExpense(sampleExpense(amount = 0L)).isFailure)
+        assertTrue(viewModel.upsertExpense(sampleExpense().copy(payerId = "outsider")).isFailure)
+        assertTrue(repository.state.expenses.isEmpty())
+
+        assertTrue(viewModel.upsertExpense(sampleExpense()).isSuccess)
+        advanceUntilIdle()
+        viewModel.removeParticipant("trip-28", "user-101")
+        advanceUntilIdle()
+
+        assertTrue("user-101" in repository.state.trips.single().participantIds)
+        assertEquals("비용 내역에 포함된 참여자는 내보낼 수 없어요", viewModel.uiState.value.message)
+    }
+
+    @Test
+    fun concurrentExpenseSaveAndParticipantRemovalPreserveReferences() = runTest(dispatcher) {
+        val repository = MemoryTravelRepository()
+        val viewModel = viewModel(repository)
+        advanceUntilIdle()
+        viewModel.addTrip(sampleTrip())
+        viewModel.addParticipant("trip-28", "user-101")
+        viewModel.upsertSchedule(sampleSchedule("schedule-1"))
+        advanceUntilIdle()
+
+        val save = async { viewModel.upsertExpense(sampleExpense()) }
+        viewModel.removeParticipant("trip-28", "user-101")
+        advanceUntilIdle()
+        save.await()
+
+        val participantExists = "user-101" in repository.state.trips.single().participantIds
+        val expenseExists = repository.state.expenses.any { "user-101" in it.participantIds }
+        assertFalse(expenseExists && !participantExists)
+    }
+
+    @Test
+    fun expenseSaveFailureKeepsEditorStateAndOverflowIsRejected() = runTest(dispatcher) {
+        val repository = MemoryTravelRepository()
+        val viewModel = viewModel(repository)
+        advanceUntilIdle()
+        viewModel.addTrip(sampleTrip())
+        viewModel.addParticipant("trip-28", "user-101")
+        viewModel.upsertSchedule(sampleSchedule("schedule-1"))
+        advanceUntilIdle()
+
+        repository.failWrites = true
+        val failedWrite = viewModel.upsertExpense(sampleExpense())
+        assertTrue(failedWrite.isFailure)
+        assertFalse(viewModel.uiState.value.isSavingExpense)
+        assertTrue(viewModel.expensesForTrip("trip-28").isEmpty())
+
+        repository.failWrites = false
+        assertTrue(viewModel.upsertExpense(sampleExpense(Long.MAX_VALUE)).isSuccess)
+        val overflow = viewModel.upsertExpense(
+            sampleExpense(1L).copy(id = "expense-2"),
+        )
+        assertTrue(overflow.isFailure)
+        assertEquals(1, repository.state.expenses.size)
+    }
+
+    @Test
+    fun viewModelOwnedExpenseSaveSurvivesCallerRecreationAndIgnoresDuplicateSubmit() = runTest(dispatcher) {
+        val repository = MemoryTravelRepository()
+        val viewModel = viewModel(repository)
+        advanceUntilIdle()
+        viewModel.addTrip(sampleTrip())
+        viewModel.addParticipant("trip-28", "user-101")
+        viewModel.upsertSchedule(sampleSchedule("schedule-1"))
+        advanceUntilIdle()
+
+        repository.updateStarted = CompletableDeferred()
+        repository.releaseUpdate = CompletableDeferred()
+        viewModel.saveExpense(sampleExpense())
+        runCurrent()
+
+        assertTrue(viewModel.uiState.value.isSavingExpense)
+        repository.updateStarted?.await()
+        viewModel.saveExpense(sampleExpense().copy(id = "duplicate-expense"))
+        repository.releaseUpdate?.complete(Unit)
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.isSavingExpense)
+        assertEquals("expense-1", viewModel.uiState.value.savedExpenseId)
+        assertEquals(listOf("expense-1"), repository.state.expenses.map(TravelExpense::id))
+        viewModel.consumeSavedExpense()
+        assertNull(viewModel.uiState.value.savedExpenseId)
+    }
+
+    @Test
+    fun currentUserFallbackIsPersistedIntoExistingTripsWithProfileContext() = runTest(dispatcher) {
+        val existing = sampleTrip().toExistingDomain()
+        val repository = MemoryTravelRepository(TravelState(trips = listOf(existing)))
+        val viewModel = viewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.syncCurrentUser("미르", "character_pca")
+        advanceUntilIdle()
+
+        assertTrue("local-user" in repository.state.trips.single().participantIds)
+        assertEquals(
+            TravelParticipant("local-user", "미르", "character_pca"),
+            repository.state.participants.single { it.id == "local-user" },
+        )
     }
 
     @Test
@@ -161,6 +315,25 @@ class TripViewModelTest {
         assertEquals(TravelState(), repository.state)
         assertEquals(TravelState(), viewModel.uiState.value.travelState)
         assertFalse(viewModel.uiState.value.isLoading)
+        assertTrue(viewModel.uiState.value.hasLoadedTravelState)
+    }
+
+    @Test
+    fun failedInitialLoadIsNotExposedAsAValidEmptyState() = runTest(dispatcher) {
+        val repository = FailingTravelRepository()
+        val viewModel = TripViewModel(
+            SavedStateHandle(),
+            GetTravelStateUseCase(repository),
+            SaveTravelStateUseCase(repository),
+            dispatcher,
+            updateTravelState = UpdateTravelStateUseCase(repository),
+        )
+
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.isLoading)
+        assertFalse(viewModel.uiState.value.hasLoadedTravelState)
+        assertTrue(viewModel.uiState.value.errorMessage?.contains("손상") == true)
     }
 
     @Test
@@ -205,6 +378,7 @@ class TripViewModelTest {
         SaveTravelStateUseCase(repository),
         dispatcher,
         inviteCodeGenerator,
+        UpdateTravelStateUseCase(repository),
     )
 
     private fun sampleTrip() = TripSummary(
@@ -221,13 +395,54 @@ class TripViewModelTest {
         order: Int = 0,
         type: ScheduleType = ScheduleType.MAIN,
     ) = TravelSchedule(id, "trip-28", id, null, "2026.08.08", "10:00", type, order)
+
+    private fun sampleExpense(amount: Long = 1_001L) = TravelExpense(
+        id = "expense-1",
+        tripId = "trip-28",
+        scheduleId = "schedule-1",
+        title = "점심",
+        amount = amount,
+        payerId = "local-user",
+        participantIds = listOf("local-user", "user-101"),
+        date = "2026.08.08",
+        time = "12:00",
+    )
+
+    private fun TripSummary.toExistingDomain() = TravelTrip(
+        id = id,
+        name = name,
+        startDate = startDate,
+        endDate = endDate,
+        cities = cities,
+        coverImageResList = coverImageResList,
+    )
 }
 
 private class MemoryTravelRepository(initial: TravelState = TravelState()) : TravelRepository {
     var state = initial
+    var failWrites = false
+    var updateStarted: CompletableDeferred<Unit>? = null
+    var releaseUpdate: CompletableDeferred<Unit>? = null
     override suspend fun getTravelState(): Result<TravelState> = Result.success(state)
     override suspend fun saveTravelState(state: TravelState): Result<Unit> {
+        if (failWrites) return Result.failure(IllegalStateException("저장 실패"))
         this.state = state
         return Result.success(Unit)
     }
+
+    override suspend fun updateTravelState(
+        transform: (TravelState) -> TravelState,
+    ): Result<TravelState> {
+        updateStarted?.complete(Unit)
+        releaseUpdate?.await()
+        return super<TravelRepository>.updateTravelState(transform)
+    }
+}
+
+private class FailingTravelRepository : TravelRepository {
+    private val error = IllegalStateException("여행 데이터 손상")
+
+    override suspend fun getTravelState(): Result<TravelState> = Result.failure(error)
+
+    override suspend fun saveTravelState(state: TravelState): Result<Unit> = Result.failure(error)
 }

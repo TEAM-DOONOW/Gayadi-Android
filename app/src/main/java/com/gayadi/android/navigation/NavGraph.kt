@@ -3,7 +3,9 @@ package com.gayadi.android.navigation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
@@ -11,6 +13,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.navigation.navDeepLink
+import com.gayadi.android.notification.ExpenseReminderScheduler
 import com.gayadi.android.di.AppContainer
 import com.gayadi.android.domain.model.TravelParticipant
 import com.gayadi.android.domain.model.TravelState
@@ -50,6 +54,8 @@ import com.gayadi.android.ui.screens.RouteRecommendationScreen
 import com.gayadi.android.ui.screens.RouteRecommendationType
 import com.gayadi.android.ui.screens.NearbyPlacesScreen
 import com.gayadi.android.ui.screens.FavoritePlacesScreen
+import com.gayadi.android.ui.screens.ExpenseEditorScreen
+import com.gayadi.android.ui.screens.TravelLedgerScreen
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import kotlinx.coroutines.Dispatchers
@@ -63,8 +69,14 @@ import java.time.temporal.ChronoUnit
 fun GayadiNavHost(appContainer: AppContainer) {
     val navController = rememberNavController()
     val appScope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val reminderScheduler = remember(context) { ExpenseReminderScheduler(context) }
     val tripViewModel: TripViewModel = viewModel(
-        factory = TripViewModel.factory(appContainer.getTravelStateUseCase, appContainer.saveTravelStateUseCase),
+        factory = TripViewModel.factory(
+            appContainer.getTravelStateUseCase,
+            appContainer.saveTravelStateUseCase,
+            appContainer.updateTravelStateUseCase,
+        ),
     )
     val placeViewModel: PlaceViewModel = viewModel(factory = PlaceViewModel.factory())
     val trips by tripViewModel.trips.collectAsStateWithLifecycle()
@@ -74,6 +86,25 @@ fun GayadiNavHost(appContainer: AppContainer) {
         factory = ProfileViewModel.factory(appContainer.getUserProfileUseCase),
     )
     val sharedProfileUiState by sharedProfileViewModel.uiState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(
+        travelUiState.hasLoadedTravelState,
+        sharedProfileUiState.isLoading,
+        sharedProfileUiState.profile?.nickname,
+        sharedProfileUiState.profile?.characterKey,
+    ) {
+        if (travelUiState.hasLoadedTravelState && !sharedProfileUiState.isLoading) {
+            tripViewModel.syncCurrentUser(
+                nickname = sharedProfileUiState.profile?.nickname,
+                characterKey = sharedProfileUiState.profile?.characterKey,
+            )
+        }
+    }
+    LaunchedEffect(travelUiState.hasLoadedTravelState, travelUiState.travelState.schedules) {
+        if (travelUiState.hasLoadedTravelState) {
+            reminderScheduler.sync(travelUiState.travelState.schedules)
+        }
+    }
 
     NavHost(navController = navController, startDestination = Routes.STARTUP) {
         composable(Routes.STARTUP) {
@@ -211,10 +242,7 @@ fun GayadiNavHost(appContainer: AppContainer) {
                 trips = trips,
                 onAddTrip = { navController.navigate(Routes.TRIP_CREATE) },
                 onDeleteTrip = tripViewModel::deleteTrip,
-                onNavigateHome = { tripId ->
-                    tripViewModel.selectTrip(tripId)
-                    navController.navigate(Routes.realtimeHome(tripId))
-                },
+                onOpenTripDetail = { tripId -> navController.navigate(Routes.tripDetail(tripId)) },
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
             )
         }
@@ -243,6 +271,7 @@ fun GayadiNavHost(appContainer: AppContainer) {
                 trip = travelState.trip(tripId),
                 participants = travelState.participantsForTrip(tripId, tripViewModel.availableParticipants),
                 profile = sharedProfileUiState.profile,
+                expenseTotal = travelState.expenses.filter { it.tripId == tripId }.sumOf { it.amount },
                 onBack = { navController.popBackStack() },
                 onEdit = { navController.navigate(Routes.tripEdit(tripId)) },
                 onDelete = {
@@ -254,6 +283,7 @@ fun GayadiNavHost(appContainer: AppContainer) {
                 onParticipants = { navController.navigate(Routes.tripParticipants(tripId)) },
                 onInvitation = { navController.navigate(Routes.tripInvitation(tripId)) },
                 onSchedule = { navController.navigate(Routes.tripSchedule(tripId)) },
+                onLedger = { navController.navigate(Routes.tripLedger(tripId)) },
                 onRoutes = { navController.navigate(Routes.routeHub(tripId)) },
                 onHome = {
                     tripViewModel.selectTrip(tripId)
@@ -325,14 +355,83 @@ fun GayadiNavHost(appContainer: AppContainer) {
                 tripName = trip?.name.orEmpty(),
                 defaultDate = trip?.startDate.orEmpty(),
                 schedules = travelState.schedulesForTrip(tripId),
+                expenseCountsBySchedule = travelState.expenses
+                    .asSequence()
+                    .filter { it.tripId == tripId }
+                    .groupingBy { it.scheduleId }
+                    .eachCount(),
                 onBack = { navController.popBackStack() },
                 onSave = tripViewModel::upsertSchedule,
                 onDelete = tripViewModel::deleteSchedule,
                 onMove = tripViewModel::moveSchedule,
                 onToggleVisited = tripViewModel::toggleVisited,
+                onAddExpense = { scheduleId ->
+                    navController.navigate(Routes.tripExpense(tripId, scheduleId))
+                },
+                onLedger = { navController.navigate(Routes.tripLedger(tripId)) },
                 onRecommendRoute = {
                     navController.navigate(Routes.routeRecommendation(tripId, RouteRecommendationType.ITINERARY.name))
                 },
+            )
+        }
+        composable(
+            route = Routes.TRIP_LEDGER,
+            arguments = listOf(navArgument("tripId") { type = NavType.StringType }),
+        ) { backStackEntry ->
+            val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
+            val travelState = travelUiState.travelState
+            TravelLedgerScreen(
+                tripName = travelState.trip(tripId)?.name.orEmpty(),
+                expenses = tripViewModel.expensesForTrip(tripId),
+                schedules = travelState.schedulesForTrip(tripId),
+                participants = travelState.participantsForTrip(tripId, tripViewModel.availableParticipants),
+                settlementSummary = tripViewModel.settlementForTrip(tripId),
+                onBack = { navController.popBackStack() },
+                onAddExpense = { scheduleId ->
+                    navController.navigate(Routes.tripExpense(tripId, scheduleId))
+                },
+                onEditExpense = { expenseId, scheduleId ->
+                    navController.navigate(Routes.tripExpense(tripId, scheduleId, expenseId))
+                },
+                onDeleteExpense = tripViewModel::deleteExpense,
+            )
+        }
+        composable(
+            route = Routes.TRIP_EXPENSE,
+            arguments = listOf(
+                navArgument("tripId") { type = NavType.StringType },
+                navArgument("scheduleId") { type = NavType.StringType },
+                navArgument("expenseId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+            ),
+            deepLinks = listOf(
+                navDeepLink { uriPattern = "gayadi://expense/{tripId}/{scheduleId}" },
+            ),
+        ) { backStackEntry ->
+            val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
+            val scheduleId = requireNotNull(backStackEntry.arguments?.getString("scheduleId"))
+            val expenseId = backStackEntry.arguments?.getString("expenseId")
+            val travelState = travelUiState.travelState
+            LaunchedEffect(travelUiState.savedExpenseId, expenseId) {
+                travelUiState.savedExpenseId?.let { savedId ->
+                    tripViewModel.consumeSavedExpense()
+                    if (expenseId == null || savedId == expenseId) {
+                        navController.popBackStack()
+                    }
+                }
+            }
+            ExpenseEditorScreen(
+                expense = expenseId?.let(tripViewModel::expenseById),
+                schedule = travelState.schedules.find { it.id == scheduleId && it.tripId == tripId },
+                participants = travelState.participantsForTrip(tripId, tripViewModel.availableParticipants),
+                initialPayerId = travelState.currentUserId,
+                onBack = { navController.popBackStack() },
+                onSave = tripViewModel::saveExpense,
+                isSaving = travelUiState.isSavingExpense,
+                errorMessage = travelUiState.errorMessage,
             )
         }
         composable(
