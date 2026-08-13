@@ -623,12 +623,11 @@ class TravelFlowScreenTest {
 
         composeRule.onAllNodesWithText("45,001원").onFirst().assertIsDisplayed()
         composeRule.onNodeWithText("비용 2건 · 참여자 2명").assertIsDisplayed()
-        composeRule.onNodeWithText("각자 정산").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("정산 내역").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("각자 정산").assertDoesNotExist()
         composeRule.onNodeWithText("사람별 정산").assertDoesNotExist()
-        composeRule.onNodeWithText("여행곰").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("22,501원 보내기").assertIsDisplayed()
-        composeRule.onNodeWithText("22,501원 받기").assertIsDisplayed()
-        composeRule.onNodeWithText("나 → 여행곰").assertDoesNotExist()
+        composeRule.onNodeWithText("여행곰 → 나").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("22,501원").assertIsDisplayed()
         composeRule.onNodeWithText("12:00 · 나 결제").assertDoesNotExist()
         composeRule.onNodeWithText("분담 나 · 여행곰").assertDoesNotExist()
         composeRule.onNodeWithContentDescription("점심 식사 메뉴").performClick()
@@ -642,10 +641,72 @@ class TravelFlowScreenTest {
         composeRule.onAllNodesWithText("10,000원").onFirst().assertIsDisplayed()
         composeRule.onNodeWithText("1인당 5,000원").assertIsDisplayed()
         composeRule.onNodeWithText("45,001원").assertDoesNotExist()
-        composeRule.onNodeWithText("여행곰").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("5,000원 보내기").assertIsDisplayed()
-        composeRule.onNodeWithText("5,000원 받기").assertIsDisplayed()
-        composeRule.onNodeWithText("22,501원 보내기").assertDoesNotExist()
+        composeRule.onNodeWithText("여행곰 → 나").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("5,000원").assertIsDisplayed()
+        composeRule.onNodeWithText("22,501원").assertDoesNotExist()
+    }
+
+    @Test
+    fun ledgerShowsEachTransferTargetWhenMultiplePeoplePaid() {
+        val participants = listOf(
+            TravelParticipant("local-user", "minji"),
+            TravelParticipant("friend-1", "여행곰"),
+            TravelParticipant("friend-2", "바다별"),
+        )
+        val schedule = TravelSchedule(
+            id = "schedule-1",
+            tripId = "trip-28",
+            title = "저녁 일정",
+            date = "2026.08.08",
+            time = "18:00",
+            order = 0,
+        )
+        val expense = TravelExpense(
+            id = "expense-1",
+            tripId = "trip-28",
+            scheduleId = schedule.id,
+            title = "공동 경비",
+            amount = 27_000,
+            payerId = "local-user",
+            participantIds = participants.map(TravelParticipant::id),
+            date = schedule.date,
+            time = schedule.time,
+        )
+
+        composeRule.setContent {
+            GayadiTheme {
+                TravelLedgerScreen(
+                    tripName = "친구 여행",
+                    expenses = listOf(expense),
+                    schedules = listOf(schedule),
+                    participants = participants,
+                    settlementSummary = ExpenseSettlementSummary(
+                        totalAmount = 27_000,
+                        balances = listOf(
+                            ParticipantExpenseBalance("local-user", 15_000, 9_000, 6_000),
+                            ParticipantExpenseBalance("friend-1", 12_000, 9_000, 3_000),
+                            ParticipantExpenseBalance("friend-2", 0, 9_000, -9_000),
+                        ),
+                        transfers = listOf(
+                            SettlementTransfer("friend-2", "local-user", 6_000),
+                            SettlementTransfer("friend-2", "friend-1", 3_000),
+                        ),
+                    ),
+                    onBack = {},
+                    onAddExpense = {},
+                    onEditExpense = { _, _ -> },
+                    onDeleteExpense = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("정산 내역").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("바다별 → minji").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("6,000원").assertIsDisplayed()
+        composeRule.onNodeWithText("바다별 → 여행곰").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("3,000원").assertIsDisplayed()
+        composeRule.onNodeWithText("18:00 · minji 결제").assertDoesNotExist()
+        composeRule.onNodeWithText("분담 minji · 여행곰 · 바다별").assertDoesNotExist()
     }
 
     @Test
