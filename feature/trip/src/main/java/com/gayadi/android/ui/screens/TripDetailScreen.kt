@@ -10,7 +10,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -77,8 +79,18 @@ fun TripDetailScreen(
         return
     }
 
-    Column(Modifier.fillMaxSize().background(Color.White).verticalScroll(rememberScrollState())) {
-        Row(Modifier.fillMaxWidth().padding(top = 36.dp, start = 8.dp, end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(Color.White)
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .verticalScroll(rememberScrollState()),
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(top = 16.dp, start = 8.dp, end = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "뒤로") }
             Column(Modifier.weight(1f)) {
                 Text(trip.name, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextPrimary)

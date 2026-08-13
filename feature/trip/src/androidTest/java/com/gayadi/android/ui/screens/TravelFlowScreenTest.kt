@@ -1,5 +1,6 @@
 package com.gayadi.android.ui.screens
 
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.junit4.StateRestorationTester
@@ -547,7 +548,7 @@ class TravelFlowScreenTest {
     }
 
     @Test
-    fun ledgerShowsTotalsSettlementAndConfirmsExpenseDelete() {
+    fun ledgerDeleteConfirmationRecomposesExpenseAndTotalsFromUpdatedState() {
         val participants = listOf(
             TravelParticipant("local-user", "나"),
             TravelParticipant("friend-1", "여행곰"),
@@ -571,37 +572,72 @@ class TravelFlowScreenTest {
             date = "2026.08.08",
             time = "12:00",
         )
+        val remainingExpense = expense.copy(
+            id = "expense-2",
+            title = "택시",
+            amount = 10_000,
+            time = "13:00",
+        )
+        val expenses = mutableStateOf(listOf(expense, remainingExpense))
         var deletedExpenseId: String? = null
         composeRule.setContent {
+            val currentExpenses = expenses.value
+            val hasLunchExpense = currentExpenses.any { it.id == expense.id }
             GayadiTheme {
                 TravelLedgerScreen(
                     tripName = "제주 여행",
-                    expenses = listOf(expense),
+                    expenses = currentExpenses,
                     schedules = listOf(schedule),
                     participants = participants,
                     settlementSummary = ExpenseSettlementSummary(
-                        totalAmount = 35_001,
-                        balances = listOf(
-                            ParticipantExpenseBalance("local-user", 35_001, 17_501, 17_500),
-                            ParticipantExpenseBalance("friend-1", 0, 17_500, -17_500),
+                        totalAmount = currentExpenses.sumOf(TravelExpense::amount),
+                        balances = if (hasLunchExpense) {
+                            listOf(
+                                ParticipantExpenseBalance("local-user", 45_001, 22_500, 22_501),
+                                ParticipantExpenseBalance("friend-1", 0, 22_501, -22_501),
+                            )
+                        } else {
+                            listOf(
+                                ParticipantExpenseBalance("local-user", 10_000, 5_000, 5_000),
+                                ParticipantExpenseBalance("friend-1", 0, 5_000, -5_000),
+                            )
+                        },
+                        transfers = listOf(
+                            SettlementTransfer(
+                                fromParticipantId = "friend-1",
+                                toParticipantId = "local-user",
+                                amount = if (hasLunchExpense) 22_501 else 5_000,
+                            ),
                         ),
-                        transfers = listOf(SettlementTransfer("friend-1", "local-user", 17_500)),
                     ),
                     onBack = {},
                     onAddExpense = {},
                     onEditExpense = { _, _ -> },
-                    onDeleteExpense = { deletedExpenseId = it },
+                    onDeleteExpense = { expenseId ->
+                        deletedExpenseId = expenseId
+                        expenses.value = expenses.value.filterNot { it.id == expenseId }
+                    },
                 )
             }
         }
 
-        composeRule.onAllNodesWithText("35,001원").onFirst().assertIsDisplayed()
+        composeRule.onAllNodesWithText("45,001원").onFirst().assertIsDisplayed()
+        composeRule.onNodeWithText("비용 2건 · 참여자 2명").assertIsDisplayed()
         composeRule.onNodeWithText("여행곰 → 나").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("22,501원").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("점심 식사 메뉴").performClick()
         composeRule.onNodeWithText("삭제").performClick()
         composeRule.onNodeWithText("비용을 삭제할까요?").assertIsDisplayed()
         composeRule.onNodeWithText("삭제").performClick()
+
         composeRule.runOnIdle { assertEquals("expense-1", deletedExpenseId) }
+        composeRule.onNodeWithText("점심 식사").assertDoesNotExist()
+        composeRule.onNodeWithText("비용 1건 · 참여자 2명").assertIsDisplayed()
+        composeRule.onAllNodesWithText("10,000원").onFirst().assertIsDisplayed()
+        composeRule.onNodeWithText("45,001원").assertDoesNotExist()
+        composeRule.onNodeWithText("여행곰 → 나").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("5,000원").assertIsDisplayed()
+        composeRule.onNodeWithText("22,501원").assertDoesNotExist()
     }
 
     @Test

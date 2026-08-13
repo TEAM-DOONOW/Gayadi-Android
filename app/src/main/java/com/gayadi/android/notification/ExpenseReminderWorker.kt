@@ -28,14 +28,7 @@ class ExpenseReminderWorker(
         val scheduleTitle = inputData.getString(KEY_SCHEDULE_TITLE).orEmpty()
 
         createNotificationChannel(applicationContext)
-        val deepLinkIntent = Intent(
-            Intent.ACTION_VIEW,
-            Uri.parse(expenseReminderUri(tripId, scheduleId)),
-            applicationContext,
-            MainActivity::class.java,
-        ).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-        }
+        val deepLinkIntent = expenseReminderDeepLinkIntent(applicationContext, tripId, scheduleId)
         val pendingIntent = PendingIntent.getActivity(
             applicationContext,
             expenseReminderNotificationId(tripId, scheduleId),
@@ -64,6 +57,19 @@ class ExpenseReminderWorker(
             Result.success()
         }
     }
+}
+
+internal fun expenseReminderDeepLinkIntent(
+    context: Context,
+    tripId: String,
+    scheduleId: String,
+): Intent = Intent(
+    Intent.ACTION_VIEW,
+    Uri.parse(expenseReminderUri(tripId, scheduleId)),
+    context,
+    MainActivity::class.java,
+).apply {
+    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
 }
 
 private fun notificationsAllowed(context: Context): Boolean {

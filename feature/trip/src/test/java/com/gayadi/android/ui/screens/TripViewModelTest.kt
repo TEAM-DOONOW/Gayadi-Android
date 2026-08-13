@@ -146,6 +146,32 @@ class TripViewModelTest {
     }
 
     @Test
+    fun directExpenseDeletePersistsAndRecreatedViewModelRecalculatesZeroTotal() = runTest(dispatcher) {
+        val repository = MemoryTravelRepository()
+        val viewModel = viewModel(repository)
+        advanceUntilIdle()
+        viewModel.addTrip(sampleTrip())
+        viewModel.addParticipant("trip-28", "user-101")
+        viewModel.upsertSchedule(sampleSchedule("schedule-1"))
+        advanceUntilIdle()
+        assertTrue(viewModel.upsertExpense(sampleExpense(amount = 1_001L)).isSuccess)
+        assertEquals(1_001L, viewModel.settlementForTrip("trip-28").getOrThrow().totalAmount)
+
+        viewModel.deleteExpense("expense-1")
+        advanceUntilIdle()
+
+        assertTrue(viewModel.expensesForTrip("trip-28").isEmpty())
+        assertTrue(repository.state.expenses.isEmpty())
+        assertEquals(0L, viewModel.settlementForTrip("trip-28").getOrThrow().totalAmount)
+
+        val recreated = viewModel(repository)
+        advanceUntilIdle()
+
+        assertTrue(recreated.expensesForTrip("trip-28").isEmpty())
+        assertEquals(0L, recreated.settlementForTrip("trip-28").getOrThrow().totalAmount)
+    }
+
+    @Test
     fun invalidSavedExpenseShowsSettlementErrorWithoutThrowing() = runTest(dispatcher) {
         val trip = sampleTrip().toExistingDomain().copy(
             participantIds = listOf("local-user", "user-101"),

@@ -15,6 +15,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
 import com.gayadi.android.notification.ExpenseReminderScheduler
+import com.gayadi.android.notification.syncExpenseRemindersWithRetry
 import com.gayadi.android.di.AppContainer
 import com.gayadi.android.domain.model.ExpenseSettlementSummary
 import com.gayadi.android.domain.model.TravelParticipant
@@ -103,7 +104,9 @@ fun GayadiNavHost(appContainer: AppContainer) {
     }
     LaunchedEffect(travelUiState.hasLoadedTravelState, travelUiState.travelState.schedules) {
         if (travelUiState.hasLoadedTravelState) {
-            reminderScheduler.sync(travelUiState.travelState.schedules)
+            syncExpenseRemindersWithRetry(
+                sync = { reminderScheduler.sync(travelUiState.travelState.schedules) },
+            )
         }
     }
 

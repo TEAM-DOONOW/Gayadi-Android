@@ -243,6 +243,40 @@ class ExpenseReminderPlanTest {
     }
 
     @Test
+    fun cancelAllCommitFailureForcesNextSyncToReenqueueMissingFutureWork() {
+        val schedule = schedule()
+        val initiallyScheduled = initialPlan(schedule)
+        val workName = initiallyScheduled.remindersToEnqueue.single().workName
+
+        // cancelAllWorkByTag completed, but clearing the persisted signature ledger failed.
+        val staleLedger = initiallyScheduled.desiredSignatures
+        val reconciledLedger = reconcileExpenseReminderSignatures(staleLedger) { false }
+
+        val recoveryPlan = planExpenseReminderSync(
+            schedules = listOf(schedule),
+            previouslyScheduledSignatures = reconciledLedger,
+            clock = beforeTrigger,
+        )
+
+        assertTrue(reconciledLedger.isEmpty())
+        assertEquals(workName, recoveryPlan.remindersToEnqueue.single().workName)
+        assertEquals(initiallyScheduled.desiredSignatures, recoveryPlan.desiredSignatures)
+    }
+
+    @Test
+    fun reconciliationKeepsSignatureWhenItsWorkIsStillActive() {
+        val initiallyScheduled = initialPlan(schedule())
+        val workName = initiallyScheduled.remindersToEnqueue.single().workName
+
+        val reconciledLedger = reconcileExpenseReminderSignatures(
+            persistedSignatures = initiallyScheduled.desiredSignatures,
+            hasActiveWork = { it == workName },
+        )
+
+        assertEquals(initiallyScheduled.desiredSignatures, reconciledLedger)
+    }
+
+    @Test
     fun cancellationIsRethrownInsteadOfConvertedToFailureResult() = runBlocking {
         val cancellation = CancellationException("cancel sync")
 
@@ -260,6 +294,46 @@ class ExpenseReminderPlanTest {
 
         assertTrue(result.isFailure)
         assertEquals("sync failed", result.exceptionOrNull()?.message)
+    }
+
+    @Test
+    fun transientSyncFailureRetriesWithBackoffUntilSuccess() = runBlocking {
+        var attempts = 0
+        val observedDelays = mutableListOf<Long>()
+
+        syncExpenseRemindersWithRetry(
+            sync = {
+                attempts += 1
+                if (attempts < 3) Result.failure(IllegalStateException("transient")) else Result.success(Unit)
+            },
+            retryDelaysMillis = sequenceOf(1_000L, 2_000L, 4_000L),
+            delayBeforeRetry = { observedDelays += it },
+        )
+
+        assertEquals(3, attempts)
+        assertEquals(listOf(1_000L, 2_000L), observedDelays)
+    }
+
+    @Test
+    fun cancelledRetryDelayStopsBeforeAnotherSyncAttempt() = runBlocking {
+        var attempts = 0
+        val cancellation = CancellationException("new schedule snapshot")
+
+        try {
+            syncExpenseRemindersWithRetry(
+                sync = {
+                    attempts += 1
+                    Result.failure(IllegalStateException("transient"))
+                },
+                retryDelaysMillis = sequenceOf(1_000L),
+                delayBeforeRetry = { throw cancellation },
+            )
+            fail("Expected cancellation")
+        } catch (caught: CancellationException) {
+            assertSame(cancellation, caught)
+        }
+
+        assertEquals(1, attempts)
     }
 
     @Test

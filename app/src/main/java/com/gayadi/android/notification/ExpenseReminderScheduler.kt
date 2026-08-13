@@ -10,6 +10,7 @@ import java.time.Clock
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -33,9 +34,17 @@ class ExpenseReminderScheduler(
                     .getStringSet(SCHEDULED_NAMES_KEY, emptySet())
                     .orEmpty()
                     .toSet()
-                val previouslyScheduledSignatures = previouslyScheduledNames.associateWith { workName ->
+                val persistedSignatures = previouslyScheduledNames.associateWith { workName ->
                     preferences.getString(signaturePreferenceKey(workName), null)
                 }
+                val previouslyScheduledSignatures = reconcileExpenseReminderSignatures(
+                    persistedSignatures = persistedSignatures,
+                    hasActiveWork = { workName ->
+                        workManager.getWorkInfosForUniqueWork(workName).get().any { workInfo ->
+                            !workInfo.state.isFinished
+                        }
+                    },
+                )
                 val plan = planExpenseReminderSync(schedules, previouslyScheduledSignatures, clock)
 
                 applyExpenseReminderSyncPlan(
@@ -44,22 +53,10 @@ class ExpenseReminderScheduler(
                         workManager.cancelUniqueWork(workName).result.get()
                     },
                     enqueueReminder = { reminder ->
-                        val request = OneTimeWorkRequestBuilder<ExpenseReminderWorker>()
-                            .setInitialDelay(reminder.delayMillis, TimeUnit.MILLISECONDS)
-                            .setInputData(
-                                Data.Builder()
-                                    .putString(KEY_TRIP_ID, reminder.tripId)
-                                    .putString(KEY_SCHEDULE_ID, reminder.scheduleId)
-                                    .putString(KEY_SCHEDULE_TITLE, reminder.scheduleTitle)
-                                    .build(),
-                            )
-                            .addTag(EXPENSE_REMINDER_TAG)
-                            .addTag(reminder.workName)
-                            .build()
                         workManager.enqueueUniqueWork(
                             reminder.workName,
                             ExistingWorkPolicy.REPLACE,
-                            request,
+                            expenseReminderWorkRequest(reminder),
                         ).result.get()
                     },
                     commitDesiredSignatures = { desiredSignatures ->
@@ -101,6 +98,40 @@ class ExpenseReminderScheduler(
     }
 }
 
+internal fun expenseReminderWorkRequest(
+    reminder: PlannedExpenseReminder,
+) = OneTimeWorkRequestBuilder<ExpenseReminderWorker>()
+    .setInitialDelay(reminder.delayMillis, TimeUnit.MILLISECONDS)
+    .setInputData(
+        Data.Builder()
+            .putString(KEY_TRIP_ID, reminder.tripId)
+            .putString(KEY_SCHEDULE_ID, reminder.scheduleId)
+            .putString(KEY_SCHEDULE_TITLE, reminder.scheduleTitle)
+            .build(),
+    )
+    .addTag(EXPENSE_REMINDER_TAG)
+    .addTag(reminder.workName)
+    .build()
+
+/**
+ * Retries transient reminder-store or WorkManager failures while the calling UI effect is alive.
+ * A new schedule snapshot cancels that effect (and this delay) before starting its own sync.
+ */
+internal suspend fun syncExpenseRemindersWithRetry(
+    sync: suspend () -> Result<Unit>,
+    retryDelaysMillis: Sequence<Long> = generateSequence(1_000L) { previous ->
+        (previous * 2L).coerceAtMost(60_000L)
+    },
+    delayBeforeRetry: suspend (Long) -> Unit = { delay(it) },
+) {
+    var result = sync()
+    val delays = retryDelaysMillis.iterator()
+    while (result.isFailure && delays.hasNext()) {
+        delayBeforeRetry(delays.next())
+        result = sync()
+    }
+}
+
 internal suspend fun <T> runCatchingPreservingCancellation(
     block: suspend () -> T,
 ): Result<T> = try {
@@ -116,3 +147,16 @@ internal class ExpenseReminderSyncGate {
 
     suspend fun <T> run(block: suspend () -> T): T = mutex.withLock { block() }
 }
+
+/**
+ * Discards persisted signatures whose WorkManager job is no longer active.
+ *
+ * The signature ledger is only a scheduling optimization, not the source of truth. In particular,
+ * [ExpenseReminderScheduler.cancelAll] can successfully cancel WorkManager jobs and then fail to
+ * clear this ledger. Reconciling both stores makes the next sync enqueue each still-future reminder
+ * again instead of treating a stale signature as proof that its job still exists.
+ */
+internal fun reconcileExpenseReminderSignatures(
+    persistedSignatures: Map<String, String?>,
+    hasActiveWork: (String) -> Boolean,
+): Map<String, String?> = persistedSignatures.filterKeys(hasActiveWork)
