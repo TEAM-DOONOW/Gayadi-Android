@@ -70,10 +70,11 @@ fun GroupDateCoordinationScreen(
 ) {
     if (trip == null) return
     val context = LocalContext.current
-    val members = remember(currentUserId, participants) {
-        listOf(currentUserId to "나") + participants
-            .filterNot { it.id == currentUserId }
-            .map { it.id to it.nickname }
+    val otherParticipants = remember(currentUserId, participants) {
+        participants.filterNot { it.id == currentUserId }
+    }
+    val members = remember(currentUserId, otherParticipants) {
+        listOf(currentUserId to "나") + otherParticipants.map { it.id to it.nickname }
     }
     val memberColors = remember(members) {
         members.mapIndexed { index, member -> member.first to ParticipantColors[index % ParticipantColors.size] }.toMap()
@@ -85,8 +86,8 @@ fun GroupDateCoordinationScreen(
     }
     var finalRange by remember { mutableStateOf<Set<String>>(emptySet()) }
     val submittedIds = trip.dateAvailability.keys
-    val hostOnly = participants.isEmpty()
-    val allSubmitted = participants.isNotEmpty() && members.all { it.first in submittedIds }
+    val hostOnly = otherParticipants.isEmpty()
+    val allSubmitted = otherParticipants.isNotEmpty() && members.all { it.first in submittedIds }
     val commonDates = if (allSubmitted) {
         members.map { trip.dateAvailability[it.first].orEmpty().toSet() }
             .reduceOrNull(Set<String>::intersect).orEmpty()
