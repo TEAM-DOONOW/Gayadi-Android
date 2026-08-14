@@ -7,6 +7,25 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:341464737705:android:c1d97cce2c91d9d75f86b8",
+        "android_client_info": {
+          "package_name": "com.doonow.gayadi"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCeToYHJjq2YrEaWPpqfOUB_e8AEedQTIs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:341464737705:android:db5dd139e04b680f5f86b8",
         "android_client_info": {
           "package_name": "com.gayadi.android"
