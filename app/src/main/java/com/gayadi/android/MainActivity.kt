@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import com.gayadi.android.navigation.GayadiNavHost
 import com.gayadi.android.di.AppContainer
 import com.gayadi.android.ui.theme.GayadiTheme
+import com.kakao.sdk.common.KakaoSdk
 import java.io.File
 
 class MainActivity : ComponentActivity() {
@@ -27,6 +28,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (BuildConfig.KAKAO_NATIVE_SDK.isNotBlank()) {
+            KakaoSdk.init(this, BuildConfig.KAKAO_NATIVE_SDK)
+        }
         enableEdgeToEdge()
         requestNotificationPermissionIfNeeded()
         setContent {

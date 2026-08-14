@@ -1,8 +1,10 @@
 package com.gayadi.android.ui.screens
 
-import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
+import android.util.Log
+import com.kakao.sdk.share.ShareClient
+import com.kakao.sdk.share.WebSharerClient
 
 internal fun shareTripInviteToKakao(
     context: Context,
@@ -10,25 +12,33 @@ internal fun shareTripInviteToKakao(
     cities: List<String>,
     inviteCode: String,
 ) {
-    val message = buildString {
-        appendLine("가야디 여행에 초대해요!")
-        appendLine()
-        appendLine("여행 이름: $tripName")
-        appendLine("여행지: ${cities.joinToString(" · ")}")
-        appendLine("초대 코드: $inviteCode")
-        appendLine()
-        append("가야디 앱에서 초대 코드를 입력해 참여해 주세요.")
+    val templateArgs = mapOf(
+        "tripName" to tripName,
+        "cities" to cities.joinToString(" · "),
+        "inviteCode" to inviteCode,
+    )
+
+    if (ShareClient.instance.isKakaoTalkSharingAvailable(context)) {
+        ShareClient.instance.shareCustom(
+            context = context,
+            templateId = KAKAO_INVITE_TEMPLATE_ID,
+            templateArgs = templateArgs,
+        ) { sharingResult, error ->
+            if (error != null) {
+                Log.e(TAG, "KakaoTalk invite sharing failed", error)
+                return@shareCustom
+            }
+            sharingResult?.let { context.startActivity(it.intent) }
+        }
+        return
     }
-    val shareIntent = Intent(Intent.ACTION_SEND).apply {
-        type = "text/plain"
-        putExtra(Intent.EXTRA_SUBJECT, "$tripName 여행 초대")
-        putExtra(Intent.EXTRA_TEXT, message)
-        setPackage("com.kakao.talk")
-    }
-    try {
-        context.startActivity(shareIntent)
-    } catch (_: ActivityNotFoundException) {
-        shareIntent.setPackage(null)
-        context.startActivity(Intent.createChooser(shareIntent, "여행 초대 공유하기"))
-    }
+
+    val sharingUrl = WebSharerClient.instance.makeCustomUrl(
+        templateId = KAKAO_INVITE_TEMPLATE_ID,
+        templateArgs = templateArgs,
+    )
+    context.startActivity(Intent(Intent.ACTION_VIEW, sharingUrl))
 }
+
+private const val KAKAO_INVITE_TEMPLATE_ID = 136168L
+private const val TAG = "TripInviteShare"
