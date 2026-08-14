@@ -21,7 +21,7 @@ android {
     buildToolsVersion = "35.0.0"
 
     defaultConfig {
-        applicationId = "com.doonow.gayadi"
+        applicationId = "com.gayadi.android"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
