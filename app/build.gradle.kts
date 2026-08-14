@@ -31,6 +31,7 @@ android {
         buildConfigField("String", "API_BASE_URL", "\"${env("API_BASE_URL", "http://10.0.2.2:8080")}\"")
         buildConfigField("boolean", "DEBUG_LOGGING", env("DEBUG_LOGGING", "true"))
         buildConfigField("String", "KAKAO_MAP_JAVASCRIPT_SDK", "\"${env("KAKAO_MAP_JAVASCRIPT_SDK")}\"")
+        buildConfigField("String", "KAKAO_NATIVE_SDK", "\"${env("KAKAO_NATIVE_SDK")}\"")
     }
 
     buildTypes {
@@ -79,6 +80,7 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.kakao.share)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.analytics)
     testImplementation(libs.junit)
