@@ -32,7 +32,6 @@ android {
         buildConfigField("boolean", "DEBUG_LOGGING", env("DEBUG_LOGGING", "true"))
         buildConfigField("String", "KAKAO_MAP_JAVASCRIPT_SDK", "\"${env("KAKAO_MAP_JAVASCRIPT_SDK")}\"")
         buildConfigField("String", "KAKAO_NATIVE_SDK", "\"${env("KAKAO_NATIVE_SDK")}\"")
-        manifestPlaceholders["KAKAO_NATIVE_SDK"] = env("KAKAO_NATIVE_SDK")
     }
 
     buildTypes {
