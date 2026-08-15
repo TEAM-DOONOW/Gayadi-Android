@@ -55,6 +55,7 @@ import com.gayadi.android.domain.model.TravelExpense
 import com.gayadi.android.domain.model.TravelParticipant
 import com.gayadi.android.domain.model.TravelSchedule
 import com.gayadi.android.ui.theme.GayadiTheme
+import com.gayadi.android.ui.components.GayadiTopAppBar
 import com.gayadi.android.ui.theme.PrimaryAction
 import com.gayadi.android.ui.theme.PrimaryBlue
 import com.gayadi.android.ui.theme.SurfaceCard
@@ -93,21 +94,10 @@ fun TravelLedgerScreen(
         Modifier
             .fillMaxSize()
             .background(Color.White)
-            .statusBarsPadding()
             .navigationBarsPadding(),
     ) {
         Column(Modifier.fillMaxSize()) {
-            Spacer(Modifier.height(16.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "뒤로") }
-                Column(Modifier.weight(1f)) {
-                    Text("여행 가계부", fontSize = 21.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                    Text(tripName, fontSize = 12.sp, color = TextSecondary)
-                }
-            }
+            GayadiTopAppBar(title = "여행 가계부", subtitle = tripName, onBack = onBack)
 
             LazyColumn(
                 modifier = Modifier.weight(1f),

@@ -55,6 +55,7 @@ import com.gayadi.android.ui.theme.TagGreenText
 import com.gayadi.android.ui.theme.TagOrange
 import com.gayadi.android.ui.theme.TagOrangeText
 import com.gayadi.android.ui.theme.TextPrimary
+import com.gayadi.android.ui.components.GayadiTopAppBar
 import com.gayadi.android.ui.theme.TextSecondary
 import com.gayadi.android.ui.theme.TextTertiary
 
@@ -74,16 +75,7 @@ fun FriendAddScreen(
     var copied by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxSize().background(Color.White)) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로")
-            }
-            Text("함께할 여행메이트", fontSize = 23.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-        }
-        androidx.compose.material3.HorizontalDivider(color = Color(0xFFE5E5E5))
+        GayadiTopAppBar(title = "함께할 여행메이트", onBack = onBack, showDivider = true)
 
         FriendCodeCard(
             code = uiState.friendCode,

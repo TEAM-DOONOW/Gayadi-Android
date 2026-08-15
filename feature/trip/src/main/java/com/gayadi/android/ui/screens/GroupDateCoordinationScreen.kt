@@ -43,6 +43,7 @@ import com.gayadi.android.domain.model.TravelTrip
 import com.gayadi.android.ui.theme.PretendardFontFamily
 import com.gayadi.android.ui.theme.PretendardSemiBoldFontFamily
 import com.gayadi.android.ui.theme.TextPrimary
+import com.gayadi.android.ui.components.GayadiTopAppBar
 import com.gayadi.android.ui.components.UserCharacterAvatar
 import java.time.LocalDate
 import java.time.YearMonth
@@ -93,172 +94,172 @@ fun GroupDateCoordinationScreen(
             .reduceOrNull(Set<String>::intersect).orEmpty()
     } else emptySet()
 
-    Column(Modifier.fillMaxSize().background(Color(0xFFFAFAFB)).padding(horizontal = 20.dp)) {
-        Spacer(Modifier.height(42.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로가기")
-            }
-            Text("가능한 날짜 정하기", fontFamily = PretendardSemiBoldFontFamily, fontSize = 20.sp)
-        }
-        Spacer(Modifier.height(18.dp))
-        Text(
-            if (allSubmitted) "모두 가능한 날짜 중 여행 기간을 선택해 주세요"
-            else "가능한 날짜를 모두 선택한 뒤 제출해 주세요",
-            fontFamily = PretendardSemiBoldFontFamily,
-            fontSize = 16.sp,
-            color = TextPrimary,
+    Column(Modifier.fillMaxSize().background(Color(0xFFFAFAFB))) {
+        GayadiTopAppBar(
+            title = "가능한 날짜 정하기",
+            onBack = onBack,
+            containerColor = Color(0xFFFAFAFB),
         )
-        Spacer(Modifier.height(14.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(18.dp),
-        ) {
-            members.forEach { (id, name) ->
-                val participant = participants.firstOrNull { it.id == id }
-                ParticipantProfile(
-                    name = name,
-                    characterKey = participant?.characterKey,
-                    selected = id == activeMemberId,
-                    submitted = id in submittedIds,
-                    color = memberColors.getValue(id),
+        Column(Modifier.padding(horizontal = 20.dp)) {
+            Spacer(Modifier.height(18.dp))
+            Text(
+                if (allSubmitted) "모두 가능한 날짜 중 여행 기간을 선택해 주세요"
+                else "가능한 날짜를 모두 선택한 뒤 제출해 주세요",
+                fontFamily = PretendardSemiBoldFontFamily,
+                fontSize = 16.sp,
+                color = TextPrimary,
+            )
+            Spacer(Modifier.height(14.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(18.dp),
+            ) {
+                members.forEach { (id, name) ->
+                    val participant = participants.firstOrNull { it.id == id }
+                    ParticipantProfile(
+                        name = name,
+                        characterKey = participant?.characterKey,
+                        selected = id == activeMemberId,
+                        submitted = id in submittedIds,
+                        color = memberColors.getValue(id),
+                        onClick = {
+                            activeMemberId = id
+                            finalRange = emptySet()
+                        },
+                    )
+                }
+                InviteFriendProfile(
                     onClick = {
-                        activeMemberId = id
-                        finalRange = emptySet()
+                        shareTripInviteToKakao(context, trip.name, trip.cities, trip.inviteCode)
                     },
                 )
             }
-            InviteFriendProfile(
-                onClick = {
-                    shareTripInviteToKakao(context, trip.name, trip.cities, trip.inviteCode)
-                },
-            )
-        }
-        Spacer(Modifier.height(20.dp))
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp))
-                .background(Color.White)
-                .padding(14.dp),
-        ) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { visibleMonth = visibleMonth.minusMonths(1) }) {
-                    Icon(Icons.Default.ChevronLeft, "이전 달")
+            Spacer(Modifier.height(20.dp))
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color.White)
+                    .padding(14.dp),
+            ) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { visibleMonth = visibleMonth.minusMonths(1) }) {
+                        Icon(Icons.Default.ChevronLeft, "이전 달")
+                    }
+                    Text(
+                        "${visibleMonth.year}년 ${visibleMonth.monthValue}월",
+                        modifier = Modifier.weight(1f),
+                        fontFamily = PretendardSemiBoldFontFamily,
+                        fontSize = 18.sp,
+                        color = TextPrimary,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    )
+                    IconButton(onClick = { visibleMonth = visibleMonth.plusMonths(1) }) {
+                        Icon(Icons.Default.ChevronRight, "다음 달")
+                    }
                 }
-                Text(
-                    "${visibleMonth.year}년 ${visibleMonth.monthValue}월",
-                    modifier = Modifier.weight(1f),
-                    fontFamily = PretendardSemiBoldFontFamily,
-                    fontSize = 18.sp,
-                    color = TextPrimary,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                )
-                IconButton(onClick = { visibleMonth = visibleMonth.plusMonths(1) }) {
-                    Icon(Icons.Default.ChevronRight, "다음 달")
-                }
-            }
-            Row(Modifier.fillMaxWidth()) {
-                listOf("일", "월", "화", "수", "목", "금", "토").forEach {
-                    Text(it, Modifier.weight(1f).padding(vertical = 10.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center, color = Color(0xFF777781))
-                }
-            }
-            val leading = visibleMonth.atDay(1).dayOfWeek.value % 7
-            val cells = (0 until 42).map { index ->
-                (index - leading + 1).takeIf { it in 1..visibleMonth.lengthOfMonth() }
-            }
-            cells.chunked(7).forEach { week ->
                 Row(Modifier.fillMaxWidth()) {
-                    week.forEach { day ->
-                        val date = day?.let(visibleMonth::atDay)
-                        val key = date?.format(savedDateFormatter)
-                        val enabled = date != null && !date.isBefore(LocalDate.now())
-                        val selected = key != null && key in selectedDates
-                        val common = key != null && key in commonDates
-                        val final = key != null && key in finalRange
-                        val highlightedDates = when {
-                            final -> finalRange
-                            common -> commonDates
-                            selected -> selectedDates
-                            else -> emptySet()
-                        }
-                        val highlightShape = key?.let { connectedDateShape(it, highlightedDates) } ?: CircleShape
-                        Box(
-                            modifier = Modifier.weight(1f).aspectRatio(1f).padding(vertical = 2.dp)
-                                .background(
-                                    when {
-                                        final -> GroupAccent
-                                        common -> CommonDate
-                                        selected -> memberColors.getValue(activeMemberId)
-                                        else -> Color.Transparent
+                    listOf("일", "월", "화", "수", "목", "금", "토").forEach {
+                        Text(it, Modifier.weight(1f).padding(vertical = 10.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center, color = Color(0xFF777781))
+                    }
+                }
+                val leading = visibleMonth.atDay(1).dayOfWeek.value % 7
+                val cells = (0 until 42).map { index ->
+                    (index - leading + 1).takeIf { it in 1..visibleMonth.lengthOfMonth() }
+                }
+                cells.chunked(7).forEach { week ->
+                    Row(Modifier.fillMaxWidth()) {
+                        week.forEach { day ->
+                            val date = day?.let(visibleMonth::atDay)
+                            val key = date?.format(savedDateFormatter)
+                            val enabled = date != null && !date.isBefore(LocalDate.now())
+                            val selected = key != null && key in selectedDates
+                            val common = key != null && key in commonDates
+                            val final = key != null && key in finalRange
+                            val highlightedDates = when {
+                                final -> finalRange
+                                common -> commonDates
+                                selected -> selectedDates
+                                else -> emptySet()
+                            }
+                            val highlightShape = key?.let { connectedDateShape(it, highlightedDates) } ?: CircleShape
+                            Box(
+                                modifier = Modifier.weight(1f).aspectRatio(1f).padding(vertical = 2.dp)
+                                    .background(
+                                        when {
+                                            final -> GroupAccent
+                                            common -> CommonDate
+                                            selected -> memberColors.getValue(activeMemberId)
+                                            else -> Color.Transparent
+                                        },
+                                        highlightShape,
+                                    )
+                                    .clickable(enabled = enabled) {
+                                        if (allSubmitted && common) {
+                                            finalRange = buildContinuousRange(commonDates, finalRange, key!!)
+                                        } else if (!allSubmitted) {
+                                            selectedDates = if (selected) selectedDates - key!! else selectedDates + key!!
+                                        }
                                     },
-                                    highlightShape,
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    day?.toString().orEmpty(),
+                                    color = when {
+                                        final -> Color.White
+                                        enabled -> TextPrimary
+                                        else -> Color(0xFFC5C5CA)
+                                    },
+                                    fontFamily = PretendardFontFamily,
                                 )
-                                .clickable(enabled = enabled) {
-                                    if (allSubmitted && common) {
-                                        finalRange = buildContinuousRange(commonDates, finalRange, key!!)
-                                    } else if (!allSubmitted) {
-                                        selectedDates = if (selected) selectedDates - key!! else selectedDates + key!!
-                                    }
-                                },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                day?.toString().orEmpty(),
-                                color = when {
-                                    final -> Color.White
-                                    enabled -> TextPrimary
-                                    else -> Color(0xFFC5C5CA)
-                                },
-                                fontFamily = PretendardFontFamily,
-                            )
+                            }
                         }
                     }
                 }
             }
-        }
-        Spacer(Modifier.height(12.dp))
-        Text(
-            when {
-                allSubmitted && commonDates.isEmpty() -> "겹치는 날짜가 없어요. 가능한 날짜를 다시 조정해 주세요."
-                allSubmitted -> "초록색은 모든 참여자가 가능한 날짜예요."
-                else -> "${submittedIds.size}/${members.size}명 제출 완료"
-            },
-            modifier = if (!allSubmitted) Modifier.fillMaxWidth() else Modifier,
-            color = Color(0xFF777781),
-            fontFamily = PretendardFontFamily,
-            fontSize = 13.sp,
-            textAlign = if (!allSubmitted) androidx.compose.ui.text.style.TextAlign.End
-            else androidx.compose.ui.text.style.TextAlign.Start,
-        )
-        Spacer(Modifier.weight(1f))
-        Button(
-            onClick = {
-                if (hostOnly) {
-                    val sorted = selectedDates.sorted()
-                    onFinalize(sorted.first(), sorted.last())
-                } else if (allSubmitted) {
-                    val sorted = finalRange.sorted()
-                    onFinalize(sorted.first(), sorted.last())
-                } else {
-                    onSubmit(activeMemberId, selectedDates.toList())
-                }
-            },
-            enabled = if (allSubmitted) finalRange.isNotEmpty() else selectedDates.isNotEmpty(),
-            modifier = Modifier.fillMaxWidth().height(52.dp),
-            shape = RoundedCornerShape(2.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = GroupAccent,
-                disabledContainerColor = Color(0xFFE8E8EB),
-            ),
-        ) {
+            Spacer(Modifier.height(12.dp))
             Text(
-                if (allSubmitted) "여행 날짜 확정하기" else "가능한 날짜 제출하기",
-                fontFamily = PretendardSemiBoldFontFamily,
-                fontSize = 15.sp,
+                when {
+                    allSubmitted && commonDates.isEmpty() -> "겹치는 날짜가 없어요. 가능한 날짜를 다시 조정해 주세요."
+                    allSubmitted -> "초록색은 모든 참여자가 가능한 날짜예요."
+                    else -> "${submittedIds.size}/${members.size}명 제출 완료"
+                },
+                modifier = if (!allSubmitted) Modifier.fillMaxWidth() else Modifier,
+                color = Color(0xFF777781),
+                fontFamily = PretendardFontFamily,
+                fontSize = 13.sp,
+                textAlign = if (!allSubmitted) androidx.compose.ui.text.style.TextAlign.End
+                else androidx.compose.ui.text.style.TextAlign.Start,
             )
+            Spacer(Modifier.weight(1f))
+            Button(
+                onClick = {
+                    if (hostOnly) {
+                        val sorted = selectedDates.sorted()
+                        onFinalize(sorted.first(), sorted.last())
+                    } else if (allSubmitted) {
+                        val sorted = finalRange.sorted()
+                        onFinalize(sorted.first(), sorted.last())
+                    } else {
+                        onSubmit(activeMemberId, selectedDates.toList())
+                    }
+                },
+                enabled = if (allSubmitted) finalRange.isNotEmpty() else selectedDates.isNotEmpty(),
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(2.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = GroupAccent,
+                    disabledContainerColor = Color(0xFFE8E8EB),
+                ),
+            ) {
+                Text(
+                    if (allSubmitted) "여행 날짜 확정하기" else "가능한 날짜 제출하기",
+                    fontFamily = PretendardSemiBoldFontFamily,
+                    fontSize = 15.sp,
+                )
+            }
+            Spacer(Modifier.height(16.dp))
         }
-        Spacer(Modifier.height(16.dp))
     }
 }
 

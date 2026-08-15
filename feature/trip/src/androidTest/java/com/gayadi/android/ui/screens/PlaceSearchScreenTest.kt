@@ -6,9 +6,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.gayadi.android.ui.theme.GayadiTheme
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -17,6 +20,26 @@ import org.junit.runner.RunWith
 class PlaceSearchScreenTest {
     @get:Rule
     val composeRule = createComposeRule()
+
+    @Test
+    fun backButtonInvokesCallback() {
+        var backInvoked = false
+        composeRule.setContent {
+            GayadiTheme {
+                PlaceSearchScreen(
+                    uiState = PlaceUiState(isLoading = false),
+                    onBack = { backInvoked = true },
+                    onQueryChange = {},
+                    onCategorySelected = {},
+                    onPlaceClick = {},
+                    onRetry = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithContentDescription("뒤로").performClick()
+        composeRule.runOnIdle { assertTrue(backInvoked) }
+    }
 
     @Test
     fun searchDisplaysEmptyState() {

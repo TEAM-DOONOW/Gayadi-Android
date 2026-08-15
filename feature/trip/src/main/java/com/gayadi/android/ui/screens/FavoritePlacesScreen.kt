@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gayadi.android.ui.theme.TextSecondary
+import com.gayadi.android.ui.components.GayadiTopAppBar
 
 @Composable
 fun FavoritePlacesScreen(
@@ -35,11 +36,7 @@ fun FavoritePlacesScreen(
     onToggleFavorite: (String) -> Unit,
 ) {
     Column(Modifier.fillMaxSize().background(Color.White)) {
-        Spacer(Modifier.height(36.dp))
-        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "뒤로") }
-            Text("찜한 장소", fontSize = 21.sp, fontWeight = FontWeight.Bold)
-        }
+        GayadiTopAppBar(title = "찜한 장소", onBack = onBack)
         if (places.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("아직 찜한 장소가 없어요", color = TextSecondary) }
         } else {

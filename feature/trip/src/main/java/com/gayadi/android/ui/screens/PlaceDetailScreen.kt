@@ -37,6 +37,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gayadi.android.ui.theme.GayadiTheme
+import com.gayadi.android.ui.components.GayadiBackButton
 import com.gayadi.android.ui.theme.PrimaryAction
 import com.gayadi.android.ui.theme.PrimaryBlue
 import com.gayadi.android.ui.theme.TextPrimary
@@ -68,13 +69,12 @@ fun PlaceDetailScreen(
     Column(Modifier.fillMaxSize().background(Color.White).verticalScroll(rememberScrollState())) {
         Box(Modifier.fillMaxWidth().height(220.dp).background(Color(0xFFE8DDD0)), contentAlignment = Alignment.Center) {
             Text(place.emoji, fontSize = 64.sp)
-            IconButton(
+            GayadiBackButton(
                 onClick = onBack,
                 modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(12.dp).size(40.dp)
                     .clip(RoundedCornerShape(20.dp)).background(Color.Black.copy(alpha = 0.3f)),
-            ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로", tint = Color.White)
-            }
+                tint = Color.White,
+            )
         }
         Column(Modifier.padding(horizontal = 20.dp)) {
             Spacer(Modifier.height(16.dp))

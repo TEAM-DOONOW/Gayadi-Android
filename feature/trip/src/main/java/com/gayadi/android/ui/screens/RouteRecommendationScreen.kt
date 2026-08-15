@@ -36,6 +36,7 @@ import com.gayadi.android.domain.model.TravelSchedule
 import com.gayadi.android.domain.model.TravelTrip
 import com.gayadi.android.domain.model.UserProfile
 import com.gayadi.android.ui.components.UserCharacterAvatar
+import com.gayadi.android.ui.components.GayadiTopAppBar
 import com.gayadi.android.ui.theme.PrimaryBlue
 import com.gayadi.android.ui.theme.SurfaceCard
 import com.gayadi.android.ui.theme.TextSecondary
@@ -55,12 +56,11 @@ fun RouteRecommendationScreen(
     val options = remember(type, schedules) { routeOptions(type, schedules) }
     var selectedId by remember(type, appliedOptionId) { mutableStateOf(appliedOptionId ?: options.firstOrNull()?.id) }
     Column(Modifier.fillMaxSize().background(Color.White).verticalScroll(rememberScrollState())) {
-        Row(Modifier.fillMaxWidth().padding(top = 36.dp, start = 8.dp, end = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "뒤로") }
-            Column(Modifier.weight(1f)) {
-                Text(type.title, fontSize = 21.sp, fontWeight = FontWeight.Bold)
-                Text(trip?.name ?: "선택한 여행", fontSize = 12.sp, color = TextSecondary)
-            }
+        GayadiTopAppBar(
+            title = type.title,
+            subtitle = trip?.name ?: "선택한 여행",
+            onBack = onBack,
+        ) {
             UserCharacterAvatar(profile?.characterKey, "맞춤 경로 캐릭터")
         }
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
