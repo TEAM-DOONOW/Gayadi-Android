@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -69,7 +70,7 @@ fun PlaceDetailScreen(
             Text(place.emoji, fontSize = 64.sp)
             IconButton(
                 onClick = onBack,
-                modifier = Modifier.align(Alignment.TopStart).padding(12.dp).size(40.dp)
+                modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(12.dp).size(40.dp)
                     .clip(RoundedCornerShape(20.dp)).background(Color.Black.copy(alpha = 0.3f)),
             ) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로", tint = Color.White)
