@@ -37,8 +37,8 @@ class TourApiTest {
         val dataSource = CountingTourApiDataSource()
         val repository = DefaultTourRepository(dataSource)
 
-        repository.getPlaces(numOfRows = 5, contentTypeId = 12).getOrThrow()
-        repository.getPlaces(numOfRows = 5, contentTypeId = 12).getOrThrow()
+        repository.getPlaces(numOfRows = 100, contentTypeId = 12).getOrThrow()
+        repository.getPlaces(numOfRows = 100, contentTypeId = 12).getOrThrow()
 
         assertEquals(1, dataSource.requestCount)
     }
