@@ -2,6 +2,8 @@ package com.gayadi.android.di
 
 import com.gayadi.android.data.repository.InMemoryProfileRepository
 import com.gayadi.android.data.repository.FileTravelRepository
+import com.gayadi.android.data.repository.DefaultTourRepository
+import com.gayadi.android.data.datasource.HttpTourApiDataSource
 import com.gayadi.android.data.datasource.FileProfileLocalDataSource
 import com.gayadi.android.data.datasource.FirestoreSurveyDataSource
 import com.gayadi.android.data.repository.DefaultSurveyRepository
@@ -22,11 +24,12 @@ import com.gayadi.android.domain.usecase.GetLegalDocumentUseCase
 import com.gayadi.android.domain.usecase.JoinTripByInviteCodeUseCase
 import com.gayadi.android.domain.usecase.SaveTravelStateUseCase
 import com.gayadi.android.domain.usecase.UpdateTravelStateUseCase
+import com.gayadi.android.domain.usecase.GetTourPlacesUseCase
 import com.google.firebase.firestore.FirebaseFirestore
 import java.io.File
 
 /** Application composition root that wires data implementations to domain use cases. */
-class AppContainer(profileFile: File, travelFile: File) {
+class AppContainer(profileFile: File, travelFile: File, tourApiBaseUrl: String) {
     private val firestore = FirebaseFirestore.getInstance()
     private val profileRepository: ProfileRepository =
         InMemoryProfileRepository(FileProfileLocalDataSource(profileFile))
@@ -35,6 +38,7 @@ class AppContainer(profileFile: File, travelFile: File) {
     private val legalDocumentRepository =
         DefaultLegalDocumentRepository(FirestoreLegalDocumentDataSource(firestore))
     private val travelRepository = FileTravelRepository(travelFile)
+    private val tourRepository = DefaultTourRepository(HttpTourApiDataSource(tourApiBaseUrl))
 
     /** Use case used to persist onboarding profile input. */
     val saveBasicInfoUseCase = SaveBasicInfoUseCase(profileRepository)
@@ -74,4 +78,7 @@ class AppContainer(profileFile: File, travelFile: File) {
 
     /** Loads the published terms or privacy policy from Firestore. */
     val getLegalDocumentUseCase = GetLegalDocumentUseCase(legalDocumentRepository)
+
+    /** Loads and caches the tourism places exposed by the Gayadi backend. */
+    val getTourPlacesUseCase = GetTourPlacesUseCase(tourRepository)
 }

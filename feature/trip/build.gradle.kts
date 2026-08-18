@@ -26,6 +26,7 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.coil.compose)
     implementation(libs.kakao.share)
     testImplementation(libs.junit)
     testImplementation("org.json:json:20240303")

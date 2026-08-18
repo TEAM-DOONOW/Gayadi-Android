@@ -32,6 +32,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -49,6 +50,7 @@ import com.gayadi.android.ui.theme.TagRedText
 import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary
 import com.gayadi.android.ui.theme.TextTertiary
+import coil.compose.AsyncImage
 
 private val placeCategories = listOf("전체", "맛집", "카페", "관광명소", "숙소")
 
@@ -129,7 +131,14 @@ fun PlaceSearchScreen(
                 modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                item { Text("${uiState.regionName} · ${uiState.filteredPlaces.size}곳", fontSize = 13.sp, color = TextSecondary) }
+                item {
+                    val listLabel = if (uiState.filteredPlaces.any { !it.hasRealtimeDetails }) {
+                        "관광지 추천"
+                    } else {
+                        uiState.regionName
+                    }
+                    Text("$listLabel · ${uiState.filteredPlaces.size}곳", fontSize = 13.sp, color = TextSecondary)
+                }
                 items(uiState.filteredPlaces, key = PlaceItem::id) { place ->
                     PlaceCard(
                         place,
@@ -158,12 +167,25 @@ private fun PlaceCard(place: PlaceItem, isFavorite: Boolean, onClick: () -> Unit
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.size(64.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFFF0F0F0)), contentAlignment = Alignment.Center) {
-            Text(place.emoji, fontSize = 28.sp)
+            if (place.imageUrl.isNotBlank()) {
+                AsyncImage(
+                    model = place.imageUrl,
+                    contentDescription = "${place.name} 이미지",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                )
+            } else {
+                Text(place.emoji, fontSize = 28.sp)
+            }
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(place.name, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-            Text("${place.category} · ★ ${place.rating} · 리뷰 ${place.reviews}", fontSize = 12.sp, color = TextSecondary)
+            Text(
+                if (place.reviews > 0) "${place.category} · ★ ${place.rating} · 리뷰 ${place.reviews}" else place.category,
+                fontSize = 12.sp,
+                color = TextSecondary,
+            )
             Text(place.description, fontSize = 11.sp, color = TextTertiary)
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -174,13 +196,15 @@ private fun PlaceCard(place: PlaceItem, isFavorite: Boolean, onClick: () -> Unit
                     tint = if (isFavorite) Color(0xFFE84D6E) else TextSecondary,
                 )
             }
-            Text(
-                place.crowdLevel.label,
-                modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(tagBackground)
-                    .padding(horizontal = 10.dp, vertical = 4.dp),
-                fontSize = 11.sp,
-                color = tagText,
-            )
+            if (place.hasRealtimeDetails) {
+                Text(
+                    place.crowdLevel.label,
+                    modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(tagBackground)
+                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                    fontSize = 11.sp,
+                    color = tagText,
+                )
+            }
         }
     }
 }
@@ -190,7 +214,7 @@ private fun PlaceCard(place: PlaceItem, isFavorite: Boolean, onClick: () -> Unit
 private fun PlaceSearchPreview() {
     GayadiTheme {
         PlaceSearchScreen(
-            uiState = PlaceUiState(places = FakePlaceRepository().getPlaces().getOrThrow(), isLoading = false),
+            uiState = PlaceUiState(places = FakePlaceRepository().places().getOrThrow(), isLoading = false),
             onBack = {},
             onQueryChange = {},
             onCategorySelected = {},
