@@ -17,7 +17,9 @@ object Routes {
     const val GROUP_DATE_COORDINATION = "group_date_coordination/{tripId}"
     const val TRIP_SCHEDULE = "trip_schedule/{tripId}"
     const val TRIP_LEDGER = "trip_ledger/{tripId}"
+    const val SETTLEMENT_DETAILS = "settlement_details/{tripId}/{participantId}/{detailType}"
     const val TRIP_EXPENSE = "trip_expense/{tripId}/{scheduleId}?expenseId={expenseId}"
+    const val UNLINKED_SCHEDULE_ID = "unlinked"
     const val ROUTE_HUB = "route_hub/{tripId}"
     const val ROUTE_RECOMMENDATION = "route_recommendation/{tripId}/{routeType}"
     const val NEARBY_PLACES = "nearby_places/{tripId}?placeId={placeId}"
@@ -38,8 +40,11 @@ object Routes {
     fun groupDateCoordination(tripId: String) = "group_date_coordination/$tripId"
     fun tripSchedule(tripId: String) = "trip_schedule/$tripId"
     fun tripLedger(tripId: String) = "trip_ledger/$tripId"
+    fun settlementDetails(tripId: String, participantId: String, detailType: String) =
+        "settlement_details/$tripId/$participantId/$detailType"
     fun tripExpense(tripId: String, scheduleId: String, expenseId: String? = null) =
-        "trip_expense/$tripId/$scheduleId" + (expenseId?.let { "?expenseId=$it" } ?: "")
+        "trip_expense/$tripId/${scheduleId.ifBlank { UNLINKED_SCHEDULE_ID }}" +
+            (expenseId?.let { "?expenseId=$it" } ?: "")
     fun routeHub(tripId: String) = "route_hub/$tripId"
     fun routeRecommendation(tripId: String, routeType: String) = "route_recommendation/$tripId/$routeType"
     fun nearbyPlaces(tripId: String, placeId: String? = null) =

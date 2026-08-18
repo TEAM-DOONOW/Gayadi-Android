@@ -43,6 +43,7 @@ fun GayadiCompactTextField(
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     placeholder: String? = null,
     onClick: (() -> Unit)? = null,
+    leadingContent: (@Composable () -> Unit)? = null,
     trailingContent: (@Composable () -> Unit)? = null,
 ) {
     var isFocused by remember { mutableStateOf(false) }
@@ -83,6 +84,12 @@ fun GayadiCompactTextField(
                     .padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                if (leadingContent != null) {
+                    Box(modifier = Modifier.fillMaxHeight(), contentAlignment = Alignment.Center) {
+                        leadingContent()
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
                     if (value.isEmpty() && placeholder != null) {
                         androidx.compose.material3.Text(

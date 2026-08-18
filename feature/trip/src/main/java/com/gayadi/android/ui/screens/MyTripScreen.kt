@@ -119,7 +119,13 @@ fun MyTripScreen(
         }
 
         Spacer(modifier = Modifier.height(20.dp))
-        Row(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(44.dp)
+                .background(Color(0xFFF0F0F2), RoundedCornerShape(22.dp))
+                .padding(4.dp),
+        ) {
             TripTab(
                 text = "진행 중인 여행",
                 selected = selectedTab == 0,
@@ -176,22 +182,21 @@ private fun TripTab(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = modifier.clickable(onClick = onClick).padding(vertical = 6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(
+                color = if (selected) TripAccentColor else Color.Transparent,
+                shape = RoundedCornerShape(18.dp),
+            )
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
     ) {
         Text(
             text = text,
             fontFamily = if (selected) PretendardSemiBoldFontFamily else PretendardFontFamily,
-            fontSize = 14.sp,
-            color = if (selected) TripAccentColor else Color(0xFFA7A8AF),
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Box(
-            modifier = Modifier
-                .height(2.dp)
-                .fillMaxWidth()
-                .background(if (selected) TripAccentColor else Color.Transparent),
+            fontSize = 13.sp,
+            color = if (selected) Color.White else Color(0xFF777983),
         )
     }
 }

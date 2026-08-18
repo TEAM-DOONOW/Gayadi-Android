@@ -368,7 +368,7 @@ private fun TripCreationCompleteStep(
                 modifier = Modifier.fillMaxWidth().height(252.dp).align(Alignment.BottomCenter),
             ) {
                 Image(
-                    painter = painterResource(R.drawable.gayadi_letter),
+                    painter = painterResource(R.drawable.trip_gayadi_letter),
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.FillBounds,
