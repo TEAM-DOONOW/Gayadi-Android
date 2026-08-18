@@ -1,6 +1,7 @@
 package com.gayadi.android.domain
 
 import com.gayadi.android.domain.model.ParticipantExpenseBalance
+import com.gayadi.android.domain.model.ExpensePaymentSource
 import com.gayadi.android.domain.model.SettlementTransfer
 import com.gayadi.android.domain.model.TravelExpense
 import com.gayadi.android.domain.usecase.CalculateExpenseSettlementUseCase
@@ -100,6 +101,24 @@ class ExpenseUseCasesTest {
     }
 
     @Test
+    fun sharedFundExpenseCountsAsAlreadyPaidAndCreatesNoTransfers() {
+        val summary = calculateSettlement(
+            listOf(
+                expense(
+                    amount = 101L,
+                    payerId = "",
+                    participantIds = listOf("a", "b", "c"),
+                    paymentSource = ExpensePaymentSource.SHARED_FUND,
+                ),
+            ),
+        ).getOrThrow()
+
+        assertEquals(101L, summary.totalAmount)
+        assertTrue(summary.balances.all { it.paidAmount == it.owedAmount && it.netAmount == 0L })
+        assertTrue(summary.transfers.isEmpty())
+    }
+
+    @Test
     fun invalidSavedExpenseReturnsFailureInsteadOfThrowing() {
         val result = calculateSettlement(
             expenses = listOf(expense(payerId = "")),
@@ -115,6 +134,7 @@ class ExpenseUseCasesTest {
         participantIds: List<String> = listOf("a"),
         date: String = "2026.08.13",
         time: String = "12:30",
+        paymentSource: ExpensePaymentSource = ExpensePaymentSource.PERSONAL,
     ) = TravelExpense(
         id = id,
         tripId = "trip-1",
@@ -126,5 +146,6 @@ class ExpenseUseCasesTest {
         participantIds = participantIds,
         date = date,
         time = time,
+        paymentSource = paymentSource,
     )
 }

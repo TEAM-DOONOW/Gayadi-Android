@@ -9,6 +9,7 @@ import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -52,6 +53,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
@@ -121,7 +123,15 @@ fun RealtimeHomeScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFFF7F7F9)),
+                .background(
+                    Brush.verticalGradient(
+                        colorStops = arrayOf(
+                            0.0f to Color(0xFFF2FAFF),
+                            0.48f to Color(0xFFF8F8FA),
+                            1.0f to Color(0xFFFFF7F0),
+                        ),
+                    ),
+                ),
         ) {
             Column(
                 modifier = Modifier
@@ -306,14 +316,15 @@ private fun TravelOverviewCard(
             BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(36.dp),
+                    .height(52.dp),
             ) {
                 LinearProgressIndicator(
                     progress = { progress },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(10.dp)
-                        .align(Alignment.Center)
+                        .align(Alignment.TopCenter)
+                        .offset(y = 13.dp)
                         .clip(CircleShape),
                     color = PrimaryAction,
                     trackColor = Color(0xFFD9D9DE),
@@ -323,26 +334,31 @@ private fun TravelOverviewCard(
                     painter = painterResource(R.drawable.car),
                     contentDescription = "여행 진행 위치",
                     modifier = Modifier
-                        .size(52.dp)
+                        .size(40.dp)
                         .offset(
-                            x = (maxWidth - 52.dp) * progress,
-                            y = (-6).dp,
+                            x = (maxWidth - 40.dp) * progress - 6.dp,
+                            y = (-4).dp,
                         ),
                     contentScale = ContentScale.Fit,
                 )
+                Box(
+                    modifier = Modifier
+                        .width(40.dp)
+                        .offset(
+                            x = (maxWidth - 40.dp) * progress - 6.dp,
+                            y = 27.dp,
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        "${(progress * 100).toInt()}%",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = PrimaryAction,
+                    )
+                }
             }
-            Spacer(Modifier.height(5.dp))
-            Row(modifier = Modifier.fillMaxWidth()) {
-                if (progress > 0f) Spacer(Modifier.weight(progress))
-                Text(
-                    "${(progress * 100).toInt()}%",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = PrimaryAction,
-                )
-                if (progress < 1f) Spacer(Modifier.weight(1f - progress))
-            }
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(8.dp))
             Column(
                 Modifier
                     .fillMaxWidth()
@@ -601,12 +617,16 @@ private fun TripDaySection(
             Spacer(modifier = Modifier.height(8.dp))
         }
     }
-    Spacer(modifier = Modifier.height(14.dp))
-    Button(
+    Spacer(modifier = Modifier.height(24.dp))
+    OutlinedButton(
         onClick = onAddPlace,
-        modifier = Modifier.fillMaxWidth().height(40.dp),
+        modifier = Modifier.fillMaxWidth().height(33.dp),
         shape = RoundedCornerShape(0.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = PrimaryAction),
+        border = BorderStroke(1.dp, PrimaryAction),
+        colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = Color.White,
+            contentColor = PrimaryAction,
+        ),
     ) { Text("장소 추가", fontSize = 14.sp, fontWeight = FontWeight.SemiBold) }
 }
 

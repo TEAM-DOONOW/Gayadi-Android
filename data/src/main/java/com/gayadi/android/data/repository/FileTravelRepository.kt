@@ -2,6 +2,8 @@ package com.gayadi.android.data.repository
 
 import com.gayadi.android.domain.model.InvitationStatus
 import com.gayadi.android.domain.model.LOCAL_CURRENT_USER_ID
+import com.gayadi.android.domain.model.ExpenseCategory
+import com.gayadi.android.domain.model.ExpensePaymentSource
 import com.gayadi.android.domain.model.ScheduleType
 import com.gayadi.android.domain.model.TravelExpense
 import com.gayadi.android.domain.model.TravelInvitation
@@ -79,6 +81,9 @@ class FileTravelRepository(
         put("selectedTripId", state.selectedTripId ?: JSONObject.NULL)
         put("favoritePlaceIds", JSONArray(state.favoritePlaceIds.toList()))
         put("appliedRouteIds", JSONObject(state.appliedRouteIds))
+        put("sharedFundAmounts", JSONObject().apply {
+            state.sharedFundAmounts.forEach { (tripId, amount) -> put(tripId, amount) }
+        })
         put("trips", JSONArray().apply {
             state.trips.forEach { trip ->
                 put(JSONObject().apply {
@@ -149,6 +154,9 @@ class FileTravelRepository(
                     put("participantIds", JSONArray(expense.participantIds))
                     put("date", expense.date)
                     put("time", expense.time)
+                    put("category", expense.category.name)
+                    put("paymentSource", expense.paymentSource.name)
+                    put("receiptImageUri", expense.receiptImageUri ?: JSONObject.NULL)
                 })
             }
         })
@@ -225,8 +233,15 @@ class FileTravelRepository(
                 participantIds = expense.optJSONArray("participantIds").strings(),
                 date = expense.getString("date"),
                 time = expense.getString("time"),
+                category = expense.optString("category", ExpenseCategory.OTHER.name).enumOr(ExpenseCategory.OTHER),
+                paymentSource = expense.optString("paymentSource", ExpensePaymentSource.PERSONAL.name)
+                    .enumOr(ExpensePaymentSource.PERSONAL),
+                receiptImageUri = expense.optNullableString("receiptImageUri"),
             )
         },
+        sharedFundAmounts = root.optJSONObject("sharedFundAmounts")?.let { amounts ->
+            amounts.keys().asSequence().associateWith(amounts::getLong)
+        }.orEmpty(),
         currentUserId = root.optNullableString("currentUserId") ?: LOCAL_CURRENT_USER_ID,
     ).also(::requireValidExpenseTotals)
     }

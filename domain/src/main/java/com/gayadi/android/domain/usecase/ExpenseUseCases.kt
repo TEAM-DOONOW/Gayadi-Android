@@ -1,6 +1,7 @@
 package com.gayadi.android.domain.usecase
 
 import com.gayadi.android.domain.model.ExpenseSettlementSummary
+import com.gayadi.android.domain.model.ExpensePaymentSource
 import com.gayadi.android.domain.model.ParticipantExpenseBalance
 import com.gayadi.android.domain.model.SettlementTransfer
 import com.gayadi.android.domain.model.TravelExpense
@@ -14,7 +15,6 @@ class ValidateTravelExpenseUseCase {
     operator fun invoke(expense: TravelExpense): Result<Unit> = runCatching {
         require(expense.id.isNotBlank()) { "비용 ID가 비어 있습니다." }
         require(expense.tripId.isNotBlank()) { "여행 ID가 비어 있습니다." }
-        require(expense.scheduleId.isNotBlank()) { "일정 ID가 비어 있습니다." }
         require(expense.title.isNotBlank()) { "비용 내용을 입력해 주세요." }
         require(expense.title.length <= MAX_TITLE_LENGTH) {
             "비용 내용은 ${MAX_TITLE_LENGTH}자 이하로 입력해 주세요."
@@ -23,7 +23,9 @@ class ValidateTravelExpenseUseCase {
             "메모는 ${MAX_MEMO_LENGTH}자 이하로 입력해 주세요."
         }
         require(expense.amount > 0L) { "금액은 1원 이상이어야 합니다." }
-        require(expense.payerId.isNotBlank()) { "결제자를 선택해 주세요." }
+        require(expense.paymentSource == ExpensePaymentSource.SHARED_FUND || expense.payerId.isNotBlank()) {
+            "결제자를 선택해 주세요."
+        }
         require(expense.participantIds.isNotEmpty()) { "분담 참여자를 한 명 이상 선택해 주세요." }
         require(expense.participantIds.all(String::isNotBlank)) { "분담 참여자 ID가 비어 있습니다." }
         require(expense.participantIds.distinct().size == expense.participantIds.size) {
@@ -70,9 +72,6 @@ class CalculateExpenseSettlementUseCase(
             validateExpense(expense).getOrThrow()
             totalAmount = Math.addExact(totalAmount, expense.amount)
 
-            val payerTotals = totals.getOrPut(expense.payerId, ::MutableParticipantTotals)
-            payerTotals.paid = Math.addExact(payerTotals.paid, expense.amount)
-
             val participantIds = expense.participantIds.sorted()
             val baseShare = expense.amount / participantIds.size
             val remainder = (expense.amount % participantIds.size).toInt()
@@ -80,6 +79,13 @@ class CalculateExpenseSettlementUseCase(
                 val share = baseShare + if (index < remainder) 1L else 0L
                 val participantTotals = totals.getOrPut(participantId, ::MutableParticipantTotals)
                 participantTotals.owed = Math.addExact(participantTotals.owed, share)
+                if (expense.paymentSource == ExpensePaymentSource.SHARED_FUND) {
+                    participantTotals.paid = Math.addExact(participantTotals.paid, share)
+                }
+            }
+            if (expense.paymentSource == ExpensePaymentSource.PERSONAL) {
+                val payerTotals = totals.getOrPut(expense.payerId, ::MutableParticipantTotals)
+                payerTotals.paid = Math.addExact(payerTotals.paid, expense.amount)
             }
         }
 

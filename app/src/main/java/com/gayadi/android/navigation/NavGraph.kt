@@ -58,6 +58,7 @@ import com.gayadi.android.ui.screens.NearbyPlacesScreen
 import com.gayadi.android.ui.screens.FavoritePlacesScreen
 import com.gayadi.android.ui.screens.ExpenseEditorScreen
 import com.gayadi.android.ui.screens.TravelLedgerScreen
+import com.gayadi.android.ui.screens.SettlementDetailsScreen
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import kotlinx.coroutines.Dispatchers
@@ -403,14 +404,37 @@ fun GayadiNavHost(appContainer: AppContainer) {
                     ExpenseSettlementSummary(0L, emptyList(), emptyList())
                 },
                 settlementErrorMessage = settlementErrorMessage,
+                sharedFundBalance = tripViewModel.sharedFundBalanceForTrip(tripId),
                 onBack = { navController.popBackStack() },
                 onAddExpense = { scheduleId ->
                     navController.navigate(Routes.tripExpense(tripId, scheduleId))
+                },
+                onAddSharedFund = { amount -> tripViewModel.addSharedFund(tripId, amount) },
+                onOpenSettlementDetails = { participantId, detailType ->
+                    navController.navigate(Routes.settlementDetails(tripId, participantId, detailType))
                 },
                 onEditExpense = { expenseId, scheduleId ->
                     navController.navigate(Routes.tripExpense(tripId, scheduleId, expenseId))
                 },
                 onDeleteExpense = tripViewModel::deleteExpense,
+            )
+        }
+        composable(
+            route = Routes.SETTLEMENT_DETAILS,
+            arguments = listOf(
+                navArgument("tripId") { type = NavType.StringType },
+                navArgument("participantId") { type = NavType.StringType },
+                navArgument("detailType") { type = NavType.StringType },
+            ),
+        ) { backStackEntry ->
+            val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
+            val participantId = requireNotNull(backStackEntry.arguments?.getString("participantId"))
+            val detailType = requireNotNull(backStackEntry.arguments?.getString("detailType"))
+            SettlementDetailsScreen(
+                participantId = participantId,
+                detailType = detailType,
+                expenses = tripViewModel.expensesForTrip(tripId),
+                onBack = { navController.popBackStack() },
             )
         }
         composable(
@@ -430,11 +454,12 @@ fun GayadiNavHost(appContainer: AppContainer) {
         ) { backStackEntry ->
             val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
             val scheduleId = requireNotNull(backStackEntry.arguments?.getString("scheduleId"))
+            val resolvedScheduleId = scheduleId.takeUnless { it == Routes.UNLINKED_SCHEDULE_ID }.orEmpty()
             val expenseId = backStackEntry.arguments?.getString("expenseId")
             val travelState = travelUiState.travelState
             val expense = expenseId?.let { id ->
                 travelState.expenses.find {
-                    it.id == id && it.tripId == tripId && it.scheduleId == scheduleId
+                    it.id == id && it.tripId == tripId && it.scheduleId == resolvedScheduleId
                 }
             }
             LaunchedEffect(backStackEntry) { tripViewModel.clearExpenseError() }
@@ -447,9 +472,10 @@ fun GayadiNavHost(appContainer: AppContainer) {
                 }
             }
             ExpenseEditorScreen(
+                tripId = tripId,
                 expense = expense,
                 isEditMode = expenseId != null,
-                schedule = travelState.schedules.find { it.id == scheduleId && it.tripId == tripId },
+                schedule = travelState.schedules.find { it.id == resolvedScheduleId && it.tripId == tripId },
                 participants = travelState.participantsForTrip(tripId, tripViewModel.availableParticipants),
                 initialPayerId = travelState.currentUserId,
                 onBack = { navController.popBackStack() },

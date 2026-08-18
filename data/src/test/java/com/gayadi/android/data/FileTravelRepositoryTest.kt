@@ -2,6 +2,8 @@ package com.gayadi.android.data
 
 import com.gayadi.android.data.repository.FileTravelRepository
 import com.gayadi.android.domain.model.InvitationStatus
+import com.gayadi.android.domain.model.ExpenseCategory
+import com.gayadi.android.domain.model.ExpensePaymentSource
 import com.gayadi.android.domain.model.LOCAL_CURRENT_USER_ID
 import com.gayadi.android.domain.model.ScheduleType
 import com.gayadi.android.domain.model.TravelExpense
@@ -225,5 +227,8 @@ class FileTravelRepositoryTest {
         participantIds = listOf("user-101", "user-102"),
         date = "2026.08.08",
         time = "11:00",
+        category = ExpenseCategory.FOOD,
+        paymentSource = ExpensePaymentSource.SHARED_FUND,
+        receiptImageUri = "content://receipt/expense-1",
     )
 }

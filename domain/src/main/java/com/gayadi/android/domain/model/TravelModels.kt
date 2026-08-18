@@ -48,6 +48,10 @@ data class TravelSchedule(
 )
 
 /** One manually entered expense associated with a travel schedule. */
+enum class ExpenseCategory { TOUR, MUSEUM, ACTIVITY, SHOPPING, FOOD, LODGING, TRANSPORT, FLIGHT, OTHER }
+
+enum class ExpensePaymentSource { PERSONAL, SHARED_FUND }
+
 data class TravelExpense(
     val id: String,
     val tripId: String,
@@ -59,6 +63,9 @@ data class TravelExpense(
     val participantIds: List<String>,
     val date: String,
     val time: String,
+    val category: ExpenseCategory = ExpenseCategory.OTHER,
+    val paymentSource: ExpensePaymentSource = ExpensePaymentSource.PERSONAL,
+    val receiptImageUri: String? = null,
 )
 
 /** Per-person totals used by the trip ledger. Positive net amounts are receivable. */
@@ -94,5 +101,6 @@ data class TravelState(
     val appliedRouteIds: Map<String, String> = emptyMap(),
     val selectedTripId: String? = null,
     val expenses: List<TravelExpense> = emptyList(),
+    val sharedFundAmounts: Map<String, Long> = emptyMap(),
     val currentUserId: String = LOCAL_CURRENT_USER_ID,
 )
