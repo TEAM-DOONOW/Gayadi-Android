@@ -15,7 +15,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.Card
@@ -33,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import com.gayadi.android.ui.theme.PrimaryBlue
 import com.gayadi.android.ui.theme.SurfaceCard
 import com.gayadi.android.ui.theme.TextSecondary
+import com.gayadi.android.ui.components.GayadiTopAppBar
 
 @Composable
 fun NearbyPlacesScreen(
@@ -43,14 +43,7 @@ fun NearbyPlacesScreen(
     onToggleFavorite: (String) -> Unit,
 ) {
     Column(Modifier.fillMaxSize().background(Color.White)) {
-        Spacer(Modifier.height(36.dp))
-        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "뒤로") }
-            Column {
-                Text("주변 장소", fontSize = 21.sp, fontWeight = FontWeight.Bold)
-                Text("거리·날씨·혼잡도 기준", fontSize = 12.sp, color = TextSecondary)
-            }
-        }
+        GayadiTopAppBar(title = "주변 장소", subtitle = "거리·날씨·혼잡도 기준", onBack = onBack)
         LazyColumn(
             contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),

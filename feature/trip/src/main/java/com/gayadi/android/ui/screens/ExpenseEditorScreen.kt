@@ -19,7 +19,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -50,6 +49,7 @@ import com.gayadi.android.domain.model.TravelExpense
 import com.gayadi.android.domain.model.TravelParticipant
 import com.gayadi.android.domain.model.TravelSchedule
 import com.gayadi.android.ui.components.UserCharacterAvatar
+import com.gayadi.android.ui.components.GayadiTopAppBar
 import com.gayadi.android.ui.theme.GayadiTheme
 import com.gayadi.android.ui.theme.PrimaryAction
 import com.gayadi.android.ui.theme.PrimaryBlue
@@ -130,36 +130,19 @@ fun ExpenseEditorScreen(
         Modifier
             .fillMaxSize()
             .background(Color.White)
-            .statusBarsPadding()
             .navigationBarsPadding(),
     ) {
-        Spacer(Modifier.height(16.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconButton(onClick = onBack, enabled = !isSaving) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, "뒤로")
-            }
-            Column(Modifier.weight(1f)) {
-                Text(
-                    if (isEditMode) "비용 수정" else "비용 추가",
-                    fontSize = 21.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary,
-                )
-                Text(
-                    when {
-                        schedule != null -> schedule.title
-                        !hasLoadedTravelState && isLoadingTravelState -> "일정 정보 확인 중"
-                        !hasLoadedTravelState -> "일정 정보 확인 실패"
-                        else -> "일정 정보 없음"
-                    },
-                    fontSize = 12.sp,
-                    color = TextSecondary,
-                )
-            }
-        }
+        GayadiTopAppBar(
+            title = if (isEditMode) "비용 수정" else "비용 추가",
+            subtitle = when {
+                schedule != null -> schedule.title
+                !hasLoadedTravelState && isLoadingTravelState -> "일정 정보 확인 중"
+                !hasLoadedTravelState -> "일정 정보 확인 실패"
+                else -> "일정 정보 없음"
+            },
+            onBack = onBack,
+            backEnabled = !isSaving,
+        )
 
         if (!hasLoadedTravelState && isLoadingTravelState) {
             LoadingScheduleContent()

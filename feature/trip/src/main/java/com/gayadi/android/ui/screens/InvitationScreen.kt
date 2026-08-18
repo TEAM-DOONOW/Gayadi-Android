@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -38,6 +37,7 @@ import com.gayadi.android.domain.model.TravelParticipant
 import com.gayadi.android.ui.theme.PrimaryBlue
 import com.gayadi.android.ui.theme.SurfaceCard
 import com.gayadi.android.ui.theme.TextSecondary
+import com.gayadi.android.ui.components.GayadiTopAppBar
 
 @Composable
 fun InvitationScreen(
@@ -54,55 +54,48 @@ fun InvitationScreen(
     onCancel: (String) -> Unit,
 ) {
     var code by remember { mutableStateOf("") }
-    Column(
-        Modifier.fillMaxSize().background(Color.White).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp),
-    ) {
-        Spacer(Modifier.height(36.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "뒤로") }
-            Column {
-                Text("여행 초대", fontSize = 21.sp, fontWeight = FontWeight.Bold)
-                Text(tripName, fontSize = 12.sp, color = TextSecondary)
+    Column(Modifier.fillMaxSize().background(Color.White)) {
+        GayadiTopAppBar(title = "여행 초대", subtitle = tripName, onBack = onBack)
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
+            Spacer(Modifier.height(20.dp))
+            Text("초대 코드로 참여", fontWeight = FontWeight.SemiBold)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = code,
+                    onValueChange = { code = it.take(8).uppercase() },
+                    modifier = Modifier.weight(1f),
+                    label = { Text("8자리 초대 코드") },
+                    singleLine = true,
+                )
+                Button(onClick = { onJoinCode(code) }, enabled = code.length == 8) { Text("참여") }
             }
-        }
-        Spacer(Modifier.height(20.dp))
-        Text("초대 코드로 참여", fontWeight = FontWeight.SemiBold)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            OutlinedTextField(
-                value = code,
-                onValueChange = { code = it.take(8).uppercase() },
-                modifier = Modifier.weight(1f),
-                label = { Text("8자리 초대 코드") },
-                singleLine = true,
-            )
-            Button(onClick = { onJoinCode(code) }, enabled = code.length == 8) { Text("참여") }
-        }
-        message?.let { Text(it, color = PrimaryBlue, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp)) }
-        Spacer(Modifier.height(24.dp))
+            message?.let { Text(it, color = PrimaryBlue, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp)) }
+            Spacer(Modifier.height(24.dp))
 
-        Text("현재 초대", fontWeight = FontWeight.SemiBold)
-        if (invitation == null) {
-            Text("아직 생성한 초대가 없어요", color = TextSecondary, fontSize = 13.sp)
-            Spacer(Modifier.height(12.dp))
-            Text("초대할 여행메이트", color = TextSecondary, fontSize = 12.sp)
-            candidates.forEach { candidate ->
-                Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(candidate.nickname, Modifier.weight(1f))
-                    Button(onClick = { onCreate(candidate.id) }) { Text("초대 생성") }
+            Text("현재 초대", fontWeight = FontWeight.SemiBold)
+            if (invitation == null) {
+                Text("아직 생성한 초대가 없어요", color = TextSecondary, fontSize = 13.sp)
+                Spacer(Modifier.height(12.dp))
+                Text("초대할 여행메이트", color = TextSecondary, fontSize = 12.sp)
+                candidates.forEach { candidate ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(candidate.nickname, Modifier.weight(1f))
+                        Button(onClick = { onCreate(candidate.id) }) { Text("초대 생성") }
+                    }
                 }
-            }
-        } else {
-            Card(colors = CardDefaults.cardColors(containerColor = SurfaceCard)) {
-                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("초대 코드 ${invitation.code}", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    Text("참여자 ID ${invitation.inviteeId}", fontSize = 12.sp, color = TextSecondary)
-                    Text("상태 · ${invitation.status.label}", color = PrimaryBlue)
-                    OutlinedButton(onClick = { onCopyCode(invitation.code) }, Modifier.fillMaxWidth()) { Text("코드 복사") }
-                    if (invitation.status == InvitationStatus.PENDING) {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(onClick = { onAccept(invitation.id) }, Modifier.weight(1f)) { Text("수락") }
-                            OutlinedButton(onClick = { onDecline(invitation.id) }, Modifier.weight(1f)) { Text("거절") }
-                            OutlinedButton(onClick = { onCancel(invitation.id) }, Modifier.weight(1f)) { Text("취소") }
+            } else {
+                Card(colors = CardDefaults.cardColors(containerColor = SurfaceCard)) {
+                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("초대 코드 ${invitation.code}", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        Text("참여자 ID ${invitation.inviteeId}", fontSize = 12.sp, color = TextSecondary)
+                        Text("상태 · ${invitation.status.label}", color = PrimaryBlue)
+                        OutlinedButton(onClick = { onCopyCode(invitation.code) }, Modifier.fillMaxWidth()) { Text("코드 복사") }
+                        if (invitation.status == InvitationStatus.PENDING) {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(onClick = { onAccept(invitation.id) }, Modifier.weight(1f)) { Text("수락") }
+                                OutlinedButton(onClick = { onDecline(invitation.id) }, Modifier.weight(1f)) { Text("거절") }
+                                OutlinedButton(onClick = { onCancel(invitation.id) }, Modifier.weight(1f)) { Text("취소") }
+                            }
                         }
                     }
                 }

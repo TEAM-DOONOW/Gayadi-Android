@@ -17,7 +17,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -36,6 +35,7 @@ import androidx.compose.ui.unit.sp
 import com.gayadi.android.domain.model.UserProfile
 import com.gayadi.android.ui.components.UserCharacterAvatar
 import com.gayadi.android.ui.components.GayadiLoadingScreen
+import com.gayadi.android.ui.components.GayadiTopAppBar
 import com.gayadi.android.ui.components.TravelResultDetails
 import com.gayadi.android.ui.theme.PrimaryAction
 import com.gayadi.android.ui.theme.TagPink
@@ -51,17 +51,8 @@ fun MyTravelProfileScreen(
     onRetry: () -> Unit,
     onResultRetry: () -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxSize().background(Color.White).statusBarsPadding()) {
-        Spacer(modifier = Modifier.height(12.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로")
-            }
-            Text("내 여행 프로필", fontSize = 21.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-        }
+    Column(modifier = Modifier.fillMaxSize().background(Color.White)) {
+        GayadiTopAppBar(title = "내 여행 프로필", onBack = onBack)
 
         when {
             uiState.isLoading || (uiState.profile != null && resultUiState.isLoading) -> {

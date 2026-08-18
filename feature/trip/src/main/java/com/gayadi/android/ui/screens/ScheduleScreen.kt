@@ -17,7 +17,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material3.AlertDialog
@@ -52,6 +51,7 @@ import androidx.compose.ui.unit.sp
 import com.gayadi.android.domain.model.ScheduleType
 import com.gayadi.android.domain.model.TravelSchedule
 import com.gayadi.android.ui.theme.PrimaryAction
+import com.gayadi.android.ui.components.GayadiTopAppBar
 import com.gayadi.android.ui.theme.PrimaryBlue
 import com.gayadi.android.ui.theme.SurfaceCard
 import com.gayadi.android.ui.theme.TextPrimary
@@ -107,19 +107,9 @@ fun ScheduleScreen(
         Modifier
             .fillMaxSize()
             .background(Color.White)
-            .statusBarsPadding()
             .navigationBarsPadding(),
     ) {
-        Spacer(Modifier.height(16.dp))
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "뒤로") }
-            Column(Modifier.weight(1f)) {
-                Text("일정 관리", fontSize = 21.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                Text(tripName, fontSize = 12.sp, color = TextSecondary)
-            }
+        GayadiTopAppBar(title = "일정 관리", subtitle = tripName, onBack = onBack) {
             Button(
                 onClick = {
                     editingScheduleId = null

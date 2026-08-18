@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -29,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gayadi.android.ui.components.GayadiLoadingScreen
+import com.gayadi.android.ui.components.GayadiTopAppBar
 import com.gayadi.android.ui.theme.PrimaryBlue
 import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary
@@ -51,7 +51,7 @@ internal fun LegalDocumentScreen(
     when {
         uiState.isLoading -> GayadiLoadingScreen()
         uiState.document == null -> Column(
-            modifier = Modifier.fillMaxSize().background(Color.White).statusBarsPadding(),
+            modifier = Modifier.fillMaxSize().background(Color.White),
         ) {
             LegalDocumentHeader(title = "법적 문서", onBack = onBack)
             Column(
@@ -66,7 +66,7 @@ internal fun LegalDocumentScreen(
         }
         else -> {
             val document = uiState.document
-            Column(modifier = Modifier.fillMaxSize().background(Color.White).statusBarsPadding()) {
+            Column(modifier = Modifier.fillMaxSize().background(Color.White)) {
                 LegalDocumentHeader(title = document.title, onBack = onBack)
                 Column(
                     modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
@@ -97,14 +97,5 @@ internal fun LegalDocumentScreen(
 
 @Composable
 private fun LegalDocumentHeader(title: String, onBack: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로")
-        }
-        Text(title, fontSize = 21.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-    }
-    HorizontalDivider(color = Color(0xFFE5E5E5))
+    GayadiTopAppBar(title = title, onBack = onBack, showDivider = true)
 }

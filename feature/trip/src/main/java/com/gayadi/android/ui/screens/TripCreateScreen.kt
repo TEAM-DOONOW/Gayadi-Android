@@ -12,8 +12,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.lazy.LazyColumn
@@ -21,7 +23,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Groups
@@ -60,6 +61,8 @@ import com.gayadi.android.ui.theme.PretendardFontFamily
 import com.gayadi.android.ui.theme.PretendardSemiBoldFontFamily
 import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.components.GayadiCompactTextField
+import com.gayadi.android.ui.components.GayadiBackButton
+import com.gayadi.android.ui.components.GayadiTopAppBar
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -238,18 +241,12 @@ private fun TravelTypeSelectionStep(
             .background(Color(0xFFFAFAFB))
             .padding(horizontal = 20.dp),
     ) {
-        Spacer(modifier = Modifier.height(42.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로가기")
-            }
-            Text(
-                text = "새 여행 만들기",
-                fontFamily = PretendardSemiBoldFontFamily,
-                fontSize = 20.sp,
-                color = TextPrimary,
-            )
-        }
+        GayadiTopAppBar(
+            title = "새 여행 만들기",
+            onBack = onBack,
+            backContentDescription = "뒤로가기",
+            containerColor = Color(0xFFFAFAFB),
+        )
 
         Box(
             modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -451,15 +448,12 @@ private fun CitySelectionStep(
         query.isBlank() || it.name.contains(query, true) || it.areas.contains(query, true)
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(Color(0xFFFAFAFB))) {
-        Spacer(modifier = Modifier.height(42.dp))
+    Column(modifier = Modifier.fillMaxSize().background(Color(0xFFFAFAFB)).statusBarsPadding()) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로가기")
-            }
+            GayadiBackButton(onClick = onBack, contentDescription = "뒤로가기")
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
@@ -568,18 +562,12 @@ private fun TripDetailsStep(
     Column(
         modifier = Modifier.fillMaxSize().background(Color(0xFFFAFAFB)).padding(horizontal = 20.dp),
     ) {
-        Spacer(modifier = Modifier.height(42.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "도시 선택으로 돌아가기")
-            }
-            Text(
-                if (isEditing) "여행 수정하기" else "새 여행 만들기",
-                fontFamily = PretendardSemiBoldFontFamily,
-                fontSize = 20.sp,
-                color = TextPrimary,
-            )
-        }
+        GayadiTopAppBar(
+            title = if (isEditing) "여행 수정하기" else "새 여행 만들기",
+            onBack = onBack,
+            backContentDescription = "도시 선택으로 돌아가기",
+            containerColor = Color(0xFFFAFAFB),
+        )
         Spacer(modifier = Modifier.height(28.dp))
         Text("여행 이름", fontFamily = PretendardSemiBoldFontFamily, fontSize = 14.sp)
         Spacer(modifier = Modifier.height(8.dp))
