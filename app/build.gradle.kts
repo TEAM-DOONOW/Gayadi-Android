@@ -29,6 +29,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "API_BASE_URL", "\"${env("API_BASE_URL", "http://10.0.2.2:8080")}\"")
+        buildConfigField("String", "TOUR_API_BASE_URL", "\"${env("TOUR_API_BASE_URL", "http://113.198.66.75:10132")}\"")
         buildConfigField("boolean", "DEBUG_LOGGING", env("DEBUG_LOGGING", "true"))
         buildConfigField("String", "KAKAO_MAP_JAVASCRIPT_SDK", "\"${env("KAKAO_MAP_JAVASCRIPT_SDK")}\"")
         buildConfigField("String", "KAKAO_NATIVE_SDK", "\"${env("KAKAO_NATIVE_SDK")}\"")

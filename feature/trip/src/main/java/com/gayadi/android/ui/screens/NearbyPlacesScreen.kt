@@ -58,8 +58,12 @@ fun NearbyPlacesScreen(
                         Text(place.emoji, fontSize = 30.sp, modifier = Modifier.size(44.dp))
                         Column(Modifier.weight(1f)) {
                             Text(place.name, fontWeight = FontWeight.SemiBold)
-                            Text("${place.distanceMeters}m · ${place.weather} ${place.temperatureCelsius}℃ · 강수 ${place.rainProbability}%", fontSize = 11.sp, color = TextSecondary)
-                            Text("혼잡도 ${place.crowdLevel.label}", fontSize = 11.sp, color = PrimaryBlue)
+                            if (place.hasRealtimeDetails) {
+                                Text("${place.distanceMeters}m · ${place.weather} ${place.temperatureCelsius}℃ · 강수 ${place.rainProbability}%", fontSize = 11.sp, color = TextSecondary)
+                                Text("혼잡도 ${place.crowdLevel.label}", fontSize = 11.sp, color = PrimaryBlue)
+                            } else {
+                                Text(place.description, fontSize = 11.sp, color = TextSecondary)
+                            }
                         }
                         IconButton(onClick = { onToggleFavorite(place.id) }) {
                             Icon(

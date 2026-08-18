@@ -80,7 +80,9 @@ fun GayadiNavHost(appContainer: AppContainer) {
             appContainer.updateTravelStateUseCase,
         ),
     )
-    val placeViewModel: PlaceViewModel = viewModel(factory = PlaceViewModel.factory())
+    val placeViewModel: PlaceViewModel = viewModel(
+        factory = PlaceViewModel.factory(appContainer.getTourPlacesUseCase),
+    )
     val trips by tripViewModel.trips.collectAsStateWithLifecycle()
     val selectedTripId by tripViewModel.selectedTripId.collectAsStateWithLifecycle()
     val travelUiState by tripViewModel.uiState.collectAsStateWithLifecycle()

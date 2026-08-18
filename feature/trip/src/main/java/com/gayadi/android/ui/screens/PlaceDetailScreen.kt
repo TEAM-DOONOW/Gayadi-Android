@@ -28,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -39,6 +40,7 @@ import com.gayadi.android.ui.theme.PrimaryBlue
 import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary
 import com.gayadi.android.ui.theme.TextTertiary
+import coil.compose.AsyncImage
 
 @Composable
 fun PlaceDetailScreen(
@@ -64,7 +66,16 @@ fun PlaceDetailScreen(
 
     Column(Modifier.fillMaxSize().background(Color.White).verticalScroll(rememberScrollState())) {
         Box(Modifier.fillMaxWidth().height(220.dp).background(Color(0xFFE8DDD0)), contentAlignment = Alignment.Center) {
-            Text(place.emoji, fontSize = 64.sp)
+            if (place.imageUrl.isNotBlank()) {
+                AsyncImage(
+                    model = place.imageUrl,
+                    contentDescription = "${place.name} 이미지",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                )
+            } else {
+                Text(place.emoji, fontSize = 64.sp)
+            }
             GayadiTopAppBar(
                 title = "",
                 onBack = onBack,
@@ -86,36 +97,42 @@ fun PlaceDetailScreen(
                         tint = if (isFavorite) Color(0xFFE84D6E) else TextSecondary,
                     )
                 }
-                Text(place.crowdLevel.label, fontSize = 12.sp, color = PrimaryBlue)
+                if (place.hasRealtimeDetails) {
+                    Text(place.crowdLevel.label, fontSize = 12.sp, color = PrimaryBlue)
+                }
             }
             Text(place.description, fontSize = 13.sp, color = TextSecondary)
             Spacer(Modifier.height(8.dp))
-            Text("★ ${place.rating} · 리뷰 ${place.reviews}", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(24.dp))
-            Text("실시간 혼잡도", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-            Text("현재 ${place.crowdLevel.label} · 예상 대기 5분", fontSize = 12.sp, color = TextSecondary)
-            Spacer(Modifier.height(10.dp))
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFEAF4FF)),
-            ) {
-                Column(Modifier.padding(14.dp)) {
-                    Text("현재 날씨", fontWeight = FontWeight.SemiBold)
-                    Text("${place.weather} · ${place.temperatureCelsius}℃ · 강수확률 ${place.rainProbability}%", fontSize = 12.sp, color = TextSecondary)
-                }
+            if (place.reviews > 0) {
+                Text("★ ${place.rating} · 리뷰 ${place.reviews}", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             }
-            Spacer(Modifier.height(12.dp))
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FB)),
-            ) {
-                Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    listOf("11시" to 24, "13시" to 40, "15시" to 58, "17시" to 32).forEach { (hour, height) ->
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Box(Modifier.width(30.dp).height(height.dp).background(PrimaryBlue, RoundedCornerShape(4.dp)))
-                            Text(hour, fontSize = 10.sp, color = TextTertiary)
+            if (place.hasRealtimeDetails) {
+                Spacer(Modifier.height(24.dp))
+                Text("실시간 혼잡도", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text("현재 ${place.crowdLevel.label} · 예상 대기 5분", fontSize = 12.sp, color = TextSecondary)
+                Spacer(Modifier.height(10.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFEAF4FF)),
+                ) {
+                    Column(Modifier.padding(14.dp)) {
+                        Text("현재 날씨", fontWeight = FontWeight.SemiBold)
+                        Text("${place.weather} · ${place.temperatureCelsius}℃ · 강수확률 ${place.rainProbability}%", fontSize = 12.sp, color = TextSecondary)
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FB)),
+                ) {
+                    Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+                        listOf("11시" to 24, "13시" to 40, "15시" to 58, "17시" to 32).forEach { (hour, height) ->
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Box(Modifier.width(30.dp).height(height.dp).background(PrimaryBlue, RoundedCornerShape(4.dp)))
+                                Text(hour, fontSize = 10.sp, color = TextTertiary)
+                            }
                         }
                     }
                 }
@@ -154,7 +171,7 @@ fun PlaceDetailScreen(
 private fun PlaceDetailPreview() {
     GayadiTheme {
         PlaceDetailScreen(
-            place = FakePlaceRepository().getPlaces().getOrThrow().first(),
+            place = FakePlaceRepository().places().getOrThrow().first(),
             isScheduled = false,
             onBack = {},
             onAddToSchedule = {},

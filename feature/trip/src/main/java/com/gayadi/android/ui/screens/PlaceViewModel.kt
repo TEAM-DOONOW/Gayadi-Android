@@ -1,12 +1,16 @@
 package com.gayadi.android.ui.screens
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.gayadi.android.domain.usecase.GetTourPlacesUseCase
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 enum class CrowdLevel(val label: String) { RELAXED("여유"), NORMAL("보통"), CROWDED("혼잡") }
 
@@ -23,6 +27,10 @@ data class PlaceItem(
     val weather: String = "맑음",
     val temperatureCelsius: Int = 23,
     val rainProbability: Int = 10,
+    val imageUrl: String = "",
+    val longitude: Double? = null,
+    val latitude: Double? = null,
+    val hasRealtimeDetails: Boolean = true,
 )
 
 data class PlaceUiState(
@@ -42,11 +50,11 @@ data class PlaceUiState(
 }
 
 interface PlaceRepository {
-    fun getPlaces(regionName: String = "제주 성산"): Result<List<PlaceItem>>
+    suspend fun getPlaces(regionName: String = "제주 성산"): Result<List<PlaceItem>>
 }
 
 class FakePlaceRepository : PlaceRepository {
-    override fun getPlaces(regionName: String): Result<List<PlaceItem>> = Result.success(
+    fun places(regionName: String = "제주 성산"): Result<List<PlaceItem>> = Result.success(
         when (regionName) {
             "제주", "서귀포", "제주 성산" -> listOf(
                 PlaceItem("place-1", "명진전복", "맛집", 4.5, 1284, CrowdLevel.RELAXED, "🍲", "제주 성산 전복 요리", 320, "맑음", 24, 10),
@@ -63,6 +71,34 @@ class FakePlaceRepository : PlaceRepository {
             else -> regionalPlaces(regionName)
         },
     )
+
+    override suspend fun getPlaces(regionName: String): Result<List<PlaceItem>> = places(regionName)
+}
+
+class TourApiPlaceRepository(
+    private val getTourPlaces: GetTourPlacesUseCase,
+) : PlaceRepository {
+    override suspend fun getPlaces(regionName: String): Result<List<PlaceItem>> =
+        getTourPlaces().map { places ->
+            places.map { place ->
+                PlaceItem(
+                    id = place.contentId,
+                    name = place.title,
+                    category = "관광명소",
+                    rating = 0.0,
+                    reviews = 0,
+                    crowdLevel = CrowdLevel.NORMAL,
+                    emoji = "🏞️",
+                    description = listOf(place.address, place.addressDetail)
+                        .filter(String::isNotBlank)
+                        .joinToString(" "),
+                    imageUrl = place.imageUrl,
+                    longitude = place.longitude,
+                    latitude = place.latitude,
+                    hasRealtimeDetails = false,
+                )
+            }
+        }
 }
 
 class PlaceViewModel(
@@ -71,6 +107,7 @@ class PlaceViewModel(
     private val _uiState = MutableStateFlow(PlaceUiState())
     private val knownPlaces = mutableMapOf<String, PlaceItem>()
     val uiState: StateFlow<PlaceUiState> = _uiState.asStateFlow()
+    private var loadJob: Job? = null
 
     init {
         loadPlaces()
@@ -97,24 +134,31 @@ class PlaceViewModel(
         _uiState.value.places.filterNot { it.id == originPlaceId }.sortedBy(PlaceItem::distanceMeters)
 
     private fun loadPlaces() {
+        loadJob?.cancel()
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-        repository.getPlaces(_uiState.value.regionName).fold(
-            onSuccess = { places ->
-                knownPlaces.putAll(places.associateBy(PlaceItem::id))
-                _uiState.update { it.copy(places = places, isLoading = false) }
-            },
-            onFailure = { error ->
-                _uiState.update {
-                    it.copy(isLoading = false, errorMessage = error.message ?: "장소를 불러오지 못했습니다.")
-                }
-            },
-        )
+        val regionName = _uiState.value.regionName
+        loadJob = viewModelScope.launch {
+            repository.getPlaces(regionName).fold(
+                onSuccess = { places ->
+                    knownPlaces.putAll(places.associateBy(PlaceItem::id))
+                    _uiState.update { it.copy(places = places, isLoading = false) }
+                },
+                onFailure = { error ->
+                    _uiState.update {
+                        it.copy(isLoading = false, errorMessage = error.message ?: "장소를 불러오지 못했습니다.")
+                    }
+                },
+            )
+        }
     }
 
     companion object {
         fun factory(repository: PlaceRepository = FakePlaceRepository()) = viewModelFactory {
             initializer { PlaceViewModel(repository) }
         }
+
+        fun factory(getTourPlaces: GetTourPlacesUseCase) =
+            factory(TourApiPlaceRepository(getTourPlaces))
     }
 }
 

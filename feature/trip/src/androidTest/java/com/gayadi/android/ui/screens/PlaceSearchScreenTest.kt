@@ -44,7 +44,7 @@ class PlaceSearchScreenTest {
     @Test
     fun searchDisplaysEmptyState() {
         var state by mutableStateOf(
-            PlaceUiState(places = FakePlaceRepository().getPlaces().getOrThrow(), isLoading = false),
+            PlaceUiState(places = FakePlaceRepository().places().getOrThrow(), isLoading = false),
         )
         composeRule.setContent {
             GayadiTheme {
@@ -67,7 +67,7 @@ class PlaceSearchScreenTest {
     fun displaysSelectedTripRegion() {
         val state = PlaceUiState(
             regionName = "서울",
-            places = FakePlaceRepository().getPlaces("서울").getOrThrow(),
+            places = FakePlaceRepository().places("서울").getOrThrow(),
             isLoading = false,
         )
         composeRule.setContent {

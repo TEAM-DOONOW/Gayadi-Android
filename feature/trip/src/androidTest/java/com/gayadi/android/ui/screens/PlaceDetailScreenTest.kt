@@ -18,7 +18,7 @@ class PlaceDetailScreenTest {
     @Test
     fun backButtonInvokesCallback() {
         var backInvoked = false
-        val place = FakePlaceRepository().getPlaces().getOrThrow().first()
+        val place = FakePlaceRepository().places().getOrThrow().first()
 
         composeRule.setContent {
             GayadiTheme {
