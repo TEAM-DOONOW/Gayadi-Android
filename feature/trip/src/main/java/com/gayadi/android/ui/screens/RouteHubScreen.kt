@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -26,28 +25,24 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gayadi.android.ui.theme.SurfaceCard
 import com.gayadi.android.ui.theme.TextSecondary
+import com.gayadi.android.ui.components.GayadiTopAppBar
 
 @Composable
 fun RouteHubScreen(tripName: String, onBack: () -> Unit, onSelect: (RouteRecommendationType) -> Unit) {
-    Column(Modifier.fillMaxSize().background(Color.White).padding(horizontal = 20.dp)) {
-        Spacer(Modifier.height(36.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "뒤로") }
-            Column {
-                Text("경로 추천", fontSize = 21.sp, fontWeight = FontWeight.Bold)
-                Text(tripName, fontSize = 12.sp, color = TextSecondary)
-            }
-        }
-        Spacer(Modifier.height(22.dp))
-        RouteRecommendationType.entries.forEach { type ->
-            Card(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp).clickable { onSelect(type) },
-                colors = CardDefaults.cardColors(containerColor = SurfaceCard),
-                shape = RoundedCornerShape(12.dp),
-            ) {
-                Column(Modifier.padding(16.dp)) {
-                    Text(type.hubTitle, fontWeight = FontWeight.SemiBold)
-                    Text(type.hubDescription, color = TextSecondary, fontSize = 12.sp)
+    Column(Modifier.fillMaxSize().background(Color.White)) {
+        GayadiTopAppBar(title = "경로 추천", subtitle = tripName, onBack = onBack)
+        Column(Modifier.padding(horizontal = 20.dp)) {
+            Spacer(Modifier.height(22.dp))
+            RouteRecommendationType.entries.forEach { type ->
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp).clickable { onSelect(type) },
+                    colors = CardDefaults.cardColors(containerColor = SurfaceCard),
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text(type.hubTitle, fontWeight = FontWeight.SemiBold)
+                        Text(type.hubDescription, color = TextSecondary, fontSize = 12.sp)
+                    }
                 }
             }
         }

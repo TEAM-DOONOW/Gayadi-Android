@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -29,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import com.gayadi.android.domain.model.TravelParticipant
 import com.gayadi.android.domain.model.UserProfile
 import com.gayadi.android.ui.components.UserCharacterAvatar
+import com.gayadi.android.ui.components.GayadiTopAppBar
 import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary
 
@@ -42,28 +42,22 @@ fun ParticipantsScreen(
     onAdd: (String) -> Unit,
     onRemove: (String) -> Unit,
 ) {
-    Column(
-        Modifier.fillMaxSize().background(Color.White).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp),
-    ) {
-        Spacer(Modifier.height(36.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "뒤로") }
-            Column(Modifier.weight(1f)) {
-                Text("참여자 관리", fontSize = 21.sp, fontWeight = FontWeight.Bold)
-                Text(tripName, fontSize = 12.sp, color = TextSecondary)
-            }
+    Column(Modifier.fillMaxSize().background(Color.White)) {
+        GayadiTopAppBar(title = "참여자 관리", subtitle = tripName, onBack = onBack) {
             UserCharacterAvatar(profile?.characterKey, "내 캐릭터", Modifier.size(40.dp))
         }
-        Spacer(Modifier.height(18.dp))
-        Text("참여 중 ${participants.size}명", fontWeight = FontWeight.SemiBold)
-        participants.forEach { participant ->
-            ParticipantRow(participant, action = "내보내기") { onRemove(participant.id) }
-        }
-        if (participants.isEmpty()) Text("아직 함께하는 참여자가 없어요", color = TextSecondary, fontSize = 13.sp)
-        Spacer(Modifier.height(24.dp))
-        Text("추가할 수 있는 여행메이트", fontWeight = FontWeight.SemiBold)
-        candidates.filterNot { candidate -> participants.any { it.id == candidate.id } }.forEach { candidate ->
-            ParticipantRow(candidate, action = "추가") { onAdd(candidate.id) }
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
+            Spacer(Modifier.height(18.dp))
+            Text("참여 중 ${participants.size}명", fontWeight = FontWeight.SemiBold)
+            participants.forEach { participant ->
+                ParticipantRow(participant, action = "내보내기") { onRemove(participant.id) }
+            }
+            if (participants.isEmpty()) Text("아직 함께하는 참여자가 없어요", color = TextSecondary, fontSize = 13.sp)
+            Spacer(Modifier.height(24.dp))
+            Text("추가할 수 있는 여행메이트", fontWeight = FontWeight.SemiBold)
+            candidates.filterNot { candidate -> participants.any { it.id == candidate.id } }.forEach { candidate ->
+                ParticipantRow(candidate, action = "추가") { onAdd(candidate.id) }
+            }
         }
     }
 }

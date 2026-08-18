@@ -22,7 +22,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.ChevronRight
@@ -68,6 +67,7 @@ import com.gayadi.android.feature.trip.R
 import com.gayadi.android.ui.components.UserCharacterAvatar
 import com.gayadi.android.ui.components.AddSharedFundBottomSheet
 import com.gayadi.android.ui.theme.GayadiTheme
+import com.gayadi.android.ui.components.GayadiTopAppBar
 import com.gayadi.android.ui.theme.PrimaryAction
 import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary

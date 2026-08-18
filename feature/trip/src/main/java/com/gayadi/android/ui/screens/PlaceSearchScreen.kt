@@ -18,7 +18,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.FavoriteBorder
@@ -39,6 +38,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gayadi.android.ui.theme.GayadiTheme
+import com.gayadi.android.ui.components.GayadiTopAppBar
 import com.gayadi.android.ui.theme.PrimaryBlue
 import com.gayadi.android.ui.theme.TagGreen
 import com.gayadi.android.ui.theme.TagGreenText
@@ -66,16 +66,7 @@ fun PlaceSearchScreen(
     onFavorites: () -> Unit = {},
 ) {
     Column(Modifier.fillMaxSize().background(Color.White)) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로")
-            }
-            Text("장소 찾기", fontSize = 23.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-        }
-        androidx.compose.material3.HorizontalDivider(color = Color(0xFFE5E5E5))
+        GayadiTopAppBar(title = "장소 찾기", onBack = onBack, showDivider = true)
 
         OutlinedTextField(
             value = uiState.query,
