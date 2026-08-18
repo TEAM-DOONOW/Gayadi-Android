@@ -53,6 +53,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
@@ -122,7 +123,15 @@ fun RealtimeHomeScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFFF7F7F9)),
+                .background(
+                    Brush.verticalGradient(
+                        colorStops = arrayOf(
+                            0.0f to Color(0xFFF2FAFF),
+                            0.48f to Color(0xFFF8F8FA),
+                            1.0f to Color(0xFFFFF7F0),
+                        ),
+                    ),
+                ),
         ) {
             Column(
                 modifier = Modifier
