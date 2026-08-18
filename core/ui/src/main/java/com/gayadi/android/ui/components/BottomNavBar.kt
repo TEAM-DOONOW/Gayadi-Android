@@ -18,7 +18,7 @@ private val BottomNavSelectedColor = Color(0xFF343548)
 
 enum class BottomTab(val label: String) {
     OUR_TRIP("우리여행"),
-    LEDGER("가계부"),
+    LEDGER("소비"),
     MY_TRIP("나의여행"),
     MY_PAGE("마이"),
 }

@@ -142,6 +142,7 @@ class TripViewModel(
             invitations = state.invitations.filterNot { it.tripId == tripId },
             schedules = state.schedules.filterNot { it.tripId == tripId },
             expenses = state.expenses.filterNot { it.tripId == tripId },
+            sharedFundAmounts = state.sharedFundAmounts - tripId,
             appliedRouteIds = state.appliedRouteIds.filterKeys { !it.startsWith("$tripId:") },
             selectedTripId = state.selectedTripId.takeUnless { it == tripId },
         )
@@ -330,6 +331,19 @@ class TripViewModel(
 
     fun deleteExpense(expenseId: String) = mutate("비용을 삭제했어요") { state ->
         state.copy(expenses = state.expenses.filterNot { it.id == expenseId })
+    }
+
+    fun addSharedFund(tripId: String, amount: Long) = mutate("공동 경비를 설정했어요") { state ->
+        require(amount > 0L) { "공동 경비 금액을 입력해 주세요" }
+        state.copy(sharedFundAmounts = state.sharedFundAmounts + (tripId to amount))
+    }
+
+    fun sharedFundBalanceForTrip(tripId: String): Long {
+        val deposited = _uiState.value.travelState.sharedFundAmounts[tripId] ?: 0L
+        val spent = expensesForTrip(tripId)
+            .filter { it.paymentSource == com.gayadi.android.domain.model.ExpensePaymentSource.SHARED_FUND }
+            .sumOf(TravelExpense::amount)
+        return deposited - spent
     }
 
     fun expenseById(expenseId: String): TravelExpense? =
@@ -567,11 +581,14 @@ private fun TravelState.participantIdsForTrip(tripId: String): Set<String> =
 private fun TravelState.withValidatedExpense(expense: TravelExpense): TravelState {
     ValidateTravelExpenseUseCase()(expense).getOrThrow()
     require(trips.any { it.id == expense.tripId }) { "여행을 찾을 수 없어요." }
-    require(schedules.any { it.id == expense.scheduleId && it.tripId == expense.tripId }) {
+    require(expense.scheduleId.isBlank() || schedules.any { it.id == expense.scheduleId && it.tripId == expense.tripId }) {
         "일정을 찾을 수 없어요."
     }
     val tripParticipantIds = participantIdsForTrip(expense.tripId)
-    require(expense.payerId in tripParticipantIds) { "결제자를 여행 참여자 중에서 선택해 주세요." }
+    require(
+        expense.paymentSource == com.gayadi.android.domain.model.ExpensePaymentSource.SHARED_FUND ||
+            expense.payerId in tripParticipantIds,
+    ) { "결제자를 여행 참여자 중에서 선택해 주세요." }
     require(expense.participantIds.all { it in tripParticipantIds }) {
         "분담 참여자를 여행 참여자 중에서 선택해 주세요."
     }
