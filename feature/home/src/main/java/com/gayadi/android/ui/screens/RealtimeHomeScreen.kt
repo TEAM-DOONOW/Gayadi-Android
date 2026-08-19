@@ -459,7 +459,7 @@ private fun TravelRoutePreview(
           #error{display:none;position:absolute;inset:0;align-items:center;justify-content:center;
             padding:24px;box-sizing:border-box;text-align:center;color:#666;font:13px sans-serif;background:#e9e9ed}
         </style>
-        <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=$javaScriptKey&libraries=services"
+        <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=$javaScriptKey&libraries=services&autoload=false"
           onerror="showError()"></script>
         </head><body><div id="map"></div><div id="error">카카오맵을 불러오지 못했어요.<br>JavaScript SDK 허용 도메인을 확인해 주세요.</div><script>
         function showError() {
@@ -470,8 +470,8 @@ private fun TravelRoutePreview(
           console.error('Gayadi Kakao SDK unavailable after script load');
           showError();
         } else {
-        (function() {
-        console.log('Gayadi Kakao SDK available');
+        kakao.maps.load(function() {
+        console.log('Gayadi Kakao SDK initialized');
           var container = document.getElementById('map');
           var options = {
             center: new kakao.maps.LatLng(33.450701, 126.570667), level: 3
@@ -511,7 +511,7 @@ private fun TravelRoutePreview(
               }
             });
           });
-        })();
+        });
         }
         </script></body></html>
     """.trimIndent()
