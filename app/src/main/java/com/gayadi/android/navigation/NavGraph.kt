@@ -48,9 +48,7 @@ import com.gayadi.android.ui.screens.LegalDocumentRoute
 import com.gayadi.android.ui.screens.LegalDocumentViewModel
 import com.gayadi.android.ui.screens.TravelProfileResultViewModel
 import com.gayadi.android.ui.screens.ParticipantsScreen
-import com.gayadi.android.ui.screens.InvitationScreen
 import com.gayadi.android.ui.screens.GroupDateCoordinationScreen
-import com.gayadi.android.ui.screens.ScheduleScreen
 import com.gayadi.android.ui.screens.RouteHubScreen
 import com.gayadi.android.ui.screens.RouteRecommendationScreen
 import com.gayadi.android.ui.screens.RouteRecommendationType
@@ -59,8 +57,6 @@ import com.gayadi.android.ui.screens.FavoritePlacesScreen
 import com.gayadi.android.ui.screens.ExpenseEditorScreen
 import com.gayadi.android.ui.screens.TravelLedgerScreen
 import com.gayadi.android.ui.screens.SettlementDetailsScreen
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.text.AnnotatedString
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -244,13 +240,16 @@ fun GayadiNavHost(appContainer: AppContainer) {
             val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
             val placeId = requireNotNull(backStackEntry.arguments?.getString("placeId"))
             val travelState = travelUiState.travelState
+            val trip = travelState.trip(tripId)
             PlaceDetailScreen(
                 place = placeViewModel.findPlace(placeId),
+                tripName = trip?.name.orEmpty(),
+                tripDate = trip?.startDate.orEmpty(),
                 isScheduled = travelState.schedulesForTrip(tripId).any { it.placeId == placeId },
                 onBack = { navController.popBackStack() },
-                onAddToSchedule = {
+                onAddToSchedule = { time, memo ->
                     placeViewModel.findPlace(placeId)?.let { place ->
-                        tripViewModel.addPlaceSchedule(tripId, placeId, place.name)
+                        tripViewModel.addPlaceSchedule(tripId, placeId, place.name, time, memo)
                     }
                 },
                 isFavorite = placeId in travelState.favoritePlaceIds,
@@ -286,9 +285,6 @@ fun GayadiNavHost(appContainer: AppContainer) {
                         popUpTo(Routes.TRIP_CREATE) { inclusive = true }
                     }
                 },
-                onInviteFriend = { trip ->
-                    navController.navigate(Routes.tripInvitation(trip.id))
-                },
                 onCoordinateDates = { trip ->
                     navController.navigate(Routes.groupDateCoordination(trip.id))
                 },
@@ -310,7 +306,7 @@ fun GayadiNavHost(appContainer: AppContainer) {
             )
         }
         composable(
-            route = Routes.TRIP_PARTICIPANTS,
+            route = Routes.TRIP_INVITE_CODE,
             arguments = listOf(navArgument("tripId") { type = NavType.StringType }),
         ) { backStackEntry ->
             val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
@@ -326,27 +322,6 @@ fun GayadiNavHost(appContainer: AppContainer) {
                 onAdd = { tripViewModel.addParticipant(tripId, it) },
                 onRemove = { tripViewModel.removeParticipant(tripId, it) },
                 onPublishInvite = { tripViewModel.publishInvite(tripId) },
-            )
-        }
-        composable(
-            route = Routes.TRIP_INVITATION,
-            arguments = listOf(navArgument("tripId") { type = NavType.StringType }),
-        ) { backStackEntry ->
-            val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
-            val clipboard = LocalClipboardManager.current
-            val travelState = travelUiState.travelState
-            InvitationScreen(
-                tripName = travelState.trip(tripId)?.name.orEmpty(),
-                invitation = travelState.invitations.find { it.tripId == tripId },
-                candidates = tripViewModel.availableParticipants,
-                message = travelUiState.message,
-                onBack = { navController.popBackStack() },
-                onCreate = { tripViewModel.createInvitation(tripId, it) },
-                onCopyCode = { clipboard.setText(AnnotatedString(it)) },
-                onJoinCode = tripViewModel::joinByCode,
-                onAccept = tripViewModel::acceptInvitation,
-                onDecline = tripViewModel::declineInvitation,
-                onCancel = tripViewModel::cancelInvitation,
             )
         }
         composable(
@@ -369,37 +344,6 @@ fun GayadiNavHost(appContainer: AppContainer) {
                     navController.navigate(Routes.realtimeHome(tripId)) {
                         popUpTo(Routes.MY_TRIP)
                     }
-                },
-            )
-        }
-        composable(
-            route = Routes.TRIP_SCHEDULE,
-            arguments = listOf(navArgument("tripId") { type = NavType.StringType }),
-        ) { backStackEntry ->
-            val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
-            val travelState = travelUiState.travelState
-            val trip = travelState.trip(tripId)
-            ScheduleScreen(
-                tripId = tripId,
-                tripName = trip?.name.orEmpty(),
-                defaultDate = trip?.startDate.orEmpty(),
-                schedules = travelState.schedulesForTrip(tripId),
-                expenseCountsBySchedule = travelState.expenses
-                    .asSequence()
-                    .filter { it.tripId == tripId }
-                    .groupingBy { it.scheduleId }
-                    .eachCount(),
-                onBack = { navController.popBackStack() },
-                onSave = tripViewModel::upsertSchedule,
-                onDelete = tripViewModel::deleteSchedule,
-                onMove = tripViewModel::moveSchedule,
-                onToggleVisited = tripViewModel::toggleVisited,
-                onAddExpense = { scheduleId ->
-                    navController.navigate(Routes.tripExpense(tripId, scheduleId))
-                },
-                onLedger = { navController.navigate(Routes.tripLedger(tripId)) },
-                onRecommendRoute = {
-                    navController.navigate(Routes.routeRecommendation(tripId, RouteRecommendationType.ITINERARY.name))
                 },
             )
         }
@@ -585,9 +529,11 @@ fun GayadiNavHost(appContainer: AppContainer) {
                 tripTitle = trip?.name ?: "선택한 여행",
                 travelPlans = tripSchedules.map { schedule ->
                     com.gayadi.android.ui.screens.HomeTravelPlan(
+                        id = schedule.id,
                         title = schedule.title,
                         date = schedule.date,
                         time = schedule.time,
+                        memo = schedule.memo,
                         isVisited = schedule.isVisited,
                     )
                 },
@@ -630,8 +576,24 @@ fun GayadiNavHost(appContainer: AppContainer) {
                 onNavigateMyPage = { navController.navigate(Routes.MY_PAGE) },
                 onNavigateLedger = { navController.navigate(Routes.tripLedger(tripId)) },
                 onNavigatePlaceSearch = { navController.navigate(Routes.placeSearch(tripId)) },
-                onNavigateParticipants = { navController.navigate(Routes.tripParticipants(tripId)) },
-                onNavigateSchedule = { navController.navigate(Routes.tripSchedule(tripId)) },
+                onNavigateParticipants = { navController.navigate(Routes.tripInviteCode(tripId)) },
+                onUpdateSchedule = { scheduleId, time, memo ->
+                    tripSchedules.firstOrNull { it.id == scheduleId }?.let { schedule ->
+                        tripViewModel.upsertSchedule(schedule.copy(time = time, memo = memo))
+                    }
+                },
+                onAddScheduleExpense = { scheduleId, time, memo ->
+                    tripSchedules.firstOrNull { it.id == scheduleId }?.let { schedule ->
+                        tripViewModel.upsertSchedule(schedule.copy(time = time, memo = memo))
+                        navController.navigate(Routes.tripExpense(tripId, scheduleId))
+                    }
+                },
+                onScheduleDirections = { scheduleId, time, memo ->
+                    tripSchedules.firstOrNull { it.id == scheduleId }?.let { schedule ->
+                        tripViewModel.upsertSchedule(schedule.copy(time = time, memo = memo))
+                        navController.navigate(Routes.routeHub(tripId))
+                    }
+                },
                 onNavigateRoutes = { navController.navigate(Routes.routeHub(tripId)) },
             )
         }

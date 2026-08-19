@@ -49,6 +49,10 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -78,15 +82,18 @@ import com.gayadi.android.ui.theme.TagBlueText
 import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary
 import com.gayadi.android.ui.theme.TextTertiary
+import com.gayadi.android.ui.components.ScheduleOptionsBottomSheet
 import org.json.JSONArray
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
 data class HomeTravelPlan(
+    val id: String,
     val title: String,
     val date: String,
     val time: String,
+    val memo: String,
     val isVisited: Boolean,
 )
 
@@ -116,9 +123,13 @@ fun RealtimeHomeScreen(
     onNavigateLedger: () -> Unit = {},
     onNavigatePlaceSearch: () -> Unit,
     onNavigateParticipants: () -> Unit,
-    onNavigateSchedule: () -> Unit,
+    onUpdateSchedule: (scheduleId: String, time: String, memo: String) -> Unit,
+    onAddScheduleExpense: (scheduleId: String, time: String, memo: String) -> Unit,
+    onScheduleDirections: (scheduleId: String, time: String, memo: String) -> Unit,
     onNavigateRoutes: () -> Unit,
 ) {
+    var selectedPlan by remember { mutableStateOf<HomeTravelPlan?>(null) }
+
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -249,7 +260,7 @@ fun RealtimeHomeScreen(
                         day = day,
                         plans = travelPlans.filter { it.date == day.date },
                         onAddPlace = onNavigatePlaceSearch,
-                        onPlanClick = onNavigateSchedule,
+                        onPlanClick = { selectedPlan = it },
                     )
                     Spacer(modifier = Modifier.height(24.dp))
                 }
@@ -271,6 +282,30 @@ fun RealtimeHomeScreen(
             )
         }
 
+    }
+
+    selectedPlan?.let { plan ->
+        ScheduleOptionsBottomSheet(
+            title = plan.title,
+            contextText = listOf(tripTitle, plan.date).filter(String::isNotBlank).joinToString(" · "),
+            initialTime = plan.time,
+            initialMemo = plan.memo,
+            heading = "",
+            confirmLabel = "수정 완료",
+            onAddExpense = { time, memo ->
+                selectedPlan = null
+                onAddScheduleExpense(plan.id, time, memo)
+            },
+            onDirections = { time, memo ->
+                selectedPlan = null
+                onScheduleDirections(plan.id, time, memo)
+            },
+            onDismiss = { selectedPlan = null },
+            onConfirm = { time, memo ->
+                onUpdateSchedule(plan.id, time, memo)
+                selectedPlan = null
+            },
+        )
     }
 }
 
@@ -593,7 +628,7 @@ private fun TripDaySection(
     day: HomeTripDay,
     plans: List<HomeTravelPlan>,
     onAddPlace: () -> Unit,
-    onPlanClick: () -> Unit,
+    onPlanClick: (HomeTravelPlan) -> Unit,
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
@@ -613,7 +648,7 @@ private fun TripDaySection(
     if (plans.isNotEmpty()) {
         Spacer(modifier = Modifier.height(12.dp))
         plans.forEachIndexed { index, plan ->
-            TravelPlanRow(index = index + 1, plan = plan, onClick = onPlanClick)
+            TravelPlanRow(index = index + 1, plan = plan, onClick = { onPlanClick(plan) })
             Spacer(modifier = Modifier.height(8.dp))
         }
     }
@@ -820,7 +855,9 @@ private fun RealtimeHomePreview() {
             onNavigateMyPage = {},
             onNavigatePlaceSearch = {},
             onNavigateParticipants = {},
-            onNavigateSchedule = {},
+            onUpdateSchedule = { _, _, _ -> },
+            onAddScheduleExpense = { _, _, _ -> },
+            onScheduleDirections = { _, _, _ -> },
             onNavigateRoutes = {},
         )
     }

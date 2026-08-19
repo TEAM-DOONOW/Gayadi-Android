@@ -272,7 +272,7 @@ class TripViewModel(
         state.copy(schedules = (current + schedule).normalizeOrders(schedule.tripId))
     }
 
-    fun addPlaceSchedule(tripId: String, placeId: String, title: String) {
+    fun addPlaceSchedule(tripId: String, placeId: String, title: String, time: String, memo: String) {
         val trip = _uiState.value.travelState.trips.find { it.id == tripId } ?: return
         val order = schedulesForTrip(tripId).size
         upsertSchedule(
@@ -282,8 +282,9 @@ class TripViewModel(
                 title = title,
                 placeId = placeId,
                 date = trip.startDate,
-                time = "10:00",
+                time = time,
                 order = order,
+                memo = memo,
             ),
         )
     }
