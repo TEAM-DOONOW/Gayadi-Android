@@ -315,11 +315,9 @@ fun GayadiNavHost(appContainer: AppContainer) {
                 tripName = travelState.trip(tripId)?.name.orEmpty(),
                 inviteCode = travelState.trip(tripId)?.inviteCode.orEmpty(),
                 cities = travelState.trip(tripId)?.cities.orEmpty(),
-                profile = sharedProfileUiState.profile,
+                currentUserId = travelState.currentUserId,
                 participants = travelState.participantsForTrip(tripId, tripViewModel.availableParticipants),
-                candidates = tripViewModel.availableParticipants,
                 onBack = { navController.popBackStack() },
-                onAdd = { tripViewModel.addParticipant(tripId, it) },
                 onRemove = { tripViewModel.removeParticipant(tripId, it) },
                 onPublishInvite = { tripViewModel.publishInvite(tripId) },
             )
