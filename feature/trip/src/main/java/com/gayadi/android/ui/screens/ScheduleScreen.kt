@@ -154,7 +154,7 @@ fun ScheduleScreen(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            OutlinedButton(onClick = onLedger, modifier = Modifier.weight(1f)) { Text("여행 가계부") }
+            OutlinedButton(onClick = onLedger, modifier = Modifier.weight(1f)) { Text("소비") }
             OutlinedButton(onClick = onRecommendRoute, modifier = Modifier.weight(1f)) { Text("여행 동선 추천") }
         }
         Spacer(Modifier.height(16.dp))
