@@ -7,6 +7,7 @@ object Routes {
     const val SURVEY = "survey"
     const val SURVEY_RESULT = "survey_result/{resultCode}"
     const val FRIEND_ADD = "friend_add"
+    const val FRIEND_ADD_WITH_CODE = "friend_add?inviteCode={inviteCode}"
     const val PLACE_SEARCH = "place_search/{tripId}"
     const val PLACE_DETAIL = "place_detail/{tripId}/{placeId}"
     const val MY_TRIP = "my_trip"

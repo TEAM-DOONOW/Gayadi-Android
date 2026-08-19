@@ -18,6 +18,36 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Public invite-code exchange for the prototype. Listing and deletion stay blocked so an
+    // invite must be opened with its exact six-character code.
+    match /tripInvites/{inviteCode} {
+      allow get: if inviteCode.matches('^[A-Z0-9]{6}$');
+      allow create, update: if validTripInvite(request.resource.data, inviteCode);
+      allow list, delete: if false;
+    }
+
+    function validTripInvite(data, inviteCode) {
+      return inviteCode.matches('^[A-Z0-9]{6}$')
+        && data.keys().hasAll([
+          'inviteCode', 'tripId', 'name', 'startDate', 'endDate', 'cities', 'status',
+          'isGroupTrip', 'ownerId', 'participants', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'inviteCode', 'tripId', 'name', 'startDate', 'endDate', 'cities', 'status',
+          'isGroupTrip', 'ownerId', 'participants', 'createdAt', 'updatedAt'
+        ])
+        && data.inviteCode == inviteCode
+        && data.tripId is string && data.tripId.size() > 0 && data.tripId.size() <= 100
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 100
+        && data.startDate is string && data.endDate is string
+        && data.cities is list && data.cities.size() > 0 && data.cities.size() <= 20
+        && data.status in ['PLANNING', 'ONGOING', 'COMPLETED']
+        && data.isGroupTrip is bool
+        && data.ownerId is string && data.ownerId.size() > 0 && data.ownerId.size() <= 100
+        && data.participants is list
+        && data.participants.size() > 0 && data.participants.size() <= 30;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

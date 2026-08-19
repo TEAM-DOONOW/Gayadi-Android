@@ -156,9 +156,9 @@ private fun FriendCodeCard(
         colors = CardDefaults.cardColors(containerColor = Color(0xFFF7F7F9)),
     ) {
         Column(Modifier.padding(18.dp)) {
-            Text("친구 초대코드 입력", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+            Text("여행 초대코드 입력", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
             Spacer(Modifier.height(5.dp))
-            Text("친구에게 받은 6자리 코드를 입력해 주세요", fontSize = 12.sp, color = TextSecondary)
+            Text("여행을 만든 사람에게 받은 6자리 코드를 입력해 주세요", fontSize = 12.sp, color = TextSecondary)
             Spacer(Modifier.height(14.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                 OutlinedTextField(

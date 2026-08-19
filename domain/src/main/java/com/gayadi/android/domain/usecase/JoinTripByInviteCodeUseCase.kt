@@ -2,13 +2,30 @@ package com.gayadi.android.domain.usecase
 
 import com.gayadi.android.domain.model.TravelParticipant
 import com.gayadi.android.domain.model.TravelTrip
+import com.gayadi.android.domain.repository.TripInviteRepository
 import com.gayadi.android.domain.repository.TravelRepository
 
 class JoinTripByInviteCodeUseCase(
     private val repository: TravelRepository,
+    private val remoteInvites: TripInviteRepository? = null,
 ) {
     suspend operator fun invoke(code: String, participant: TravelParticipant): Result<TravelTrip> {
         val normalizedCode = code.trim()
+        if (remoteInvites != null) {
+            return remoteInvites.join(normalizedCode, participant).mapCatching { shared ->
+                val joinedTrip = shared.trip.copy(
+                    participantIds = shared.participants.map(TravelParticipant::id),
+                )
+                repository.updateTravelState { state ->
+                    state.copy(
+                        trips = state.trips.filterNot { it.id == joinedTrip.id } + joinedTrip,
+                        participants = (state.participants + shared.participants).distinctBy(TravelParticipant::id),
+                        selectedTripId = joinedTrip.id,
+                    )
+                }.getOrThrow()
+                joinedTrip
+            }
+        }
         return repository.updateTravelState { state ->
             val trip = state.trips.firstOrNull {
                 it.inviteCode.equals(normalizedCode, ignoreCase = true)

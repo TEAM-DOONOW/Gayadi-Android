@@ -8,6 +8,7 @@ import com.gayadi.android.data.datasource.FileProfileLocalDataSource
 import com.gayadi.android.data.datasource.FirestoreSurveyDataSource
 import com.gayadi.android.data.repository.DefaultSurveyRepository
 import com.gayadi.android.data.repository.DefaultLegalDocumentRepository
+import com.gayadi.android.data.repository.FirestoreTripInviteRepository
 import com.gayadi.android.data.datasource.FirestoreLegalDocumentDataSource
 import com.gayadi.android.domain.repository.ProfileRepository
 import com.gayadi.android.domain.repository.SurveyRepository
@@ -22,11 +23,13 @@ import com.gayadi.android.domain.usecase.SaveSurveyResultToProfileUseCase
 import com.gayadi.android.domain.usecase.GetTravelStateUseCase
 import com.gayadi.android.domain.usecase.GetLegalDocumentUseCase
 import com.gayadi.android.domain.usecase.JoinTripByInviteCodeUseCase
+import com.gayadi.android.domain.usecase.PublishTripInviteUseCase
 import com.gayadi.android.domain.usecase.SaveTravelStateUseCase
 import com.gayadi.android.domain.usecase.UpdateTravelStateUseCase
 import com.gayadi.android.domain.usecase.GetTourPlacesUseCase
 import com.google.firebase.firestore.FirebaseFirestore
 import java.io.File
+import java.util.UUID
 
 /** Application composition root that wires data implementations to domain use cases. */
 class AppContainer(profileFile: File, travelFile: File, tourApiBaseUrl: String) {
@@ -39,6 +42,10 @@ class AppContainer(profileFile: File, travelFile: File, tourApiBaseUrl: String) 
         DefaultLegalDocumentRepository(FirestoreLegalDocumentDataSource(firestore))
     private val travelRepository = FileTravelRepository(travelFile)
     private val tourRepository = DefaultTourRepository(HttpTourApiDataSource(tourApiBaseUrl))
+    private val tripInviteRepository = FirestoreTripInviteRepository(
+        firestore,
+        loadInstallationId(File(travelFile.parentFile, "installation-id")),
+    )
 
     /** Use case used to persist onboarding profile input. */
     val saveBasicInfoUseCase = SaveBasicInfoUseCase(profileRepository)
@@ -65,7 +72,10 @@ class AppContainer(profileFile: File, travelFile: File, tourApiBaseUrl: String) 
     val updateTravelStateUseCase = UpdateTravelStateUseCase(travelRepository)
 
     /** Resolves a persisted trip invite code and joins the local user to that trip. */
-    val joinTripByInviteCodeUseCase = JoinTripByInviteCodeUseCase(travelRepository)
+    val joinTripByInviteCodeUseCase = JoinTripByInviteCodeUseCase(travelRepository, tripInviteRepository)
+
+    /** Publishes one local trip so another installation can resolve and join its invite code. */
+    val publishTripInviteUseCase = PublishTripInviteUseCase(tripInviteRepository)
 
     /** Use case used to retrieve the Firestore-backed travel survey. */
     val getSurveyUseCase = GetSurveyUseCase(surveyRepository)
@@ -81,4 +91,15 @@ class AppContainer(profileFile: File, travelFile: File, tourApiBaseUrl: String) 
 
     /** Loads and caches the tourism places exposed by the Gayadi backend. */
     val getTourPlacesUseCase = GetTourPlacesUseCase(tourRepository)
+
+    private companion object {
+        fun loadInstallationId(file: File): String {
+            val existing = file.takeIf(File::exists)?.readText()?.trim().orEmpty()
+            if (existing.isNotBlank()) return existing
+            val generated = UUID.randomUUID().toString()
+            file.parentFile?.mkdirs()
+            file.writeText(generated)
+            return generated
+        }
+    }
 }

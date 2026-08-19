@@ -13,9 +13,10 @@ internal fun shareTripInviteToKakao(
     inviteCode: String,
 ) {
     val templateArgs = mapOf(
-        "tripName" to tripName,
+        "tripName" to "$tripName · 초대코드 $inviteCode",
         "cities" to cities.joinToString(" · "),
         "inviteCode" to inviteCode,
+        "inviteLink" to "gayadi://invite/$inviteCode",
     )
 
     if (ShareClient.instance.isKakaoTalkSharingAvailable(context)) {
