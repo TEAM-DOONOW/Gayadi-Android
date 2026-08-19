@@ -122,7 +122,6 @@ fun TripCreateScreen(
     onCreate: (TripSummary) -> Result<TripSummary>,
     onPublishInvite: suspend (TripSummary) -> Result<Unit> = { Result.success(Unit) },
     onStartTrip: (TripSummary) -> Unit = {},
-    onInviteFriend: (TripSummary) -> Unit = {},
     onCoordinateDates: (TripSummary) -> Unit = {},
     initialTrip: TripSummary? = null,
 ) {
@@ -202,9 +201,8 @@ fun TripCreateScreen(
             },
         )
         CreateStep.COMPLETE -> createdTrip?.let { trip ->
-            TripCreationCompleteStep(
+            TripCreationCompleteScreen(
                 trip = trip,
-                onInviteFriend = { onInviteFriend(trip) },
                 onStartTrip = { onStartTrip(trip) },
                 onCoordinateDates = { onCoordinateDates(trip) },
             )
@@ -348,9 +346,8 @@ private fun TravelTypeButton(
 }
 
 @Composable
-private fun TripCreationCompleteStep(
+fun TripCreationCompleteScreen(
     trip: TripSummary,
-    onInviteFriend: () -> Unit,
     onStartTrip: () -> Unit,
     onCoordinateDates: () -> Unit,
 ) {

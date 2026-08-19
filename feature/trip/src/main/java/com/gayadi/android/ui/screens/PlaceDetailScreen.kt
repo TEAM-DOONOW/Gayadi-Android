@@ -25,6 +25,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -34,6 +38,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gayadi.android.ui.components.GayadiTopAppBar
+import com.gayadi.android.ui.components.ScheduleOptionsBottomSheet
 import com.gayadi.android.ui.theme.GayadiTheme
 import com.gayadi.android.ui.theme.PrimaryAction
 import com.gayadi.android.ui.theme.PrimaryBlue
@@ -45,13 +50,17 @@ import coil.compose.AsyncImage
 @Composable
 fun PlaceDetailScreen(
     place: PlaceItem?,
+    tripName: String = "",
+    tripDate: String = "",
     isScheduled: Boolean,
     onBack: () -> Unit,
-    onAddToSchedule: () -> Unit,
+    onAddToSchedule: (time: String, memo: String) -> Unit,
     isFavorite: Boolean = false,
     onToggleFavorite: () -> Unit = {},
     onNearby: () -> Unit = {},
 ) {
+    var showScheduleOptions by rememberSaveable { mutableStateOf(false) }
+
     if (place == null) {
         Column(
             Modifier.fillMaxSize().background(Color.White),
@@ -145,7 +154,7 @@ fun PlaceDetailScreen(
             ) { Text("주변 장소 보기") }
             Spacer(Modifier.height(10.dp))
             Button(
-                onClick = onAddToSchedule,
+                onClick = { showScheduleOptions = true },
                 enabled = !isScheduled,
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape = RoundedCornerShape(2.dp),
@@ -164,6 +173,18 @@ fun PlaceDetailScreen(
             Spacer(Modifier.height(32.dp))
         }
     }
+
+    if (showScheduleOptions) {
+        ScheduleOptionsBottomSheet(
+            title = place.name,
+            contextText = listOf(tripName, tripDate).filter(String::isNotBlank).joinToString(" · "),
+            onDismiss = { showScheduleOptions = false },
+            onConfirm = { time, memo ->
+                onAddToSchedule(time, memo)
+                showScheduleOptions = false
+            },
+        )
+    }
 }
 
 @Preview(showBackground = true)
@@ -174,7 +195,7 @@ private fun PlaceDetailPreview() {
             place = FakePlaceRepository().places().getOrThrow().first(),
             isScheduled = false,
             onBack = {},
-            onAddToSchedule = {},
+            onAddToSchedule = { _, _ -> },
         )
     }
 }

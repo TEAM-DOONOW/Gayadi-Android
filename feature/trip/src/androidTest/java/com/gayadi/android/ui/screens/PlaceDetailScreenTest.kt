@@ -26,7 +26,7 @@ class PlaceDetailScreenTest {
                     place = place,
                     isScheduled = false,
                     onBack = { backInvoked = true },
-                    onAddToSchedule = {},
+                    onAddToSchedule = { _, _ -> },
                 )
             }
         }

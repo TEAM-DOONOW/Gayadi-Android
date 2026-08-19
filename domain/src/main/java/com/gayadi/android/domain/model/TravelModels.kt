@@ -45,6 +45,7 @@ data class TravelSchedule(
     val order: Int,
     val isVisited: Boolean = false,
     val endTime: String? = null,
+    val memo: String = "",
 )
 
 /** One manually entered expense associated with a travel schedule. */

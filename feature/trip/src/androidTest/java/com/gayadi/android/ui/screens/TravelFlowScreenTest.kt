@@ -33,6 +33,7 @@ class TravelFlowScreenTest {
     @get:Rule
     val composeRule = createComposeRule()
 
+    /* ScheduleScreen was removed in favor of the inline schedule options sheet.
     @Test
     fun emptyScheduleCanOpenMainAlternativeEditor() {
         val saved = mutableListOf<TravelSchedule>()
@@ -180,6 +181,7 @@ class TravelFlowScreenTest {
         composeRule.runOnIdle { assertEquals(schedule.id, deletedScheduleId) }
     }
 
+    */
     @Test
     fun tripListDeleteWarnsAboutCascadedCostsAndRequiresConfirmation() {
         val trip = TripSummary(
@@ -404,6 +406,7 @@ class TravelFlowScreenTest {
         composeRule.onNodeWithText("KTX").assertIsDisplayed()
     }
 
+    /* ScheduleScreen was removed in favor of the inline schedule options sheet.
     @Test
     fun editedScheduleIdentityAndDraftSurviveSavedInstanceStateRestoration() {
         val schedule = TravelSchedule(
@@ -443,6 +446,7 @@ class TravelFlowScreenTest {
         composeRule.runOnIdle { assertEquals(schedule.id, saved?.id) }
     }
 
+    */
     @Test
     fun expenseEditorLoadsAndUpdatesExistingExpense() {
         val participant = TravelParticipant("local-user", "나")
