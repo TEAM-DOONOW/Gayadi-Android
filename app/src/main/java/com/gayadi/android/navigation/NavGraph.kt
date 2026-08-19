@@ -79,6 +79,7 @@ fun GayadiNavHost(appContainer: AppContainer) {
             appContainer.getTravelStateUseCase,
             appContainer.saveTravelStateUseCase,
             appContainer.updateTravelStateUseCase,
+            appContainer.publishTripInviteUseCase,
         ),
     )
     val placeViewModel: PlaceViewModel = viewModel(
@@ -177,7 +178,17 @@ fun GayadiNavHost(appContainer: AppContainer) {
                 },
             )
         }
-        composable(Routes.FRIEND_ADD) {
+        composable(
+            route = Routes.FRIEND_ADD_WITH_CODE,
+            arguments = listOf(
+                navArgument("inviteCode") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                },
+            ),
+            deepLinks = listOf(navDeepLink { uriPattern = "gayadi://invite/{inviteCode}" }),
+        ) { backStackEntry ->
+            val deepLinkedInviteCode = backStackEntry.arguments?.getString("inviteCode").orEmpty()
             val friendViewModel: FriendAddViewModel = viewModel(
                 factory = FriendAddViewModel.factory(
                     joinTripByInviteCode = appContainer.joinTripByInviteCodeUseCase,
@@ -189,6 +200,9 @@ fun GayadiNavHost(appContainer: AppContainer) {
                 ),
             )
             val friendUiState by friendViewModel.uiState.collectAsStateWithLifecycle()
+            LaunchedEffect(deepLinkedInviteCode) {
+                if (deepLinkedInviteCode.isNotBlank()) friendViewModel.updateFriendCode(deepLinkedInviteCode)
+            }
             FriendAddScreen(
                 uiState = friendUiState,
                 onBack = { navController.popBackStack() },
@@ -265,6 +279,7 @@ fun GayadiNavHost(appContainer: AppContainer) {
             TripCreateScreen(
                 onBack = { navController.popBackStack() },
                 onCreate = tripViewModel::addTrip,
+                onPublishInvite = tripViewModel::publishInvite,
                 onStartTrip = { trip ->
                     tripViewModel.selectTrip(trip.id)
                     navController.navigate(Routes.realtimeHome(trip.id)) {
@@ -302,12 +317,15 @@ fun GayadiNavHost(appContainer: AppContainer) {
             val travelState = travelUiState.travelState
             ParticipantsScreen(
                 tripName = travelState.trip(tripId)?.name.orEmpty(),
+                inviteCode = travelState.trip(tripId)?.inviteCode.orEmpty(),
+                cities = travelState.trip(tripId)?.cities.orEmpty(),
                 profile = sharedProfileUiState.profile,
                 participants = travelState.participantsForTrip(tripId, tripViewModel.availableParticipants),
                 candidates = tripViewModel.availableParticipants,
                 onBack = { navController.popBackStack() },
                 onAdd = { tripViewModel.addParticipant(tripId, it) },
                 onRemove = { tripViewModel.removeParticipant(tripId, it) },
+                onPublishInvite = { tripViewModel.publishInvite(tripId) },
             )
         }
         composable(

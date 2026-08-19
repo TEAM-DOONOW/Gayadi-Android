@@ -21,6 +21,7 @@ import com.gayadi.android.domain.usecase.GetTravelStateUseCase
 import com.gayadi.android.domain.usecase.SaveTravelStateUseCase
 import com.gayadi.android.domain.usecase.CalculateExpenseSettlementUseCase
 import com.gayadi.android.domain.usecase.UpdateTravelStateUseCase
+import com.gayadi.android.domain.usecase.PublishTripInviteUseCase
 import com.gayadi.android.domain.usecase.ValidateTravelExpenseUseCase
 import java.util.UUID
 import java.nio.charset.StandardCharsets
@@ -57,6 +58,7 @@ class TripViewModel(
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val inviteCodeGenerator: () -> String = ::randomInviteCode,
     private val updateTravelState: UpdateTravelStateUseCase? = null,
+    private val publishTripInvite: PublishTripInviteUseCase? = null,
 ) : ViewModel() {
     private val persistenceMutex = Mutex()
     private val reservedInviteCodes = mutableSetOf<String>()
@@ -80,6 +82,24 @@ class TripViewModel(
     }
 
     fun retry() = loadState()
+
+    suspend fun publishInvite(trip: TripSummary): Result<Unit> {
+        val publisher = publishTripInvite
+            ?: return Result.failure(IllegalStateException("여행 초대 서버를 사용할 수 없어요"))
+        val state = _uiState.value.travelState
+        val owner = state.participants.find { it.id == state.currentUserId }
+            ?: TravelParticipant(state.currentUserId, "나")
+        return publisher(trip.toDomain().copy(participantIds = listOf(owner.id)), owner)
+    }
+
+    suspend fun publishInvite(tripId: String): Result<Unit> {
+        val trip = _uiState.value.travelState.trips.find { it.id == tripId }
+            ?: return Result.failure(IllegalArgumentException("여행을 찾을 수 없어요"))
+        val publisher = publishTripInvite
+            ?: return Result.failure(IllegalStateException("여행 초대 서버를 사용할 수 없어요"))
+        val state = _uiState.value.travelState
+        return publisher(trip, state.localCurrentUser())
+    }
 
     fun consumeMessage() = _uiState.update { it.copy(message = null) }
 
@@ -451,6 +471,12 @@ class TripViewModel(
                         isLoading = false,
                         hasLoadedTravelState = true,
                     )
+                    publishTripInvite?.let { publisher ->
+                        val owner = restored.localCurrentUser()
+                        restored.trips.filter { it.inviteCode.length == INVITE_CODE_LENGTH }.forEach { trip ->
+                            publisher(trip, owner)
+                        }
+                    }
                     if (restored !== state) persistLatest()
                 },
                 onFailure = { error ->
@@ -559,6 +585,7 @@ class TripViewModel(
             getTravelState: GetTravelStateUseCase,
             saveTravelState: SaveTravelStateUseCase,
             updateTravelState: UpdateTravelStateUseCase? = null,
+            publishTripInvite: PublishTripInviteUseCase? = null,
         ) = viewModelFactory {
             initializer {
                 TripViewModel(
@@ -566,6 +593,7 @@ class TripViewModel(
                     getTravelState,
                     saveTravelState,
                     updateTravelState = updateTravelState,
+                    publishTripInvite = publishTripInvite,
                 )
             }
         }

@@ -46,6 +46,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -67,6 +68,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.launch
 
 private enum class DateField { START, END }
 private enum class CreateStep { TRAVEL_TYPE, CITY, DETAILS, COMPLETE }
@@ -118,11 +120,13 @@ internal fun cityCoverImageResources(cities: List<String>): List<Int> =
 fun TripCreateScreen(
     onBack: () -> Unit,
     onCreate: (TripSummary) -> Result<TripSummary>,
+    onPublishInvite: suspend (TripSummary) -> Result<Unit> = { Result.success(Unit) },
     onStartTrip: (TripSummary) -> Unit = {},
     onInviteFriend: (TripSummary) -> Unit = {},
     onCoordinateDates: (TripSummary) -> Unit = {},
     initialTrip: TripSummary? = null,
 ) {
+    val coroutineScope = rememberCoroutineScope()
     var step by remember(initialTrip?.id) {
         mutableStateOf(if (initialTrip == null) CreateStep.TRAVEL_TYPE else CreateStep.DETAILS)
     }
@@ -178,11 +182,20 @@ fun TripCreateScreen(
                     )
                 onCreate(trip).fold(
                     onSuccess = { savedTrip ->
-                        creationError = null
                         if (initialTrip == null) {
-                            createdTrip = savedTrip
-                            step = CreateStep.COMPLETE
-                        }
+                            coroutineScope.launch {
+                                onPublishInvite(savedTrip).fold(
+                                    onSuccess = {
+                                        creationError = null
+                                        createdTrip = savedTrip
+                                        step = CreateStep.COMPLETE
+                                    },
+                                    onFailure = { error ->
+                                        creationError = error.message ?: "초대 코드를 서버에 등록하지 못했어요"
+                                    },
+                                )
+                            }
+                        } else creationError = null
                     },
                     onFailure = { creationError = it.message ?: "여행을 만들지 못했어요" },
                 )
