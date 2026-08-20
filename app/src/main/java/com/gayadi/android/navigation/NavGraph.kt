@@ -76,6 +76,9 @@ fun GayadiNavHost(appContainer: AppContainer) {
             appContainer.saveTravelStateUseCase,
             appContainer.updateTravelStateUseCase,
             appContainer.publishTripInviteUseCase,
+            appContainer.observeSharedTripInviteUseCase,
+            appContainer.submitSharedTripAvailabilityUseCase,
+            appContainer.finalizeSharedTripDatesUseCase,
         ),
     )
     val placeViewModel: PlaceViewModel = viewModel(
@@ -199,6 +202,9 @@ fun GayadiNavHost(appContainer: AppContainer) {
             LaunchedEffect(deepLinkedInviteCode) {
                 if (deepLinkedInviteCode.isNotBlank()) friendViewModel.updateFriendCode(deepLinkedInviteCode)
             }
+            LaunchedEffect(friendUiState.joinedTripId) {
+                if (friendUiState.joinedTripId != null) tripViewModel.retry()
+            }
             FriendAddScreen(
                 uiState = friendUiState,
                 onBack = { navController.popBackStack() },
@@ -261,6 +267,7 @@ fun GayadiNavHost(appContainer: AppContainer) {
             MyTripScreen(
                 trips = trips,
                 onAddTrip = { navController.navigate(Routes.TRIP_CREATE) },
+                onJoinTrip = { navController.navigate(Routes.FRIEND_ADD) },
                 onDeleteTrip = tripViewModel::deleteTrip,
                 onOpenTripDetail = { tripId ->
                     val trip = travelUiState.travelState.trip(tripId)
@@ -328,11 +335,25 @@ fun GayadiNavHost(appContainer: AppContainer) {
         ) { backStackEntry ->
             val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
             val travelState = travelUiState.travelState
+            val coordinatedTrip = travelState.trip(tripId)
+            val canFinalize = coordinatedTrip?.ownerId.isNullOrBlank() ||
+                coordinatedTrip?.ownerId == travelState.currentUserId
+            LaunchedEffect(coordinatedTrip?.startDate, coordinatedTrip?.endDate, canFinalize) {
+                if (!canFinalize && !coordinatedTrip?.startDate.isNullOrBlank() && !coordinatedTrip?.endDate.isNullOrBlank()) {
+                    tripViewModel.selectTrip(tripId)
+                    navController.navigate(Routes.realtimeHome(tripId)) { popUpTo(Routes.MY_TRIP) }
+                }
+            }
             GroupDateCoordinationScreen(
-                trip = travelState.trip(tripId),
+                trip = coordinatedTrip,
                 currentUserId = travelState.currentUserId,
+                canFinalize = canFinalize,
                 participants = travelState.participantsForTrip(tripId, tripViewModel.availableParticipants),
+                candidates = tripViewModel.availableParticipants,
                 onBack = { navController.popBackStack() },
+                onAddParticipant = { participantId ->
+                    tripViewModel.addParticipant(tripId, participantId)
+                },
                 onSubmit = { participantId, dates ->
                     tripViewModel.submitDateAvailability(tripId, participantId, dates)
                 },

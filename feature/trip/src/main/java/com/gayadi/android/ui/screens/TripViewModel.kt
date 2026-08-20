@@ -22,11 +22,16 @@ import com.gayadi.android.domain.usecase.SaveTravelStateUseCase
 import com.gayadi.android.domain.usecase.CalculateExpenseSettlementUseCase
 import com.gayadi.android.domain.usecase.UpdateTravelStateUseCase
 import com.gayadi.android.domain.usecase.PublishTripInviteUseCase
+import com.gayadi.android.domain.usecase.ObserveSharedTripInviteUseCase
+import com.gayadi.android.domain.usecase.SubmitSharedTripAvailabilityUseCase
+import com.gayadi.android.domain.usecase.FinalizeSharedTripDatesUseCase
+import com.gayadi.android.domain.model.SharedTripInvite
 import com.gayadi.android.domain.usecase.ValidateTravelExpenseUseCase
 import java.util.UUID
 import java.nio.charset.StandardCharsets
 import java.util.Base64
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -35,6 +40,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -59,9 +65,13 @@ class TripViewModel(
     private val inviteCodeGenerator: () -> String = ::randomInviteCode,
     private val updateTravelState: UpdateTravelStateUseCase? = null,
     private val publishTripInvite: PublishTripInviteUseCase? = null,
+    private val observeSharedTripInvite: ObserveSharedTripInviteUseCase? = null,
+    private val submitSharedTripAvailability: SubmitSharedTripAvailabilityUseCase? = null,
+    private val finalizeSharedTripDates: FinalizeSharedTripDatesUseCase? = null,
 ) : ViewModel() {
     private val persistenceMutex = Mutex()
     private val reservedInviteCodes = mutableSetOf<String>()
+    private val inviteObserverJobs = mutableMapOf<String, Job>()
     private val legacyTrips = decodeLegacyTrips(savedStateHandle[LEGACY_TRIPS_KEY])
     private val _uiState = MutableStateFlow(TravelUiState())
     val uiState = _uiState.asStateFlow()
@@ -89,7 +99,8 @@ class TripViewModel(
         val state = _uiState.value.travelState
         val owner = state.participants.find { it.id == state.currentUserId }
             ?: TravelParticipant(state.currentUserId, "나")
-        return publisher(trip.toDomain().copy(participantIds = listOf(owner.id)), owner)
+        return publisher(trip.toDomain().copy(participantIds = listOf(owner.id), ownerId = owner.id), owner)
+            .onSuccess { observeInvite(trip.inviteCode) }
     }
 
     suspend fun publishInvite(tripId: String): Result<Unit> {
@@ -98,7 +109,7 @@ class TripViewModel(
         val publisher = publishTripInvite
             ?: return Result.failure(IllegalStateException("여행 초대 서버를 사용할 수 없어요"))
         val state = _uiState.value.travelState
-        return publisher(trip, state.localCurrentUser())
+        return publisher(trip, state.localCurrentUser()).onSuccess { observeInvite(trip.inviteCode) }
     }
 
     fun consumeMessage() = _uiState.update { it.copy(message = null) }
@@ -129,7 +140,7 @@ class TripViewModel(
             val currentUser = state.localCurrentUser()
             state.copy(
                 trips = listOf(
-                    savedTrip.toDomain().copy(participantIds = listOf(state.currentUserId)),
+                    savedTrip.toDomain().copy(participantIds = listOf(state.currentUserId), ownerId = state.currentUserId),
                 ) + state.trips,
                 participants = (state.participants + currentUser).distinctBy(TravelParticipant::id),
             )
@@ -225,17 +236,32 @@ class TripViewModel(
         }
     }
 
-    fun submitDateAvailability(tripId: String, participantId: String, dates: List<String>) =
+    fun submitDateAvailability(tripId: String, participantId: String, dates: List<String>) {
+        val normalizedDates = dates.distinct().sorted()
+        val trip = _uiState.value.travelState.trips.find { it.id == tripId }
         mutate("가능한 날짜를 저장했어요") { state ->
             state.updateTrip(tripId) { trip ->
-                trip.copy(dateAvailability = trip.dateAvailability + (participantId to dates.distinct().sorted()))
+                trip.copy(dateAvailability = trip.dateAvailability + (participantId to normalizedDates))
             }
         }
+        if (participantId == _uiState.value.travelState.currentUserId && trip?.inviteCode?.length == INVITE_CODE_LENGTH) {
+            viewModelScope.launch(ioDispatcher) {
+                submitSharedTripAvailability?.invoke(trip.inviteCode, normalizedDates)?.onFailure(::showInviteError)
+            }
+        }
+    }
 
-    fun finalizeGroupTripDates(tripId: String, startDate: String, endDate: String) =
+    fun finalizeGroupTripDates(tripId: String, startDate: String, endDate: String) {
+        val trip = _uiState.value.travelState.trips.find { it.id == tripId }
         mutate("여행 날짜를 확정했어요") { state ->
             state.updateTrip(tripId) { it.copy(startDate = startDate, endDate = endDate) }
         }
+        if (trip?.inviteCode?.length == INVITE_CODE_LENGTH) {
+            viewModelScope.launch(ioDispatcher) {
+                finalizeSharedTripDates?.invoke(trip.inviteCode, startDate, endDate)?.onFailure(::showInviteError)
+            }
+        }
+    }
 
     fun createInvitation(tripId: String, inviteeId: String): String {
         val invitation = TravelInvitation(
@@ -474,10 +500,14 @@ class TripViewModel(
                     )
                     publishTripInvite?.let { publisher ->
                         val owner = restored.localCurrentUser()
-                        restored.trips.filter { it.inviteCode.length == INVITE_CODE_LENGTH }.forEach { trip ->
+                        restored.trips.filter {
+                            it.inviteCode.length == INVITE_CODE_LENGTH &&
+                                (it.ownerId.isBlank() || it.ownerId == restored.currentUserId)
+                        }.forEach { trip ->
                             publisher(trip, owner)
                         }
                     }
+                    restartInviteObservers(restored)
                     if (restored !== state) persistLatest()
                 },
                 onFailure = { error ->
@@ -520,6 +550,54 @@ class TripViewModel(
         saveTravelState(_uiState.value.travelState).onFailure { error ->
             _uiState.update { it.copy(errorMessage = error.message ?: "여행 정보를 저장하지 못했어요") }
         }
+    }
+
+    private fun restartInviteObservers(state: TravelState) {
+        inviteObserverJobs.values.forEach(Job::cancel)
+        inviteObserverJobs.clear()
+        state.trips.map(TravelTrip::inviteCode).filter { it.length == INVITE_CODE_LENGTH }.forEach(::observeInvite)
+    }
+
+    private fun observeInvite(inviteCode: String) {
+        val observer = observeSharedTripInvite ?: return
+        if (inviteCode.length != INVITE_CODE_LENGTH || inviteObserverJobs[inviteCode]?.isActive == true) return
+        inviteObserverJobs[inviteCode] = viewModelScope.launch(ioDispatcher) {
+            observer(inviteCode).collect { result ->
+                result.fold(onSuccess = { mergeSharedInvite(it) }, onFailure = ::showInviteError)
+            }
+        }
+    }
+
+    private suspend fun mergeSharedInvite(shared: SharedTripInvite) {
+        persistenceMutex.withLock {
+            val transform: (TravelState) -> TravelState = { state ->
+                val existing = state.trips.find { it.id == shared.trip.id }
+                val localMockIds = existing?.participantIds.orEmpty().filter { participantId ->
+                    participantId != state.currentUserId && availableParticipants.any { it.id == participantId }
+                }
+                val localMockAvailability = existing?.dateAvailability.orEmpty().filterKeys { it in localMockIds }
+                val mergedTrip = shared.trip.copy(
+                    coverImageResList = existing?.coverImageResList.orEmpty(),
+                    participantIds = (shared.trip.participantIds + localMockIds).distinct(),
+                    dateAvailability = localMockAvailability + shared.trip.dateAvailability,
+                )
+                state.copy(
+                    trips = state.trips.filterNot { it.id == mergedTrip.id } + mergedTrip,
+                    participants = (state.participants + shared.participants).distinctBy(TravelParticipant::id),
+                )
+            }
+            val result = updateTravelState?.invoke(transform) ?: run {
+                val candidate = transform(_uiState.value.travelState)
+                saveTravelState(candidate).map { candidate }
+            }
+            result.onSuccess { persisted ->
+                _uiState.update { it.copy(travelState = persisted, errorMessage = null) }
+            }.onFailure(::showInviteError)
+        }
+    }
+
+    private fun showInviteError(error: Throwable) {
+        _uiState.update { it.copy(errorMessage = error.message ?: "여행 초대 동기화에 실패했어요") }
     }
 
     private fun allocateInviteCode(): Result<String> = synchronized(reservedInviteCodes) {
@@ -587,6 +665,9 @@ class TripViewModel(
             saveTravelState: SaveTravelStateUseCase,
             updateTravelState: UpdateTravelStateUseCase? = null,
             publishTripInvite: PublishTripInviteUseCase? = null,
+            observeSharedTripInvite: ObserveSharedTripInviteUseCase? = null,
+            submitSharedTripAvailability: SubmitSharedTripAvailabilityUseCase? = null,
+            finalizeSharedTripDates: FinalizeSharedTripDatesUseCase? = null,
         ) = viewModelFactory {
             initializer {
                 TripViewModel(
@@ -595,6 +676,9 @@ class TripViewModel(
                     saveTravelState,
                     updateTravelState = updateTravelState,
                     publishTripInvite = publishTripInvite,
+                    observeSharedTripInvite = observeSharedTripInvite,
+                    submitSharedTripAvailability = submitSharedTripAvailability,
+                    finalizeSharedTripDates = finalizeSharedTripDates,
                 )
             }
         }
@@ -649,6 +733,7 @@ private fun TravelTrip.toSummary() = TripSummary(
     inviteCode = inviteCode,
     isGroupTrip = isGroupTrip,
     dateAvailability = dateAvailability,
+    ownerId = ownerId,
 )
 
 private fun TripSummary.toDomain(existing: TravelTrip? = null) = TravelTrip(
@@ -663,6 +748,7 @@ private fun TripSummary.toDomain(existing: TravelTrip? = null) = TravelTrip(
     inviteCode = existing?.inviteCode?.ifBlank { inviteCode } ?: inviteCode,
     isGroupTrip = existing?.isGroupTrip ?: isGroupTrip,
     dateAvailability = existing?.dateAvailability ?: dateAvailability,
+    ownerId = existing?.ownerId?.ifBlank { ownerId } ?: ownerId,
 )
 
 private const val INVITE_CODE_LENGTH = 6
