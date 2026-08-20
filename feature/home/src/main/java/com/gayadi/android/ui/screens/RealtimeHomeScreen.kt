@@ -357,6 +357,7 @@ private fun TravelOverviewCard(
                     progress = { progress },
                     modifier = Modifier
                         .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
                         .height(10.dp)
                         .align(Alignment.TopCenter)
                         .offset(y = 13.dp)
@@ -371,7 +372,7 @@ private fun TravelOverviewCard(
                     modifier = Modifier
                         .size(40.dp)
                         .offset(
-                            x = (maxWidth - 40.dp) * progress - 6.dp,
+                            x = (maxWidth - 40.dp) * progress,
                             y = (-4).dp,
                         ),
                     contentScale = ContentScale.Fit,
@@ -380,7 +381,7 @@ private fun TravelOverviewCard(
                     modifier = Modifier
                         .width(40.dp)
                         .offset(
-                            x = (maxWidth - 40.dp) * progress - 6.dp,
+                            x = (maxWidth - 40.dp) * progress,
                             y = 27.dp,
                         ),
                     contentAlignment = Alignment.Center,
