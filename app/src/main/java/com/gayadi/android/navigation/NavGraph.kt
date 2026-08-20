@@ -46,6 +46,12 @@ import com.gayadi.android.ui.screens.RealtimeHomeViewModel
 import com.gayadi.android.ui.screens.SettingsScreen
 import com.gayadi.android.ui.screens.LegalDocumentRoute
 import com.gayadi.android.ui.screens.LegalDocumentViewModel
+import com.gayadi.android.ui.screens.InquiryRoute
+import com.gayadi.android.ui.screens.InquiryViewModel
+import com.gayadi.android.ui.screens.NoticeDetailRoute
+import com.gayadi.android.ui.screens.NoticeDetailViewModel
+import com.gayadi.android.ui.screens.NoticeListRoute
+import com.gayadi.android.ui.screens.NoticeListViewModel
 import com.gayadi.android.ui.screens.TravelProfileResultViewModel
 import com.gayadi.android.ui.screens.ParticipantsScreen
 import com.gayadi.android.ui.screens.GroupDateCoordinationScreen
@@ -658,6 +664,8 @@ fun GayadiNavHost(appContainer: AppContainer) {
                 uiState = sharedProfileUiState,
                 onBack = { navController.popBackStack() },
                 onOpenTravelProfile = { navController.navigate(Routes.MY_TRAVEL_PROFILE) },
+                onOpenNotices = { navController.navigate(Routes.NOTICES) },
+                onOpenInquiry = { navController.navigate(Routes.INQUIRY) },
                 onOpenTerms = {
                     navController.navigate(Routes.legalDocument(LegalDocumentType.TERMS_OF_SERVICE.documentId))
                 },
@@ -708,6 +716,36 @@ fun GayadiNavHost(appContainer: AppContainer) {
                 onRetry = sharedProfileViewModel::reload,
                 onResultRetry = resultViewModel::retry,
             )
+        }
+        composable(Routes.NOTICES) {
+            val noticeListViewModel: NoticeListViewModel = viewModel(
+                factory = NoticeListViewModel.factory(appContainer.getNoticesUseCase),
+            )
+            NoticeListRoute(
+                viewModel = noticeListViewModel,
+                onBack = { navController.popBackStack() },
+                onOpenNotice = { noticeId -> navController.navigate(Routes.noticeDetail(noticeId)) },
+            )
+        }
+        composable(
+            route = Routes.NOTICE_DETAIL,
+            arguments = listOf(navArgument("noticeId") { type = NavType.StringType }),
+        ) { backStackEntry ->
+            val noticeId = requireNotNull(backStackEntry.arguments?.getString("noticeId"))
+            val noticeDetailViewModel: NoticeDetailViewModel = viewModel(
+                key = "notice-$noticeId",
+                factory = NoticeDetailViewModel.factory(noticeId, appContainer.getNoticeUseCase),
+            )
+            NoticeDetailRoute(
+                viewModel = noticeDetailViewModel,
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(Routes.INQUIRY) {
+            val inquiryViewModel: InquiryViewModel = viewModel(
+                factory = InquiryViewModel.factory(appContainer.submitInquiryUseCase),
+            )
+            InquiryRoute(viewModel = inquiryViewModel, onBack = { navController.popBackStack() })
         }
         composable(
             route = Routes.LEGAL_DOCUMENT,

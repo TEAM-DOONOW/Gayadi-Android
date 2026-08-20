@@ -8,8 +8,12 @@ import com.gayadi.android.data.datasource.FileProfileLocalDataSource
 import com.gayadi.android.data.datasource.FirestoreSurveyDataSource
 import com.gayadi.android.data.repository.DefaultSurveyRepository
 import com.gayadi.android.data.repository.DefaultLegalDocumentRepository
+import com.gayadi.android.data.repository.DefaultInquiryRepository
+import com.gayadi.android.data.repository.DefaultNoticeRepository
 import com.gayadi.android.data.repository.FirestoreTripInviteRepository
+import com.gayadi.android.data.datasource.FirestoreInquiryDataSource
 import com.gayadi.android.data.datasource.FirestoreLegalDocumentDataSource
+import com.gayadi.android.data.datasource.FirestoreNoticeDataSource
 import com.gayadi.android.domain.repository.ProfileRepository
 import com.gayadi.android.domain.repository.SurveyRepository
 import com.gayadi.android.domain.usecase.CalculateSurveyResultUseCase
@@ -22,6 +26,8 @@ import com.gayadi.android.domain.usecase.GetUserProfileUseCase
 import com.gayadi.android.domain.usecase.SaveSurveyResultToProfileUseCase
 import com.gayadi.android.domain.usecase.GetTravelStateUseCase
 import com.gayadi.android.domain.usecase.GetLegalDocumentUseCase
+import com.gayadi.android.domain.usecase.GetNoticeUseCase
+import com.gayadi.android.domain.usecase.GetNoticesUseCase
 import com.gayadi.android.domain.usecase.JoinTripByInviteCodeUseCase
 import com.gayadi.android.domain.usecase.PublishTripInviteUseCase
 import com.gayadi.android.domain.usecase.ObserveSharedTripInviteUseCase
@@ -29,6 +35,7 @@ import com.gayadi.android.domain.usecase.RemoveSharedTripParticipantUseCase
 import com.gayadi.android.domain.usecase.SubmitSharedTripAvailabilityUseCase
 import com.gayadi.android.domain.usecase.FinalizeSharedTripDatesUseCase
 import com.gayadi.android.domain.usecase.SaveTravelStateUseCase
+import com.gayadi.android.domain.usecase.SubmitInquiryUseCase
 import com.gayadi.android.domain.usecase.UpdateTravelStateUseCase
 import com.gayadi.android.domain.usecase.GetTourPlacesUseCase
 import com.google.firebase.firestore.FirebaseFirestore
@@ -36,7 +43,12 @@ import java.io.File
 import java.util.UUID
 
 /** Application composition root that wires data implementations to domain use cases. */
-class AppContainer(profileFile: File, travelFile: File, tourApiBaseUrl: String) {
+class AppContainer(
+    profileFile: File,
+    travelFile: File,
+    tourApiBaseUrl: String,
+    appVersion: String = DEFAULT_APP_VERSION,
+) {
     private val firestore = FirebaseFirestore.getInstance()
     private val profileRepository: ProfileRepository =
         InMemoryProfileRepository(FileProfileLocalDataSource(profileFile))
@@ -44,12 +56,13 @@ class AppContainer(profileFile: File, travelFile: File, tourApiBaseUrl: String) 
         DefaultSurveyRepository(FirestoreSurveyDataSource(firestore))
     private val legalDocumentRepository =
         DefaultLegalDocumentRepository(FirestoreLegalDocumentDataSource(firestore))
+    private val noticeRepository = DefaultNoticeRepository(FirestoreNoticeDataSource(firestore))
     private val travelRepository = FileTravelRepository(travelFile)
     private val tourRepository = DefaultTourRepository(HttpTourApiDataSource(tourApiBaseUrl))
-    private val tripInviteRepository = FirestoreTripInviteRepository(
-        firestore,
-        loadInstallationId(File(travelFile.parentFile, "installation-id")),
-    )
+    private val installationId = loadInstallationId(File(travelFile.parentFile, "installation-id"))
+    private val tripInviteRepository = FirestoreTripInviteRepository(firestore, installationId)
+    private val inquiryRepository =
+        DefaultInquiryRepository(FirestoreInquiryDataSource(firestore, installationId, appVersion))
 
     /** Use case used to persist onboarding profile input. */
     val saveBasicInfoUseCase = SaveBasicInfoUseCase(profileRepository)
@@ -98,10 +111,21 @@ class AppContainer(profileFile: File, travelFile: File, tourApiBaseUrl: String) 
     /** Loads the published terms or privacy policy from Firestore. */
     val getLegalDocumentUseCase = GetLegalDocumentUseCase(legalDocumentRepository)
 
+    /** Loads the published update notices shown in the settings screen. */
+    val getNoticesUseCase = GetNoticesUseCase(noticeRepository)
+
+    /** Loads one published update notice for its detail screen. */
+    val getNoticeUseCase = GetNoticeUseCase(noticeRepository)
+
+    /** Sends a support inquiry written by the user to Firestore. */
+    val submitInquiryUseCase = SubmitInquiryUseCase(inquiryRepository)
+
     /** Loads and caches the tourism places exposed by the Gayadi backend. */
     val getTourPlacesUseCase = GetTourPlacesUseCase(tourRepository)
 
     private companion object {
+        const val DEFAULT_APP_VERSION = "1.0.0"
+
         fun loadInstallationId(file: File): String {
             val existing = file.takeIf(File::exists)?.readText()?.trim().orEmpty()
             if (existing.isNotBlank()) return existing

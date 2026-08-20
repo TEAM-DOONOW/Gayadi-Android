@@ -28,6 +28,9 @@ object Routes {
     const val SETTINGS = "settings"
     const val MY_TRAVEL_PROFILE = "my_travel_profile"
     const val LEGAL_DOCUMENT = "legal_document/{documentId}"
+    const val NOTICES = "notices"
+    const val NOTICE_DETAIL = "notices/{noticeId}"
+    const val INQUIRY = "inquiry"
 
     fun placeSearch(tripId: String) = "place_search/$tripId"
     fun placeDetail(tripId: String, placeId: String) = "place_detail/$tripId/$placeId"
@@ -48,4 +51,5 @@ object Routes {
         if (placeId == null) "nearby_places/$tripId" else "nearby_places/$tripId?placeId=$placeId"
     fun favoritePlaces(tripId: String) = "favorite_places/$tripId"
     fun legalDocument(documentId: String) = "legal_document/$documentId"
+    fun noticeDetail(noticeId: String) = "notices/$noticeId"
 }

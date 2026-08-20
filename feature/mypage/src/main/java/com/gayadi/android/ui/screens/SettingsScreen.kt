@@ -53,6 +53,8 @@ fun SettingsScreen(
     uiState: ProfileUiState,
     onBack: () -> Unit,
     onOpenTravelProfile: () -> Unit,
+    onOpenNotices: () -> Unit,
+    onOpenInquiry: () -> Unit,
     onOpenTerms: () -> Unit,
     onOpenPrivacyPolicy: () -> Unit,
     onLogout: () -> Unit,
@@ -163,6 +165,12 @@ fun SettingsScreen(
             SettingsRow("다크 모드", trailing = { Text("준비 중", fontSize = 14.sp, color = TextSecondary) })
             SettingsRow("언어", trailing = { Text("Ko", fontSize = 14.sp, color = TextSecondary) })
             SettingsRow("버전 정보", trailing = { Text("1.0.0", fontSize = 14.sp, color = TextSecondary) })
+            SettingsRow("업데이트", onClick = onOpenNotices, trailing = {
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = TextTertiary)
+            })
+            SettingsRow("문의하기", onClick = onOpenInquiry, trailing = {
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = TextTertiary)
+            })
             SettingsRow("서비스 이용약관", onClick = onOpenTerms, trailing = {
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = TextTertiary)
             })
@@ -226,6 +234,8 @@ private fun SettingsPreview() {
             uiState = ProfileUiState(UserProfile("가야디", "여행가")),
             onBack = {},
             onOpenTravelProfile = {},
+            onOpenNotices = {},
+            onOpenInquiry = {},
             onOpenTerms = {},
             onOpenPrivacyPolicy = {},
             onLogout = {},

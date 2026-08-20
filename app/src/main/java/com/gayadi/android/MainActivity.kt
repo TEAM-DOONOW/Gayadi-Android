@@ -24,6 +24,7 @@ class MainActivity : ComponentActivity() {
             profileFile = File(filesDir, "user-profile.xml"),
             travelFile = File(filesDir, "travel-state.json"),
             tourApiBaseUrl = BuildConfig.TOUR_API_BASE_URL,
+            appVersion = BuildConfig.VERSION_NAME,
         )
     }
 
