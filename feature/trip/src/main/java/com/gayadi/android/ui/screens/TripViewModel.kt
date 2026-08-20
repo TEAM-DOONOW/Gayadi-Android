@@ -23,6 +23,7 @@ import com.gayadi.android.domain.usecase.CalculateExpenseSettlementUseCase
 import com.gayadi.android.domain.usecase.UpdateTravelStateUseCase
 import com.gayadi.android.domain.usecase.PublishTripInviteUseCase
 import com.gayadi.android.domain.usecase.ObserveSharedTripInviteUseCase
+import com.gayadi.android.domain.usecase.RemoveSharedTripParticipantUseCase
 import com.gayadi.android.domain.usecase.SubmitSharedTripAvailabilityUseCase
 import com.gayadi.android.domain.usecase.FinalizeSharedTripDatesUseCase
 import com.gayadi.android.domain.model.SharedTripInvite
@@ -66,6 +67,7 @@ class TripViewModel(
     private val updateTravelState: UpdateTravelStateUseCase? = null,
     private val publishTripInvite: PublishTripInviteUseCase? = null,
     private val observeSharedTripInvite: ObserveSharedTripInviteUseCase? = null,
+    private val removeSharedTripParticipant: RemoveSharedTripParticipantUseCase? = null,
     private val submitSharedTripAvailability: SubmitSharedTripAvailabilityUseCase? = null,
     private val finalizeSharedTripDates: FinalizeSharedTripDatesUseCase? = null,
 ) : ViewModel() {
@@ -208,7 +210,14 @@ class TripViewModel(
 
     fun removeParticipant(tripId: String, participantId: String) {
         val state = _uiState.value.travelState
+        val trip = state.trips.find { it.id == tripId }
         when {
+            trip == null -> {
+                _uiState.update { it.copy(message = "여행을 찾을 수 없어요") }
+            }
+            trip.ownerId.isNotBlank() && trip.ownerId != state.currentUserId -> {
+                _uiState.update { it.copy(message = "방장만 참여자를 내보낼 수 있어요") }
+            }
             participantId == state.currentUserId -> {
                 _uiState.update { it.copy(message = "본인은 여행에서 제외할 수 없어요") }
             }
@@ -218,20 +227,36 @@ class TripViewModel(
             } -> {
                 _uiState.update { it.copy(message = "비용 내역에 포함된 참여자는 내보낼 수 없어요") }
             }
-            else -> mutate("참여자를 내보냈어요") { current ->
-                require(participantId != current.currentUserId) { "본인은 여행에서 제외할 수 없어요" }
-                require(
-                    current.expenses.none { expense ->
-                        expense.tripId == tripId &&
-                            (expense.payerId == participantId || participantId in expense.participantIds)
-                    },
-                ) { "비용 내역에 포함된 참여자는 내보낼 수 없어요" }
-                current.updateTrip(tripId) {
-                    it.copy(
-                        participantIds = it.participantIds - participantId,
-                        dateAvailability = it.dateAvailability - participantId,
-                    )
+            else -> {
+                val remoteRemover = removeSharedTripParticipant
+                if (remoteRemover != null && trip.inviteCode.length == INVITE_CODE_LENGTH) {
+                    viewModelScope.launch(ioDispatcher) {
+                        remoteRemover(trip.inviteCode, participantId).fold(
+                            onSuccess = { removeParticipantLocally(tripId, participantId) },
+                            onFailure = ::showInviteError,
+                        )
+                    }
+                } else {
+                    removeParticipantLocally(tripId, participantId)
                 }
+            }
+        }
+    }
+
+    private fun removeParticipantLocally(tripId: String, participantId: String) {
+        mutate("참여자를 내보냈어요") { current ->
+            require(participantId != current.currentUserId) { "본인은 여행에서 제외할 수 없어요" }
+            require(
+                current.expenses.none { expense ->
+                    expense.tripId == tripId &&
+                        (expense.payerId == participantId || participantId in expense.participantIds)
+                },
+            ) { "비용 내역에 포함된 참여자는 내보낼 수 없어요" }
+            current.updateTrip(tripId) {
+                it.copy(
+                    participantIds = it.participantIds - participantId,
+                    dateAvailability = it.dateAvailability - participantId,
+                )
             }
         }
     }
@@ -666,6 +691,7 @@ class TripViewModel(
             updateTravelState: UpdateTravelStateUseCase? = null,
             publishTripInvite: PublishTripInviteUseCase? = null,
             observeSharedTripInvite: ObserveSharedTripInviteUseCase? = null,
+            removeSharedTripParticipant: RemoveSharedTripParticipantUseCase? = null,
             submitSharedTripAvailability: SubmitSharedTripAvailabilityUseCase? = null,
             finalizeSharedTripDates: FinalizeSharedTripDatesUseCase? = null,
         ) = viewModelFactory {
@@ -677,6 +703,7 @@ class TripViewModel(
                     updateTravelState = updateTravelState,
                     publishTripInvite = publishTripInvite,
                     observeSharedTripInvite = observeSharedTripInvite,
+                    removeSharedTripParticipant = removeSharedTripParticipant,
                     submitSharedTripAvailability = submitSharedTripAvailability,
                     finalizeSharedTripDates = finalizeSharedTripDates,
                 )

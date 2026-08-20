@@ -117,6 +117,31 @@ class TripViewModelTest {
     }
 
     @Test
+    fun guestCannotRemoveParticipantsFromOwnedGroupTrip() = runTest(dispatcher) {
+        val guest = TravelParticipant("local-user", "친구")
+        val owner = TravelParticipant("owner-installation", "방장")
+        val trip = sampleTrip().toExistingDomain().copy(
+            participantIds = listOf(owner.id, guest.id),
+            ownerId = owner.id,
+        )
+        val repository = MemoryTravelRepository(
+            TravelState(
+                trips = listOf(trip),
+                participants = listOf(owner, guest),
+                currentUserId = guest.id,
+            ),
+        )
+        val viewModel = viewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.removeParticipant(trip.id, owner.id)
+        advanceUntilIdle()
+
+        assertEquals(listOf(owner.id, guest.id), repository.state.trips.single().participantIds)
+        assertEquals("방장만 참여자를 내보낼 수 있어요", viewModel.uiState.value.message)
+    }
+
+    @Test
     fun commonDateRangeMustBeContinuous() {
         val common = setOf("2026.09.11", "2026.09.12", "2026.09.13")
         val anchored = buildContinuousRange(common, emptySet(), "2026.09.11")

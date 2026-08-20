@@ -72,9 +72,6 @@ class FirestoreTripInviteRepository(
             val snapshot = transaction.get(reference)
             require(snapshot.exists()) { "유효하지 않은 초대 코드예요" }
             val current = snapshot.data.orEmpty()
-            require(current[DATE_STATUS_FIELD] != DATE_STATUS_CONFIRMED) {
-                "이미 여행 날짜가 확정되어 다시 제출할 수 없어요"
-            }
             val updated = current + mapOf(
                 PARTICIPANTS_FIELD to mergeParticipant(readParticipantMaps(current), remoteParticipant),
                 UPDATED_AT_FIELD to FieldValue.serverTimestamp(),
@@ -84,6 +81,30 @@ class FirestoreTripInviteRepository(
         }.awaitResult()
 
         joinedData.toSharedInvite(participant.id)
+    }
+
+    override suspend fun removeParticipant(inviteCode: String, participantId: String): Result<Unit> = runCatching {
+        val code = inviteCode.trim().uppercase()
+        require(code.matches(INVITE_CODE_PATTERN)) { "6자리 초대 코드가 필요합니다." }
+        require(participantId.isNotBlank() && participantId != installationId) { "방장은 내보낼 수 없어요" }
+        val reference = firestore.collection(INVITES_COLLECTION).document(code)
+
+        firestore.runTransaction { transaction ->
+            val snapshot = transaction.get(reference)
+            require(snapshot.exists()) { "초대 여행을 찾을 수 없어요" }
+            val current = snapshot.data.orEmpty()
+            require(current[OWNER_ID_FIELD] == installationId) { "방장만 참여자를 내보낼 수 있어요" }
+            transaction.update(
+                reference,
+                mapOf(
+                    PARTICIPANTS_FIELD to readParticipantMaps(current).filterNot {
+                        it[PARTICIPANT_ID_FIELD] == participantId
+                    },
+                    DATE_AVAILABILITY_FIELD to readAvailability(current) - participantId,
+                    UPDATED_AT_FIELD to FieldValue.serverTimestamp(),
+                ),
+            )
+        }.awaitResult()
     }
 
     override fun observe(inviteCode: String): Flow<Result<SharedTripInvite>> = callbackFlow {

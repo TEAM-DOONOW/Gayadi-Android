@@ -77,6 +77,7 @@ fun GayadiNavHost(appContainer: AppContainer) {
             appContainer.updateTravelStateUseCase,
             appContainer.publishTripInviteUseCase,
             appContainer.observeSharedTripInviteUseCase,
+            appContainer.removeSharedTripParticipantUseCase,
             appContainer.submitSharedTripAvailabilityUseCase,
             appContainer.finalizeSharedTripDatesUseCase,
         ),
@@ -205,6 +206,22 @@ fun GayadiNavHost(appContainer: AppContainer) {
             LaunchedEffect(friendUiState.joinedTripId) {
                 if (friendUiState.joinedTripId != null) tripViewModel.retry()
             }
+            val joinedTripId = friendUiState.joinedTripId
+            val joinedTrip = joinedTripId?.let(travelUiState.travelState::trip)
+            LaunchedEffect(joinedTripId, joinedTrip) {
+                if (joinedTripId != null && joinedTrip != null) {
+                    if (joinedTrip.isGroupTrip && joinedTrip.startDate.isBlank()) {
+                        navController.navigate(Routes.groupDateCoordination(joinedTripId)) {
+                            popUpTo(backStackEntry.destination.id) { inclusive = true }
+                        }
+                    } else {
+                        tripViewModel.selectTrip(joinedTripId)
+                        navController.navigate(Routes.realtimeHome(joinedTripId)) {
+                            popUpTo(backStackEntry.destination.id) { inclusive = true }
+                        }
+                    }
+                }
+            }
             FriendAddScreen(
                 uiState = friendUiState,
                 onBack = { navController.popBackStack() },
@@ -323,6 +340,7 @@ fun GayadiNavHost(appContainer: AppContainer) {
                 inviteCode = travelState.trip(tripId)?.inviteCode.orEmpty(),
                 cities = travelState.trip(tripId)?.cities.orEmpty(),
                 currentUserId = travelState.currentUserId,
+                ownerId = travelState.trip(tripId)?.ownerId.orEmpty(),
                 participants = travelState.participantsForTrip(tripId, tripViewModel.availableParticipants),
                 onBack = { navController.popBackStack() },
                 onRemove = { tripViewModel.removeParticipant(tripId, it) },

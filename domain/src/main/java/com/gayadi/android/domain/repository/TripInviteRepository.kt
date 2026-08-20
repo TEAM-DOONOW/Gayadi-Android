@@ -9,6 +9,7 @@ interface TripInviteRepository {
     suspend fun publish(trip: TravelTrip, owner: TravelParticipant): Result<Unit>
     suspend fun join(inviteCode: String, participant: TravelParticipant): Result<SharedTripInvite>
     fun observe(inviteCode: String): Flow<Result<SharedTripInvite>>
+    suspend fun removeParticipant(inviteCode: String, participantId: String): Result<Unit>
     suspend fun submitAvailability(inviteCode: String, dates: List<String>): Result<Unit>
     suspend fun finalizeDates(inviteCode: String, startDate: String, endDate: String): Result<Unit>
 }

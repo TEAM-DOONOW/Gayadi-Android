@@ -2,6 +2,7 @@ package com.gayadi.android.ui.screens
 
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.onNodeWithText
@@ -32,6 +33,50 @@ import org.junit.runner.RunWith
 class TravelFlowScreenTest {
     @get:Rule
     val composeRule = createComposeRule()
+
+    @Test
+    fun tripListExposesInviteCodeJoinEntry() {
+        var opened = false
+        composeRule.setContent {
+            GayadiTheme {
+                MyTripScreen(
+                    trips = emptyList(),
+                    onAddTrip = {},
+                    onJoinTrip = { opened = true },
+                    onOpenTripDetail = {},
+                    onDeleteTrip = {},
+                    onOpenSettings = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("초대 코드로 여행 참여하기").assertIsDisplayed().performClick()
+        composeRule.runOnIdle { assertTrue(opened) }
+    }
+
+    @Test
+    fun participantManagementUsesActualOwnerAndHidesRemovalFromGuests() {
+        val owner = TravelParticipant("owner-installation", "방장 사용자")
+        val guest = TravelParticipant("local-user", "참여 사용자")
+        composeRule.setContent {
+            GayadiTheme {
+                ParticipantsScreen(
+                    tripName = "서울 여행",
+                    inviteCode = "AB12CD",
+                    cities = listOf("서울"),
+                    currentUserId = guest.id,
+                    ownerId = owner.id,
+                    participants = listOf(owner, guest),
+                    onBack = {},
+                    onRemove = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("방장 사용자").assertIsDisplayed()
+        composeRule.onAllNodesWithText("방장").assertCountEquals(1)
+        composeRule.onAllNodesWithText("내보내기").assertCountEquals(0)
+    }
 
     /* ScheduleScreen was removed in favor of the inline schedule options sheet.
     @Test

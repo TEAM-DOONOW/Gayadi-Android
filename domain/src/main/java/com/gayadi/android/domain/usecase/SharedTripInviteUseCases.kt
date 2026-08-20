@@ -8,6 +8,11 @@ class ObserveSharedTripInviteUseCase(private val repository: TripInviteRepositor
     operator fun invoke(inviteCode: String): Flow<Result<SharedTripInvite>> = repository.observe(inviteCode)
 }
 
+class RemoveSharedTripParticipantUseCase(private val repository: TripInviteRepository) {
+    suspend operator fun invoke(inviteCode: String, participantId: String): Result<Unit> =
+        repository.removeParticipant(inviteCode, participantId)
+}
+
 class SubmitSharedTripAvailabilityUseCase(private val repository: TripInviteRepository) {
     suspend operator fun invoke(inviteCode: String, dates: List<String>): Result<Unit> =
         repository.submitAvailability(inviteCode, dates)
