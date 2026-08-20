@@ -30,11 +30,11 @@ service cloud.firestore {
       return inviteCode.matches('^[A-Z0-9]{6}$')
         && data.keys().hasAll([
           'inviteCode', 'tripId', 'name', 'startDate', 'endDate', 'cities', 'status',
-          'isGroupTrip', 'ownerId', 'participants', 'createdAt', 'updatedAt'
+          'isGroupTrip', 'ownerId', 'participants', 'dateAvailability', 'dateStatus', 'createdAt', 'updatedAt'
         ])
         && data.keys().hasOnly([
           'inviteCode', 'tripId', 'name', 'startDate', 'endDate', 'cities', 'status',
-          'isGroupTrip', 'ownerId', 'participants', 'createdAt', 'updatedAt'
+          'isGroupTrip', 'ownerId', 'participants', 'dateAvailability', 'dateStatus', 'createdAt', 'updatedAt'
         ])
         && data.inviteCode == inviteCode
         && data.tripId is string && data.tripId.size() > 0 && data.tripId.size() <= 100
@@ -45,7 +45,9 @@ service cloud.firestore {
         && data.isGroupTrip is bool
         && data.ownerId is string && data.ownerId.size() > 0 && data.ownerId.size() <= 100
         && data.participants is list
-        && data.participants.size() > 0 && data.participants.size() <= 30;
+        && data.participants.size() > 0 && data.participants.size() <= 30
+        && data.dateAvailability is map
+        && data.dateStatus in ['COORDINATING', 'CONFIRMED'];
     }
 
     match /{document=**} {

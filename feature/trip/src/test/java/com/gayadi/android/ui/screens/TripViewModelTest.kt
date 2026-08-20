@@ -89,6 +89,47 @@ class TripViewModelTest {
     }
 
     @Test
+    fun localGroupDateCoordinationPersistsEachMembersAvailabilityAndFinalDates() = runTest(dispatcher) {
+        val repository = MemoryTravelRepository()
+        val viewModel = viewModel(repository)
+        advanceUntilIdle()
+        viewModel.addTrip(sampleTrip().copy(isGroupTrip = true, startDate = "", endDate = ""))
+        viewModel.addParticipant("trip-28", "user-101")
+        viewModel.addParticipant("trip-28", "user-102")
+        advanceUntilIdle()
+
+        viewModel.submitDateAvailability("trip-28", "local-user", listOf("2026.09.12", "2026.09.11", "2026.09.12"))
+        viewModel.submitDateAvailability("trip-28", "user-101", listOf("2026.09.12", "2026.09.13"))
+        viewModel.submitDateAvailability("trip-28", "user-102", listOf("2026.09.10", "2026.09.12"))
+        advanceUntilIdle()
+
+        val coordinated = repository.state.trips.single()
+        assertEquals(listOf("2026.09.11", "2026.09.12"), coordinated.dateAvailability.getValue("local-user"))
+        assertEquals(setOf("2026.09.12"), commonAvailableDates(coordinated.participantIds.toSet(), coordinated.dateAvailability))
+
+        viewModel.finalizeGroupTripDates("trip-28", "2026.09.12", "2026.09.12")
+        advanceUntilIdle()
+
+        val finalized = repository.state.trips.single()
+        assertEquals("2026.09.12", finalized.startDate)
+        assertEquals("2026.09.12", finalized.endDate)
+        assertEquals(3, finalized.dateAvailability.size)
+    }
+
+    @Test
+    fun commonDateRangeMustBeContinuous() {
+        val common = setOf("2026.09.11", "2026.09.12", "2026.09.13")
+        val anchored = buildContinuousRange(common, emptySet(), "2026.09.11")
+        assertEquals(common, buildContinuousRange(common, anchored, "2026.09.13"))
+
+        val datesWithGap = setOf("2026.09.11", "2026.09.13")
+        assertEquals(
+            setOf("2026.09.13"),
+            buildContinuousRange(datesWithGap, setOf("2026.09.11"), "2026.09.13"),
+        )
+    }
+
+    @Test
     fun schedulesSupportCrudReorderAlternativeAndVisited() = runTest(dispatcher) {
         val repository = MemoryTravelRepository()
         val viewModel = viewModel(repository)

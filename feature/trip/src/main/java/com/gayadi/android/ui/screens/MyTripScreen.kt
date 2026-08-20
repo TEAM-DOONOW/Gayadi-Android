@@ -75,6 +75,7 @@ data class TripSummary(
     val inviteCode: String = "",
     val isGroupTrip: Boolean = false,
     val dateAvailability: Map<String, List<String>> = emptyMap(),
+    val ownerId: String = "",
 )
 
 @Composable

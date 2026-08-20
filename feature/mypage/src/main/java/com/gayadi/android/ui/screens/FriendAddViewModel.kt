@@ -32,6 +32,7 @@ data class FriendAddUiState(
     val friends: List<FriendItem> = emptyList(),
     val isLoading: Boolean = true,
     val errorMessage: String? = null,
+    val joinedTripId: String? = null,
 ) {
     val visibleFriends: List<FriendItem>
         get() = friends.filter {
@@ -108,7 +109,9 @@ class FriendAddViewModel(
         viewModelScope.launch(ioDispatcher) {
             joinUseCase(code, localParticipant).fold(
                 onSuccess = { trip ->
-                    _uiState.update { it.copy(friendCode = "", codeMessage = "${trip.name} 여행에 참여했어요") }
+                    _uiState.update {
+                        it.copy(friendCode = "", codeMessage = "${trip.name} 여행에 참여했어요", joinedTripId = trip.id)
+                    }
                 },
                 onFailure = { error ->
                     _uiState.update { it.copy(codeMessage = error.message ?: "여행에 참여하지 못했어요") }

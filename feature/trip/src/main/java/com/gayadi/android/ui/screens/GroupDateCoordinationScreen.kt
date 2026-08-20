@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -22,9 +24,11 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -63,8 +67,11 @@ private val savedDateFormatter = DateTimeFormatter.ofPattern("yyyy.MM.dd")
 fun GroupDateCoordinationScreen(
     trip: TravelTrip?,
     currentUserId: String,
+    canFinalize: Boolean = true,
     participants: List<TravelParticipant>,
+    candidates: List<TravelParticipant> = emptyList(),
     onBack: () -> Unit,
+    onAddParticipant: (String) -> Unit = {},
     onSubmit: (String, List<String>) -> Unit,
     onFinalize: (String, String) -> Unit,
 ) {
@@ -81,17 +88,20 @@ fun GroupDateCoordinationScreen(
     }
     var activeMemberId by remember(currentUserId) { mutableStateOf(currentUserId) }
     var visibleMonth by remember { mutableStateOf(YearMonth.now()) }
+    var showParticipantPicker by remember { mutableStateOf(false) }
+    var editingSubmittedMemberId by remember { mutableStateOf<String?>(null) }
     var selectedDates by remember(activeMemberId, trip.dateAvailability) {
         mutableStateOf(trip.dateAvailability[activeMemberId].orEmpty().toSet())
     }
     var finalRange by remember { mutableStateOf<Set<String>>(emptySet()) }
-    val submittedIds = trip.dateAvailability.keys
+    val memberIds = members.map { it.first }.toSet()
+    val submittedIds = trip.dateAvailability.keys.intersect(memberIds)
     val hostOnly = otherParticipants.isEmpty()
     val allSubmitted = otherParticipants.isNotEmpty() && members.all { it.first in submittedIds }
-    val commonDates = if (allSubmitted) {
-        members.map { trip.dateAvailability[it.first].orEmpty().toSet() }
-            .reduceOrNull(Set<String>::intersect).orEmpty()
-    } else emptySet()
+    val isEditingAvailability = !allSubmitted || editingSubmittedMemberId != null
+    val commonDates = if (allSubmitted) commonAvailableDates(memberIds, trip.dateAvailability) else emptySet()
+    val addableParticipants = candidates.filterNot { candidate -> candidate.id in memberIds }
+    val editableMemberIds = candidates.mapTo(mutableSetOf(currentUserId)) { it.id }
 
     Column(Modifier.fillMaxSize().background(Color(0xFFFAFAFB))) {
         GayadiTopAppBar(
@@ -102,18 +112,21 @@ fun GroupDateCoordinationScreen(
         Column(Modifier.padding(horizontal = 20.dp)) {
             Spacer(Modifier.height(18.dp))
             Text(
-                if (allSubmitted) "모두 가능한 날짜 중 여행 기간을 선택해 주세요"
-                else "가능한 날짜를 모두 선택한 뒤 제출해 주세요",
+                if (allSubmitted && editingSubmittedMemberId == null) {
+                    "모두 가능한 날짜 중 여행 기간을 선택해 주세요"
+                } else {
+                    "가능한 날짜를 모두 선택한 뒤 제출해 주세요"
+                },
                 fontFamily = PretendardSemiBoldFontFamily,
                 fontSize = 16.sp,
                 color = TextPrimary,
             )
             Spacer(Modifier.height(14.dp))
-            Row(
+            LazyRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(18.dp),
             ) {
-                members.forEach { (id, name) ->
+                items(members, key = { it.first }) { (id, name) ->
                     val participant = participants.firstOrNull { it.id == id }
                     ParticipantProfile(
                         name = name,
@@ -122,16 +135,32 @@ fun GroupDateCoordinationScreen(
                         submitted = id in submittedIds,
                         color = memberColors.getValue(id),
                         onClick = {
-                            activeMemberId = id
-                            finalRange = emptySet()
+                            if (id in editableMemberIds) {
+                                activeMemberId = id
+                                finalRange = emptySet()
+                                if (allSubmitted) editingSubmittedMemberId = id
+                            }
                         },
                     )
                 }
-                InviteFriendProfile(
-                    onClick = {
-                        shareTripInviteToKakao(context, trip.name, trip.cities, trip.inviteCode)
-                    },
-                )
+                item {
+                    InviteFriendProfile(
+                        label = "친구 초대하기",
+                        contentDescription = "카카오톡으로 친구 초대하기",
+                        onClick = {
+                            shareTripInviteToKakao(context, trip.name, trip.cities, trip.inviteCode)
+                        },
+                    )
+                }
+                if (addableParticipants.isNotEmpty()) {
+                    item {
+                        InviteFriendProfile(
+                            label = "로컬 참여자",
+                            contentDescription = "로컬 테스트 참여자 추가",
+                            onClick = { showParticipantPicker = true },
+                        )
+                    }
+                }
             }
             Spacer(Modifier.height(20.dp))
             Column(
@@ -194,9 +223,9 @@ fun GroupDateCoordinationScreen(
                                         highlightShape,
                                     )
                                     .clickable(enabled = enabled) {
-                                        if (allSubmitted && common) {
+                                        if (!isEditingAvailability && common) {
                                             finalRange = buildContinuousRange(commonDates, finalRange, key!!)
-                                        } else if (!allSubmitted) {
+                                        } else if (isEditingAvailability) {
                                             selectedDates = if (selected) selectedDates - key!! else selectedDates + key!!
                                         }
                                     },
@@ -219,7 +248,8 @@ fun GroupDateCoordinationScreen(
             Spacer(Modifier.height(12.dp))
             Text(
                 when {
-                    allSubmitted && commonDates.isEmpty() -> "겹치는 날짜가 없어요. 가능한 날짜를 다시 조정해 주세요."
+                    editingSubmittedMemberId != null -> "${members.first { it.first == activeMemberId }.second}의 가능한 날짜를 수정하고 있어요."
+                    allSubmitted && commonDates.isEmpty() -> "겹치는 날짜가 없어요. 참여자를 눌러 날짜를 다시 조정해 주세요."
                     allSubmitted -> "초록색은 모든 참여자가 가능한 날짜예요."
                     else -> "${submittedIds.size}/${members.size}명 제출 완료"
                 },
@@ -236,14 +266,23 @@ fun GroupDateCoordinationScreen(
                     if (hostOnly) {
                         val sorted = selectedDates.sorted()
                         onFinalize(sorted.first(), sorted.last())
-                    } else if (allSubmitted) {
+                    } else if (!isEditingAvailability && canFinalize) {
                         val sorted = finalRange.sorted()
                         onFinalize(sorted.first(), sorted.last())
                     } else {
                         onSubmit(activeMemberId, selectedDates.toList())
+                        editingSubmittedMemberId = null
+                        val nextMember = members.firstOrNull {
+                            it.first != activeMemberId && it.first !in submittedIds
+                        }
+                        if (nextMember != null) activeMemberId = nextMember.first
                     }
                 },
-                enabled = if (allSubmitted) finalRange.isNotEmpty() else selectedDates.isNotEmpty(),
+                enabled = when {
+                    hostOnly -> selectedDates.isNotEmpty()
+                    isEditingAvailability -> selectedDates.isNotEmpty()
+                    else -> canFinalize && finalRange.isNotEmpty()
+                },
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape = RoundedCornerShape(2.dp),
                 colors = ButtonDefaults.buttonColors(
@@ -252,13 +291,55 @@ fun GroupDateCoordinationScreen(
                 ),
             ) {
                 Text(
-                    if (allSubmitted) "여행 날짜 확정하기" else "가능한 날짜 제출하기",
+                    when {
+                        hostOnly -> "여행 날짜 확정하기"
+                        editingSubmittedMemberId != null -> "가능한 날짜 다시 제출하기"
+                        allSubmitted && canFinalize -> "여행 날짜 확정하기"
+                        allSubmitted -> "방장이 여행 날짜를 확정할 차례예요"
+                        else -> "가능한 날짜 제출하기"
+                    },
                     fontFamily = PretendardSemiBoldFontFamily,
                     fontSize = 15.sp,
                 )
             }
             Spacer(Modifier.height(16.dp))
         }
+    }
+
+    if (showParticipantPicker) {
+        AlertDialog(
+            onDismissRequest = { showParticipantPicker = false },
+            title = { Text("로컬 참여자 추가") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("한 기기에서 날짜를 번갈아 입력할 참여자를 선택해 주세요.")
+                    addableParticipants.forEach { participant ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .clickable {
+                                    onAddParticipant(participant.id)
+                                    showParticipantPicker = false
+                                }
+                                .padding(vertical = 10.dp, horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            UserCharacterAvatar(
+                                characterKey = participant.characterKey,
+                                contentDescription = "${participant.nickname} 프로필",
+                                modifier = Modifier.size(40.dp),
+                            )
+                            Text(participant.nickname, fontFamily = PretendardFontFamily, color = TextPrimary)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showParticipantPicker = false }) { Text("닫기") }
+            },
+        )
     }
 }
 
@@ -307,7 +388,11 @@ private fun ParticipantProfile(
 }
 
 @Composable
-private fun InviteFriendProfile(onClick: () -> Unit) {
+private fun InviteFriendProfile(
+    label: String,
+    contentDescription: String,
+    onClick: () -> Unit,
+) {
     Column(
         modifier = Modifier.clickable(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -318,10 +403,10 @@ private fun InviteFriendProfile(onClick: () -> Unit) {
                 .border(1.dp, Color(0xFFB8B9C0), CircleShape),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Default.Add, contentDescription = "친구 초대하기", tint = GroupAccent)
+            Icon(Icons.Default.Add, contentDescription = contentDescription, tint = GroupAccent)
         }
         Spacer(Modifier.height(5.dp))
-        Text("친구 초대하기", fontFamily = PretendardFontFamily, fontSize = 11.sp, color = TextPrimary)
+        Text(label, fontFamily = PretendardFontFamily, fontSize = 11.sp, color = TextPrimary)
     }
 }
 
@@ -339,7 +424,15 @@ private fun connectedDateShape(date: String, dates: Set<String>): androidx.compo
     }
 }
 
-private fun buildContinuousRange(commonDates: Set<String>, current: Set<String>, clicked: String): Set<String> {
+internal fun commonAvailableDates(
+    memberIds: Set<String>,
+    availability: Map<String, List<String>>,
+): Set<String> = memberIds
+    .map { availability[it].orEmpty().toSet() }
+    .reduceOrNull(Set<String>::intersect)
+    .orEmpty()
+
+internal fun buildContinuousRange(commonDates: Set<String>, current: Set<String>, clicked: String): Set<String> {
     val anchor = current.minOrNull() ?: return setOf(clicked)
     val start = minOf(anchor, clicked)
     val end = maxOf(anchor, clicked)
