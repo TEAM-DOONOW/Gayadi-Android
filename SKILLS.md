@@ -45,7 +45,10 @@ app/src/main/java/com/gayadi/android/
 │       ├── MyTripScreen.kt      # 06 — Trip checklist
 │       ├── RealtimeHomeScreen.kt# 07 — Realtime home + 08 reschedule sheet
 │       ├── MyPageScreen.kt      # 09 — Profile
-│       └── SettingsScreen.kt    # 10 — Settings & logout
+│       ├── SettingsScreen.kt    # 10 — Settings & logout
+│       ├── NoticeListScreen.kt  # 13 — Update notices
+│       ├── NoticeDetailScreen.kt# 14 — Notice detail
+│       └── InquiryScreen.kt     # 15 — Support inquiry form
 ```
 
 ## Screen Flow
@@ -55,7 +58,8 @@ Login → BasicInfo → Survey → SurveyResult → RealtimeHome
                                                     ↕
                                               MyTrip / MyPage
                                                     ↓
-                                              Settings
+                                              Settings → NoticeList → NoticeDetail
+                                                       → Inquiry
                                               PlaceSearch → PlaceDetail
                                               FriendAdd
 ```

@@ -18,6 +18,38 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Published update notices shown in the settings screen. The app lists the whole
+    // collection, so drafts are filtered out by the seeder rather than by a rule.
+    match /notices/{noticeId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Write-only support inbox. Anyone can file an inquiry, nobody can read one back.
+    match /inquiries/{inquiryId} {
+      allow create: if validInquiry(request.resource.data);
+      allow read, update, delete: if false;
+    }
+
+    function validInquiry(data) {
+      return data.keys().hasOnly([
+          'category', 'title', 'message', 'contactEmail',
+          'installationId', 'appVersion', 'status', 'createdAt'
+        ])
+        && data.keys().hasAll([
+          'category', 'title', 'message', 'contactEmail',
+          'installationId', 'appVersion', 'status', 'createdAt'
+        ])
+        && data.category in ['bug', 'feature', 'account', 'etc']
+        && data.title is string && data.title.size() > 0 && data.title.size() <= 50
+        && data.message is string && data.message.size() >= 10 && data.message.size() <= 1000
+        && data.contactEmail is string && data.contactEmail.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]{2,}$')
+        && data.installationId is string && data.installationId.size() > 0 && data.installationId.size() <= 100
+        && data.appVersion is string && data.appVersion.size() > 0 && data.appVersion.size() <= 30
+        && data.status == 'RECEIVED'
+        && data.createdAt == request.time;
+    }
+
     // Public invite-code exchange for the prototype. Listing and deletion stay blocked so an
     // invite must be opened with its exact six-character code.
     match /tripInvites/{inviteCode} {
