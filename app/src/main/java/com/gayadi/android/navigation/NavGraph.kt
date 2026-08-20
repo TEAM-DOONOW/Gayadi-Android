@@ -267,6 +267,7 @@ fun GayadiNavHost(appContainer: AppContainer) {
             MyTripScreen(
                 trips = trips,
                 onAddTrip = { navController.navigate(Routes.TRIP_CREATE) },
+                onJoinTrip = { navController.navigate(Routes.FRIEND_ADD) },
                 onDeleteTrip = tripViewModel::deleteTrip,
                 onOpenTripDetail = { tripId ->
                     val trip = travelUiState.travelState.trip(tripId)

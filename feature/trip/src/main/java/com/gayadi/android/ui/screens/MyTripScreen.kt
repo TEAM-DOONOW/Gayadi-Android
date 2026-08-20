@@ -26,6 +26,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -82,6 +83,7 @@ data class TripSummary(
 fun MyTripScreen(
     trips: List<TripSummary>,
     onAddTrip: () -> Unit,
+    onJoinTrip: () -> Unit,
     onOpenTripDetail: (String) -> Unit,
     onDeleteTrip: (String) -> Unit,
     onOpenSettings: () -> Unit,
@@ -164,6 +166,19 @@ fun MyTripScreen(
             }
         }
 
+        OutlinedButton(
+            onClick = onJoinTrip,
+            modifier = Modifier.fillMaxWidth().height(50.dp),
+            shape = RoundedCornerShape(2.dp),
+        ) {
+            Text(
+                "초대 코드로 여행 참여하기",
+                fontFamily = PretendardSemiBoldFontFamily,
+                fontSize = 15.sp,
+                color = TripAccentColor,
+            )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
         Button(
             onClick = onAddTrip,
             modifier = Modifier.fillMaxWidth().height(50.dp),
@@ -389,6 +404,7 @@ private fun MyTripPreview() {
         MyTripScreen(
             trips = emptyList(),
             onAddTrip = {},
+            onJoinTrip = {},
             onOpenTripDetail = {},
             onDeleteTrip = {},
             onOpenSettings = {},

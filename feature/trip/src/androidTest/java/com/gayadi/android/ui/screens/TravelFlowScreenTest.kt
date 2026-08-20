@@ -198,6 +198,7 @@ class TravelFlowScreenTest {
                 MyTripScreen(
                     trips = listOf(trip),
                     onAddTrip = {},
+                    onJoinTrip = {},
                     onOpenTripDetail = {},
                     onDeleteTrip = { deletedTripId = it },
                     onOpenSettings = {},
