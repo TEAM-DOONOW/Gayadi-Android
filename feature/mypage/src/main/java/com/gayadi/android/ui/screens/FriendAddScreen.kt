@@ -18,7 +18,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -31,16 +30,10 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -58,8 +51,6 @@ import com.gayadi.android.ui.components.GayadiTopAppBar
 import com.gayadi.android.ui.theme.TextSecondary
 import com.gayadi.android.ui.theme.TextTertiary
 
-private const val INVITE_LINK = "https://gayadi.app/invite/local-trip"
-
 @Composable
 fun FriendAddScreen(
     uiState: FriendAddUiState,
@@ -70,9 +61,6 @@ fun FriendAddScreen(
     onAddFriend: (String) -> Unit,
     onRetry: () -> Unit,
 ) {
-    val clipboard = LocalClipboardManager.current
-    var copied by remember { mutableStateOf(false) }
-
     Column(modifier = Modifier.fillMaxSize().background(Color.White)) {
         GayadiTopAppBar(title = "함께할 여행메이트", onBack = onBack, showDivider = true)
 
@@ -97,14 +85,6 @@ fun FriendAddScreen(
                 focusedBorderColor = PrimaryBlue,
                 unfocusedBorderColor = Color.Transparent,
             ),
-        )
-
-        InviteLinkCard(
-            copied = copied,
-            onCopy = {
-                clipboard.setText(AnnotatedString(INVITE_LINK))
-                copied = true
-            },
         )
 
         when {
@@ -186,31 +166,6 @@ private fun FriendCodeCard(
             message?.let {
                 Text(it, modifier = Modifier.padding(top = 10.dp), fontSize = 12.sp, color = PrimaryBlue)
             }
-        }
-    }
-}
-
-@Composable
-private fun InviteLinkCard(copied: Boolean, onCopy: () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFEBF5FF)),
-    ) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.Link, contentDescription = null, tint = PrimaryBlue)
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text("초대 링크 공유", fontWeight = FontWeight.SemiBold, color = TextPrimary)
-                Text(if (copied) "초대 링크를 복사했어요" else "링크로 간편하게 초대해요", fontSize = 12.sp, color = TextSecondary)
-            }
-            Text(
-                if (copied) "복사됨" else "복사",
-                modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(PrimaryBlue)
-                    .clickable(onClick = onCopy).padding(horizontal = 14.dp, vertical = 8.dp),
-                fontSize = 13.sp,
-                color = Color.White,
-            )
         }
     }
 }

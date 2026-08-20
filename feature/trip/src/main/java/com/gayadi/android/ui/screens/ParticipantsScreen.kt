@@ -58,6 +58,7 @@ fun ParticipantsScreen(
     inviteCode: String,
     cities: List<String>,
     currentUserId: String,
+    ownerId: String,
     participants: List<TravelParticipant>,
     onBack: () -> Unit,
     onRemove: (String) -> Unit,
@@ -68,8 +69,10 @@ fun ParticipantsScreen(
     val coroutineScope = rememberCoroutineScope()
     var inviteMessage by remember { mutableStateOf<String?>(null) }
 
-    val host = participants.find { it.id == currentUserId }
-    val guests = participants.filterNot { it.id == currentUserId }
+    val resolvedOwnerId = ownerId.ifBlank { currentUserId }
+    val canManageParticipants = resolvedOwnerId == currentUserId
+    val host = participants.find { it.id == resolvedOwnerId }
+    val guests = participants.filterNot { it.id == resolvedOwnerId }
 
     Column(Modifier.fillMaxSize().background(Color(0xFFF7F7F9))) {
         GayadiTopAppBar(
@@ -114,7 +117,10 @@ fun ParticipantsScreen(
             Spacer(Modifier.height(8.dp))
             host?.let { ParticipantRow(participant = it, isHost = true) }
             guests.forEach { participant ->
-                ParticipantRow(participant = participant, onRemove = { onRemove(participant.id) })
+                ParticipantRow(
+                    participant = participant,
+                    onRemove = if (canManageParticipants) ({ onRemove(participant.id) }) else null,
+                )
             }
             if (guests.isEmpty()) {
                 Column(
@@ -242,8 +248,8 @@ private fun ParticipantRow(
                     Text("방장", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF6D5000))
                 }
             }
-        } else {
-            OutlinedButton(onClick = { onRemove?.invoke() }) { Text("내보내기") }
+        } else if (onRemove != null) {
+            OutlinedButton(onClick = onRemove) { Text("내보내기") }
         }
     }
 }

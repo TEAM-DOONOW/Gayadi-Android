@@ -25,6 +25,7 @@ import com.gayadi.android.domain.usecase.GetLegalDocumentUseCase
 import com.gayadi.android.domain.usecase.JoinTripByInviteCodeUseCase
 import com.gayadi.android.domain.usecase.PublishTripInviteUseCase
 import com.gayadi.android.domain.usecase.ObserveSharedTripInviteUseCase
+import com.gayadi.android.domain.usecase.RemoveSharedTripParticipantUseCase
 import com.gayadi.android.domain.usecase.SubmitSharedTripAvailabilityUseCase
 import com.gayadi.android.domain.usecase.FinalizeSharedTripDatesUseCase
 import com.gayadi.android.domain.usecase.SaveTravelStateUseCase
@@ -81,6 +82,7 @@ class AppContainer(profileFile: File, travelFile: File, tourApiBaseUrl: String) 
     val publishTripInviteUseCase = PublishTripInviteUseCase(tripInviteRepository)
 
     val observeSharedTripInviteUseCase = ObserveSharedTripInviteUseCase(tripInviteRepository)
+    val removeSharedTripParticipantUseCase = RemoveSharedTripParticipantUseCase(tripInviteRepository)
     val submitSharedTripAvailabilityUseCase = SubmitSharedTripAvailabilityUseCase(tripInviteRepository)
     val finalizeSharedTripDatesUseCase = FinalizeSharedTripDatesUseCase(tripInviteRepository)
 
