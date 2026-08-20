@@ -17,26 +17,32 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gayadi.android.domain.model.InquiryCategory
 import com.gayadi.android.ui.components.GayadiTopAppBar
@@ -165,7 +171,7 @@ internal fun InquiryScreen(
                 onClick = onSubmit,
                 enabled = uiState.canSubmit,
                 modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape = RoundedCornerShape(8.dp),
+                shape = RectangleShape,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = PrimaryAction,
                     disabledContainerColor = PrimaryAction.copy(alpha = 0.3f),
@@ -205,7 +211,7 @@ private fun InquirySubmittedContent(onBack: () -> Unit, onWriteAnother: () -> Un
         Button(
             onClick = onBack,
             modifier = Modifier.fillMaxWidth().height(52.dp),
-            shape = RoundedCornerShape(8.dp),
+            shape = RectangleShape,
             colors = ButtonDefaults.buttonColors(containerColor = PrimaryAction),
         ) {
             Text("설정으로 돌아가기", fontSize = 15.sp, color = Color.White, fontWeight = FontWeight.Medium)
@@ -248,20 +254,39 @@ private fun InquiryTextField(
     modifier: Modifier = Modifier,
     keyboardType: KeyboardType = KeyboardType.Text,
 ) {
-    OutlinedTextField(
+    var isFocused by remember { mutableStateOf(false) }
+
+    BasicTextField(
         value = value,
         onValueChange = onValueChange,
-        modifier = modifier.fillMaxWidth(),
-        placeholder = { Text(placeholder, fontSize = 14.sp, color = TextTertiary) },
+        modifier = modifier
+            .fillMaxWidth()
+            .then(if (singleLine) Modifier.height(44.dp) else Modifier)
+            .onFocusChanged { isFocused = it.isFocused },
         singleLine = singleLine,
+        textStyle = TextStyle(fontSize = 14.sp, color = TextPrimary),
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-        shape = RoundedCornerShape(8.dp),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedContainerColor = Color.White,
-            unfocusedContainerColor = Color.White,
-            focusedBorderColor = PrimaryAction,
-            unfocusedBorderColor = Color(0xFFE0E1E7),
-        ),
+        cursorBrush = SolidColor(PrimaryAction),
+        decorationBox = { innerTextField ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.White)
+                    .border(
+                        width = 1.dp,
+                        color = if (isFocused) PrimaryAction else Color(0xFFE0E1E7),
+                        shape = RectangleShape,
+                    )
+                    .padding(horizontal = 12.dp)
+                    .then(if (singleLine) Modifier else Modifier.padding(vertical = 12.dp)),
+                contentAlignment = if (singleLine) Alignment.CenterStart else Alignment.TopStart,
+            ) {
+                if (value.isEmpty()) {
+                    Text(placeholder, fontSize = 14.sp, color = TextTertiary)
+                }
+                innerTextField()
+            }
+        },
     )
 }
 
