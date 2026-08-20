@@ -102,6 +102,7 @@ class FileTravelRepository(
                             put(participantId, JSONArray(dates))
                         }
                     })
+                    put("ownerId", trip.ownerId)
                 })
             }
         })
@@ -185,6 +186,7 @@ class FileTravelRepository(
                         availability.optJSONArray(participantId).strings()
                     }
                 }.orEmpty(),
+                ownerId = trip.optString("ownerId"),
             )
         },
         participants = root.optJSONArray("participants").objects().map { participant ->

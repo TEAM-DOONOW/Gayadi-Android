@@ -24,6 +24,9 @@ import com.gayadi.android.domain.usecase.GetTravelStateUseCase
 import com.gayadi.android.domain.usecase.GetLegalDocumentUseCase
 import com.gayadi.android.domain.usecase.JoinTripByInviteCodeUseCase
 import com.gayadi.android.domain.usecase.PublishTripInviteUseCase
+import com.gayadi.android.domain.usecase.ObserveSharedTripInviteUseCase
+import com.gayadi.android.domain.usecase.SubmitSharedTripAvailabilityUseCase
+import com.gayadi.android.domain.usecase.FinalizeSharedTripDatesUseCase
 import com.gayadi.android.domain.usecase.SaveTravelStateUseCase
 import com.gayadi.android.domain.usecase.UpdateTravelStateUseCase
 import com.gayadi.android.domain.usecase.GetTourPlacesUseCase
@@ -76,6 +79,10 @@ class AppContainer(profileFile: File, travelFile: File, tourApiBaseUrl: String) 
 
     /** Publishes one local trip so another installation can resolve and join its invite code. */
     val publishTripInviteUseCase = PublishTripInviteUseCase(tripInviteRepository)
+
+    val observeSharedTripInviteUseCase = ObserveSharedTripInviteUseCase(tripInviteRepository)
+    val submitSharedTripAvailabilityUseCase = SubmitSharedTripAvailabilityUseCase(tripInviteRepository)
+    val finalizeSharedTripDatesUseCase = FinalizeSharedTripDatesUseCase(tripInviteRepository)
 
     /** Use case used to retrieve the Firestore-backed travel survey. */
     val getSurveyUseCase = GetSurveyUseCase(surveyRepository)
