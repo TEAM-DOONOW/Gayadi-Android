@@ -428,8 +428,25 @@ fun TripCreationCompleteScreen(
             },
             modifier = Modifier.fillMaxWidth().height(54.dp),
             shape = RoundedCornerShape(2.dp),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE0E1E7)),
-        ) { Text("카카오톡으로 공유하기", color = tripCreateAccentColor, fontFamily = PretendardSemiBoldFontFamily, fontSize = 16.sp) }
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFEE500)),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFFFEE500),
+                contentColor = Color(0xFF191919),
+            ),
+        ) {
+            Image(
+                painter = painterResource(R.drawable.kakaotalk),
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text = "카카오톡으로 공유하기",
+                color = Color(0xFF191919),
+                fontFamily = PretendardSemiBoldFontFamily,
+                fontSize = 16.sp,
+            )
+        }
         Spacer(Modifier.height(12.dp))
         Button(
             onClick = if (trip.isGroupTrip) onCoordinateDates else onStartTrip,
