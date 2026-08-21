@@ -44,7 +44,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AltRoute
+import androidx.compose.material.icons.automirrored.filled.AltRoute
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.PersonAdd
@@ -552,56 +552,80 @@ private fun TravelRoutePreview(
         </script></body></html>
     """.trimIndent()
 
-    AndroidView(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(200.dp),
-        factory = { context ->
-            WebView(context).apply {
-                webViewClient = object : WebViewClient() {
-                    override fun shouldOverrideUrlLoading(
-                        view: WebView?,
-                        request: WebResourceRequest?,
-                    ): Boolean {
-                        if (request?.isForMainFrame != true) return false
-                        val host = request.url.host ?: return true
-                        val isAllowedHost = host == allowedBaseHost ||
-                            host == "kakao.com" || host.endsWith(".kakao.com")
-                        return !isAllowedHost
-                    }
+    ) {
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { context ->
+                WebView(context).apply {
+                    webViewClient = object : WebViewClient() {
+                        override fun shouldOverrideUrlLoading(
+                            view: WebView?,
+                            request: WebResourceRequest?,
+                        ): Boolean {
+                            if (request?.isForMainFrame != true) return false
+                            val host = request.url.host ?: return true
+                            val isAllowedHost = host == allowedBaseHost ||
+                                host == "kakao.com" || host.endsWith(".kakao.com")
+                            return !isAllowedHost
+                        }
 
-                    override fun onReceivedError(
-                        view: WebView?,
-                        request: WebResourceRequest?,
-                        error: WebResourceError?,
-                    ) {
-                        if (request?.isForMainFrame == true || request?.url?.host?.contains("kakao") == true) {
-                            Log.e("KakaoMapWebView", "load error ${error?.errorCode}: ${error?.description}")
+                        override fun onReceivedError(
+                            view: WebView?,
+                            request: WebResourceRequest?,
+                            error: WebResourceError?,
+                        ) {
+                            if (request?.isForMainFrame == true || request?.url?.host?.contains("kakao") == true) {
+                                Log.e("KakaoMapWebView", "load error ${error?.errorCode}: ${error?.description}")
+                            }
                         }
                     }
-                }
-                webChromeClient = object : WebChromeClient() {
-                    override fun onConsoleMessage(consoleMessage: ConsoleMessage): Boolean {
-                        Log.d(
-                            "KakaoMapWebView",
-                            "${consoleMessage.messageLevel()}: ${consoleMessage.message()}",
-                        )
-                        return true
+                    webChromeClient = object : WebChromeClient() {
+                        override fun onConsoleMessage(consoleMessage: ConsoleMessage): Boolean {
+                            Log.d(
+                                "KakaoMapWebView",
+                                "${consoleMessage.messageLevel()}: ${consoleMessage.message()}",
+                            )
+                            return true
+                        }
                     }
+                    settings.javaScriptEnabled = true
+                    settings.domStorageEnabled = true
+                    tag = html
+                    loadDataWithBaseURL(secureBaseUrl, html, "text/html", "UTF-8", null)
                 }
-                settings.javaScriptEnabled = true
-                settings.domStorageEnabled = true
-                tag = html
-                loadDataWithBaseURL(secureBaseUrl, html, "text/html", "UTF-8", null)
-            }
-        },
-        update = { webView ->
-            if (webView.tag != html) {
-                webView.tag = html
-                webView.loadDataWithBaseURL(secureBaseUrl, html, "text/html", "UTF-8", null)
-            }
-        },
-    )
+            },
+            update = { webView ->
+                if (webView.tag != html) {
+                    webView.tag = html
+                    webView.loadDataWithBaseURL(secureBaseUrl, html, "text/html", "UTF-8", null)
+                }
+            },
+        )
+        Button(
+            onClick = onClick,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(12.dp)
+                .height(48.dp),
+            shape = RoundedCornerShape(24.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = PrimaryAction,
+                contentColor = Color.White,
+            ),
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.AltRoute,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text("전체 동선 보기", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        }
+    }
 }
 
 @Composable
