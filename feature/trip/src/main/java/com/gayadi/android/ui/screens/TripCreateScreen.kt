@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,15 +14,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.ContentCopy
@@ -54,6 +58,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -334,107 +339,173 @@ fun TripCreationCompleteScreen(
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().background(Color(0xFFF7F7F9)).padding(horizontal = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF7F7F9)),
     ) {
-        Spacer(Modifier.height(118.dp))
-        Text(
-            "새로운 여행이 만들어졌어요!",
-            fontFamily = PretendardSemiBoldFontFamily,
-            fontSize = 25.sp,
-            color = TextPrimary,
-        )
-        Spacer(Modifier.height(14.dp))
-        Box(
-            modifier = Modifier.fillMaxWidth().height(340.dp),
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .statusBarsPadding()
+                .padding(horizontal = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Box(
-                modifier = Modifier.fillMaxWidth().height(252.dp).align(Alignment.BottomCenter),
+            Spacer(Modifier.height(40.dp))
+            Text(
+                text = "새로운 여행이 만들어졌어요!",
+                modifier = Modifier.fillMaxWidth(),
+                fontFamily = PretendardSemiBoldFontFamily,
+                fontSize = 25.sp,
+                color = TextPrimary,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(16.dp))
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 116.dp)
+                        .heightIn(min = 230.dp),
+                ) {
+                    Image(
+                        painter = painterResource(R.drawable.trip_gayadi_letter),
+                        contentDescription = null,
+                        modifier = Modifier.matchParentSize(),
+                        contentScale = ContentScale.FillBounds,
+                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 22.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(
+                            text = if (trip.isGroupTrip) "날짜 조율 전" else "D-$daysUntilTrip",
+                            modifier = Modifier
+                                .background(Color(0xFFFFDDD4))
+                                .padding(horizontal = 8.dp, vertical = 2.dp),
+                            color = Color(0xFFFF5A36),
+                            fontFamily = PretendardSemiBoldFontFamily,
+                            fontSize = 12.sp,
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            text = trip.name,
+                            modifier = Modifier.fillMaxWidth(),
+                            fontFamily = PretendardSemiBoldFontFamily,
+                            fontSize = 20.sp,
+                            color = TextPrimary,
+                            textAlign = TextAlign.Center,
+                        )
+                        Spacer(Modifier.height(5.dp))
+                        Text(
+                            text = if (trip.isGroupTrip) {
+                                "친구들과 가능한 날짜를 정해보세요"
+                            } else {
+                                "${trip.startDate} - ${trip.endDate}"
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            fontFamily = PretendardFontFamily,
+                            fontSize = 14.sp,
+                            color = Color(0xFF9A9CAB),
+                            textAlign = TextAlign.Center,
+                        )
+                        Spacer(Modifier.height(24.dp))
+                        Text(
+                            text = trip.inviteCode,
+                            fontFamily = PretendardSemiBoldFontFamily,
+                            fontSize = 25.sp,
+                            color = TextPrimary,
+                        )
+                        TextButton(
+                            onClick = {
+                                clipboard.setText(androidx.compose.ui.text.AnnotatedString(trip.inviteCode))
+                            },
+                        ) {
+                            Icon(
+                                Icons.Default.ContentCopy,
+                                contentDescription = null,
+                                tint = Color(0xFF9295A5),
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                "초대코드 복사하기",
+                                color = Color(0xFF9295A5),
+                                fontFamily = PretendardFontFamily,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
+                    }
+                }
+                Image(
+                    painter = painterResource(R.drawable.ganadi_hello),
+                    contentDescription = "편지 위에서 인사하는 가야디",
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth(0.82f)
+                        .widthIn(max = 280.dp)
+                        .aspectRatio(280f / 223f),
+                    contentScale = ContentScale.Fit,
+                )
+            }
+            Spacer(Modifier.height(24.dp))
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 24.dp)
+                .padding(top = 12.dp, bottom = 20.dp),
+        ) {
+            OutlinedButton(
+                onClick = {
+                    shareTripInviteToKakao(context, trip.name, trip.cities, trip.inviteCode)
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 54.dp),
+                shape = RoundedCornerShape(2.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFEE500)),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFFEE500),
+                    contentColor = Color(0xFF191919),
+                ),
             ) {
                 Image(
-                    painter = painterResource(R.drawable.trip_gayadi_letter),
+                    painter = painterResource(R.drawable.kakaotalk),
                     contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.FillBounds,
+                    modifier = Modifier.size(18.dp),
                 )
-                Column(
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Spacer(Modifier.height(22.dp))
-                    Text(
-                        if (trip.isGroupTrip) "날짜 조율 전" else "D-$daysUntilTrip",
-                        modifier = Modifier.background(Color(0xFFFFDDD4)).padding(horizontal = 8.dp, vertical = 2.dp),
-                        color = Color(0xFFFF5A36),
-                        fontFamily = PretendardSemiBoldFontFamily,
-                        fontSize = 12.sp,
-                    )
-                    Spacer(Modifier.height(10.dp))
-                    Text(trip.name, fontFamily = PretendardSemiBoldFontFamily, fontSize = 20.sp, color = TextPrimary)
-                    Spacer(Modifier.height(5.dp))
-                    Text(
-                        if (trip.isGroupTrip) "친구들과 가능한 날짜를 정해보세요" else "${trip.startDate} - ${trip.endDate}",
-                        fontFamily = PretendardFontFamily,
-                        fontSize = 14.sp,
-                        color = Color(0xFF9A9CAB),
-                    )
-                    Spacer(Modifier.weight(0.35f))
-                    Text(trip.inviteCode, fontFamily = PretendardSemiBoldFontFamily, fontSize = 25.sp, color = TextPrimary)
-                    TextButton(onClick = { clipboard.setText(androidx.compose.ui.text.AnnotatedString(trip.inviteCode)) }) {
-                        Icon(Icons.Default.ContentCopy, contentDescription = null, tint = Color(0xFF9295A5), modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("초대코드 복사하기", color = Color(0xFF9295A5), fontFamily = PretendardFontFamily)
-                    }
-                    Spacer(Modifier.weight(0.08f))
-                }
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = "카카오톡으로 공유하기",
+                    color = Color(0xFF191919),
+                    fontFamily = PretendardSemiBoldFontFamily,
+                    fontSize = 16.sp,
+                    textAlign = TextAlign.Center,
+                )
             }
-            Image(
-                painter = painterResource(R.drawable.ganadi_hello),
-                contentDescription = "편지 위에서 인사하는 가야디",
-                modifier = Modifier.width(280.dp).height(223.dp).align(Alignment.TopCenter).offset(y = (-25).dp),
-                contentScale = ContentScale.Fit,
-            )
+            Spacer(Modifier.height(12.dp))
+            Button(
+                onClick = if (trip.isGroupTrip) onCoordinateDates else onStartTrip,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 54.dp),
+                shape = RoundedCornerShape(2.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = tripCreateAccentColor),
+            ) {
+                Text(
+                    if (trip.isGroupTrip) "가능한 날짜 정하기" else "바로 여행 시작하기",
+                    fontFamily = PretendardSemiBoldFontFamily,
+                    fontSize = 16.sp,
+                    textAlign = TextAlign.Center,
+                )
+            }
         }
-        Spacer(Modifier.weight(1f))
-        OutlinedButton(
-            onClick = {
-                shareTripInviteToKakao(context, trip.name, trip.cities, trip.inviteCode)
-            },
-            modifier = Modifier.fillMaxWidth().height(54.dp),
-            shape = RoundedCornerShape(2.dp),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFEE500)),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFFFEE500),
-                contentColor = Color(0xFF191919),
-            ),
-        ) {
-            Image(
-                painter = painterResource(R.drawable.kakaotalk),
-                contentDescription = null,
-                modifier = Modifier.size(18.dp),
-            )
-            Spacer(Modifier.width(6.dp))
-            Text(
-                text = "카카오톡으로 공유하기",
-                color = Color(0xFF191919),
-                fontFamily = PretendardSemiBoldFontFamily,
-                fontSize = 16.sp,
-            )
-        }
-        Spacer(Modifier.height(12.dp))
-        Button(
-            onClick = if (trip.isGroupTrip) onCoordinateDates else onStartTrip,
-            modifier = Modifier.fillMaxWidth().height(54.dp),
-            shape = RoundedCornerShape(2.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = tripCreateAccentColor),
-        ) {
-            Text(
-                if (trip.isGroupTrip) "가능한 날짜 정하기" else "바로 여행 시작하기",
-                fontFamily = PretendardSemiBoldFontFamily,
-                fontSize = 16.sp,
-            )
-        }
-        Spacer(Modifier.height(20.dp))
     }
 }
 
