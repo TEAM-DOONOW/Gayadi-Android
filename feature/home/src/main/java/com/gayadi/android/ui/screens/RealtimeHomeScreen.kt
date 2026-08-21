@@ -145,7 +145,7 @@ fun RealtimeHomeScreen(
                         )
                     }
                 }
-                Spacer(modifier = Modifier.height(28.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
                 TravelOverviewCard(
                     progress = calculateTripProgress(tripStartDate, tripEndDate),
@@ -155,39 +155,14 @@ fun RealtimeHomeScreen(
                     onParticipants = onNavigateParticipants,
                 )
 
-                Spacer(modifier = Modifier.height(22.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(1.dp)
                         .background(Color(0xFFE6E6EA)),
                 )
-                Spacer(modifier = Modifier.height(22.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Image(
-                        painter = painterResource(R.drawable.map),
-                        contentDescription = null,
-                        modifier = Modifier.size(28.dp),
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("여행 동선", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                }
-                Spacer(modifier = Modifier.height(10.dp))
-                TravelRoutePreview(
-                    plans = travelPlans,
-                    javaScriptKey = kakaoMapJavaScriptKey,
-                    baseUrl = kakaoMapBaseUrl,
-                    onClick = onNavigateRoutes,
-                )
-
-                Spacer(modifier = Modifier.height(22.dp))
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(1.dp)
-                        .background(Color(0xFFE6E6EA)),
-                )
-                Spacer(modifier = Modifier.height(22.dp))
+                Spacer(modifier = Modifier.height(18.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Image(
                         painter = painterResource(R.drawable.calendar),
@@ -205,8 +180,33 @@ fun RealtimeHomeScreen(
                         onAddPlace = onNavigatePlaceSearch,
                         onPlanClick = { selectedPlan = it },
                     )
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(Color(0xFFE6E6EA)),
+                )
+                Spacer(modifier = Modifier.height(18.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Image(
+                        painter = painterResource(R.drawable.map),
+                        contentDescription = null,
+                        modifier = Modifier.size(28.dp),
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("여행 동선", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+                TravelRoutePreview(
+                    plans = travelPlans,
+                    javaScriptKey = kakaoMapJavaScriptKey,
+                    baseUrl = kakaoMapBaseUrl,
+                    onClick = onNavigateRoutes,
+                )
 
                 Spacer(modifier = Modifier.height(24.dp))
             }

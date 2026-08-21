@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -65,7 +66,7 @@ internal fun TripDaySection(
         onClick = onAddPlace,
         modifier = Modifier
             .fillMaxWidth()
-            .height(33.dp),
+            .height(48.dp),
         shape = RoundedCornerShape(0.dp),
         border = BorderStroke(1.dp, PrimaryAction),
         colors = ButtonDefaults.outlinedButtonColors(
@@ -86,7 +87,7 @@ private fun TravelPlanRow(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .clickable(role = Role.Button, onClick = onClick),
         shape = RoundedCornerShape(0.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         border = BorderStroke(1.dp, Color(0xFFE8E8EC)),

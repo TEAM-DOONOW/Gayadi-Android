@@ -30,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -50,9 +51,9 @@ internal fun TravelRoutePreview(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(180.dp)
+                .height(160.dp)
                 .background(Color(0xFFE9E9ED))
-                .clickable(onClick = onClick),
+                .clickable(role = Role.Button, onClick = onClick),
             contentAlignment = Alignment.Center,
         ) {
             Text("카카오맵 키를 설정해 주세요", fontSize = 13.sp, color = TextSecondary)
@@ -77,7 +78,7 @@ internal fun TravelRoutePreview(
         <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
         <style>
           html,body{width:100%;height:100%;margin:0;padding:0}
-          #map{width:100%;height:200px;background:#e9e9ed}
+          #map{width:100%;height:160px;background:#e9e9ed}
           #error{display:none;position:absolute;inset:0;align-items:center;justify-content:center;
             padding:24px;box-sizing:border-box;text-align:center;color:#666;font:13px sans-serif;background:#e9e9ed}
         </style>
@@ -141,7 +142,7 @@ internal fun TravelRoutePreview(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(200.dp),
+            .height(160.dp),
     ) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
