@@ -43,7 +43,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -57,6 +56,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.gayadi.android.feature.trip.R
 import com.gayadi.android.ui.theme.PretendardFontFamily
 import com.gayadi.android.ui.theme.PretendardSemiBoldFontFamily
@@ -70,13 +71,9 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
 
-private enum class DateField { START, END }
-private enum class CreateStep { TRAVEL_TYPE, CITY, DETAILS, COMPLETE }
-private enum class TravelType { SOLO, TOGETHER }
-
 private data class CityOption(val name: String, val areas: String, val imageRes: Int)
 
-private val tripDateFormatter = DateTimeFormatter.ofPattern("yyyy.MM.dd")
+internal val tripCreateDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy.MM.dd")
 private val tripCreateAccentColor = Color(0xFF343548)
 private val domesticCities = listOf(
     CityOption("서울", "서울", R.drawable.city_seoul),
@@ -125,82 +122,65 @@ fun TripCreateScreen(
     onCoordinateDates: (TripSummary) -> Unit = {},
     initialTrip: TripSummary? = null,
 ) {
+    val viewModel: TripCreateViewModel = viewModel(
+        key = "trip-create-${initialTrip?.id ?: "new"}",
+        factory = TripCreateViewModel.factory(initialTrip),
+    )
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val coroutineScope = rememberCoroutineScope()
-    var step by remember(initialTrip?.id) {
-        mutableStateOf(if (initialTrip == null) CreateStep.TRAVEL_TYPE else CreateStep.DETAILS)
-    }
-    var travelType by remember(initialTrip?.id) { mutableStateOf<TravelType?>(null) }
-    val selectedCities = remember(initialTrip?.id) {
-        mutableStateListOf<String>().apply { addAll(initialTrip?.cities.orEmpty()) }
-    }
-    var name by remember(initialTrip?.id) { mutableStateOf(initialTrip?.name.orEmpty()) }
-    var startDate by remember(initialTrip?.id) {
-        mutableStateOf(initialTrip?.startDate?.let { runCatching { LocalDate.parse(it, tripDateFormatter) }.getOrNull() })
-    }
-    var endDate by remember(initialTrip?.id) {
-        mutableStateOf(initialTrip?.endDate?.let { runCatching { LocalDate.parse(it, tripDateFormatter) }.getOrNull() })
-    }
-    var selectingField by remember { mutableStateOf<DateField?>(null) }
-    var createdTrip by remember { mutableStateOf<TripSummary?>(null) }
-    var creationError by remember { mutableStateOf<String?>(null) }
 
-    when (step) {
-        CreateStep.TRAVEL_TYPE -> TravelTypeSelectionStep(
-            selectedType = travelType,
-            onTypeSelected = { travelType = it },
+    when (uiState.step) {
+        TripCreateStep.TRAVEL_TYPE -> TravelTypeSelectionStep(
+            selectedType = uiState.travelType,
+            onTypeSelected = viewModel::selectTravelType,
             onBack = onBack,
-            onNext = { step = CreateStep.CITY },
+            onNext = viewModel::showCityStep,
         )
-        CreateStep.CITY -> CitySelectionStep(
-            selectedCities = selectedCities,
+        TripCreateStep.CITY -> CitySelectionStep(
+            selectedCities = uiState.selectedCities,
+            onToggleCity = viewModel::toggleCity,
             onBack = {
-                if (initialTrip == null) step = CreateStep.TRAVEL_TYPE else onBack()
+                if (uiState.isEditing) onBack() else viewModel.showTravelTypeStep()
             },
-            onNext = { step = CreateStep.DETAILS },
+            onNext = viewModel::showDetailsStep,
         )
-        CreateStep.DETAILS -> TripDetailsStep(
-            isEditing = initialTrip != null,
-            isGroupTrip = travelType == TravelType.TOGETHER || initialTrip?.isGroupTrip == true,
-            name = name,
-            onNameChange = { name = it },
-            startDate = startDate,
-            endDate = endDate,
-            onBack = { step = CreateStep.CITY },
-            onSelectStart = { selectingField = DateField.START },
-            onSelectEnd = { selectingField = DateField.END },
-            errorMessage = creationError,
+        TripCreateStep.DETAILS -> TripDetailsStep(
+            isEditing = uiState.isEditing,
+            isGroupTrip = uiState.isGroupTrip,
+            name = uiState.name,
+            onNameChange = viewModel::updateName,
+            startDate = uiState.startDate,
+            endDate = uiState.endDate,
+            onBack = viewModel::showCityStep,
+            onSelectStart = { viewModel.openDatePicker(TripDateField.START) },
+            onSelectEnd = { viewModel.openDatePicker(TripDateField.END) },
+            errorMessage = uiState.errorMessage,
+            isSubmitting = uiState.isSubmitting,
             onCreate = {
-                val trip = TripSummary(
-                        id = initialTrip?.id ?: java.util.UUID.randomUUID().toString(),
-                        name = name.trim(),
-                        startDate = startDate?.format(tripDateFormatter).orEmpty(),
-                        endDate = endDate?.format(tripDateFormatter).orEmpty(),
-                        cities = selectedCities.toList(),
-                        coverImageResList = cityCoverImageResources(selectedCities),
-                        isGroupTrip = travelType == TravelType.TOGETHER || initialTrip?.isGroupTrip == true,
-                    )
+                viewModel.beginSubmission()
+                val trip = viewModel.createDraft()
                 onCreate(trip).fold(
                     onSuccess = { savedTrip ->
-                        if (initialTrip == null) {
+                        if (!uiState.isEditing) {
                             coroutineScope.launch {
                                 onPublishInvite(savedTrip).fold(
-                                    onSuccess = {
-                                        creationError = null
-                                        createdTrip = savedTrip
-                                        step = CreateStep.COMPLETE
-                                    },
+                                    onSuccess = { viewModel.complete(savedTrip) },
                                     onFailure = { error ->
-                                        creationError = error.message ?: "초대 코드를 서버에 등록하지 못했어요"
+                                        viewModel.submissionFailed(
+                                            error.message ?: "초대 코드를 서버에 등록하지 못했어요",
+                                        )
                                     },
                                 )
                             }
-                        } else creationError = null
+                        } else {
+                            viewModel.finishEditing()
+                        }
                     },
-                    onFailure = { creationError = it.message ?: "여행을 만들지 못했어요" },
+                    onFailure = { viewModel.submissionFailed(it.message ?: "여행을 만들지 못했어요") },
                 )
             },
         )
-        CreateStep.COMPLETE -> createdTrip?.let { trip ->
+        TripCreateStep.COMPLETE -> uiState.createdTrip?.let { trip ->
             TripCreationCompleteScreen(
                 trip = trip,
                 onStartTrip = { onStartTrip(trip) },
@@ -209,40 +189,31 @@ fun TripCreateScreen(
         }
     }
 
-    selectingField?.let { field ->
+    uiState.selectingDateField?.let { field ->
         val initialDate = when (field) {
-            DateField.START -> startDate
-            DateField.END -> endDate ?: startDate
+            TripDateField.START -> uiState.startDate
+            TripDateField.END -> uiState.endDate ?: uiState.startDate
         } ?: LocalDate.now()
         val pickerState = rememberDatePickerState(initialSelectedDateMillis = initialDate.toUtcMillis())
 
         DatePickerDialog(
-            onDismissRequest = { selectingField = null },
+            onDismissRequest = viewModel::dismissDatePicker,
             confirmButton = {
                 TextButton(onClick = {
                     pickerState.selectedDateMillis?.toLocalDate()?.let { selectedDate ->
-                        when (field) {
-                            DateField.START -> {
-                                startDate = selectedDate
-                                if (endDate?.isBefore(selectedDate) == true) endDate = null
-                            }
-                            DateField.END -> if (startDate == null || !selectedDate.isBefore(startDate)) {
-                                endDate = selectedDate
-                            }
-                        }
+                        viewModel.selectDate(field, selectedDate)
                     }
-                    selectingField = null
                 }) { Text("확인") }
             },
-            dismissButton = { TextButton(onClick = { selectingField = null }) { Text("취소") } },
+            dismissButton = { TextButton(onClick = viewModel::dismissDatePicker) { Text("취소") } },
         ) { DatePicker(state = pickerState) }
     }
 }
 
 @Composable
 private fun TravelTypeSelectionStep(
-    selectedType: TravelType?,
-    onTypeSelected: (TravelType) -> Unit,
+    selectedType: TripTravelType?,
+    onTypeSelected: (TripTravelType) -> Unit,
     onBack: () -> Unit,
     onNext: () -> Unit,
 ) {
@@ -277,15 +248,15 @@ private fun TravelTypeSelectionStep(
                 ) {
                     TravelTypeButton(
                         label = "혼자 여행가기",
-                        selected = selectedType == TravelType.SOLO,
-                        onClick = { onTypeSelected(TravelType.SOLO) },
+                        selected = selectedType == TripTravelType.SOLO,
+                        onClick = { onTypeSelected(TripTravelType.SOLO) },
                         modifier = Modifier.weight(1f),
                         icon = { tint -> Icon(Icons.Default.Person, null, tint = tint, modifier = Modifier.size(38.dp)) },
                     )
                     TravelTypeButton(
                         label = "같이 여행가기",
-                        selected = selectedType == TravelType.TOGETHER,
-                        onClick = { onTypeSelected(TravelType.TOGETHER) },
+                        selected = selectedType == TripTravelType.TOGETHER,
+                        onClick = { onTypeSelected(TripTravelType.TOGETHER) },
                         modifier = Modifier.weight(1f),
                         icon = { tint -> Icon(Icons.Default.Groups, null, tint = tint, modifier = Modifier.size(38.dp)) },
                     )
@@ -355,7 +326,10 @@ fun TripCreationCompleteScreen(
     val context = LocalContext.current
     val daysUntilTrip = remember(trip.startDate) {
         runCatching {
-            java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(), LocalDate.parse(trip.startDate, tripDateFormatter))
+            java.time.temporal.ChronoUnit.DAYS.between(
+                LocalDate.now(),
+                LocalDate.parse(trip.startDate, tripCreateDateFormatter),
+            )
         }.getOrDefault(0).coerceAtLeast(0)
     }
 
@@ -466,7 +440,8 @@ fun TripCreationCompleteScreen(
 
 @Composable
 private fun CitySelectionStep(
-    selectedCities: MutableList<String>,
+    selectedCities: List<String>,
+    onToggleCity: (String) -> Unit,
     onBack: () -> Unit,
     onNext: () -> Unit,
 ) {
@@ -516,10 +491,7 @@ private fun CitySelectionStep(
                 CityRow(
                     city = city,
                     selected = city.name in selectedCities,
-                    onClick = {
-                        if (city.name in selectedCities) selectedCities.remove(city.name)
-                        else selectedCities.add(city.name)
-                    },
+                    onClick = { onToggleCity(city.name) },
                 )
             }
         }
@@ -583,6 +555,7 @@ private fun TripDetailsStep(
     onSelectStart: () -> Unit,
     onSelectEnd: () -> Unit,
     errorMessage: String?,
+    isSubmitting: Boolean,
     onCreate: () -> Unit,
 ) {
     val canCreate = name.isNotBlank() && (isGroupTrip || startDate != null && endDate != null)
@@ -618,9 +591,19 @@ private fun TripDetailsStep(
             Text("여행 기간", fontFamily = PretendardSemiBoldFontFamily, fontSize = 14.sp)
             Spacer(modifier = Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                DateField(startDate?.format(tripDateFormatter).orEmpty(), "시작일", onSelectStart, Modifier.weight(1f))
+                DateField(
+                    startDate?.format(tripCreateDateFormatter).orEmpty(),
+                    "시작일",
+                    onSelectStart,
+                    Modifier.weight(1f),
+                )
                 Text("~", Modifier.padding(horizontal = 10.dp), fontFamily = PretendardSemiBoldFontFamily)
-                DateField(endDate?.format(tripDateFormatter).orEmpty(), "종료일", onSelectEnd, Modifier.weight(1f))
+                DateField(
+                    endDate?.format(tripCreateDateFormatter).orEmpty(),
+                    "종료일",
+                    onSelectEnd,
+                    Modifier.weight(1f),
+                )
             }
         }
         Spacer(modifier = Modifier.weight(1f))
@@ -630,7 +613,7 @@ private fun TripDetailsStep(
         }
         Button(
             onClick = onCreate,
-            enabled = canCreate,
+            enabled = canCreate && !isSubmitting,
             modifier = Modifier.fillMaxWidth().height(50.dp),
             shape = RoundedCornerShape(2.dp),
             colors = ButtonDefaults.buttonColors(
@@ -639,7 +622,11 @@ private fun TripDetailsStep(
             ),
         ) {
             Text(
-                if (isGroupTrip) "여행방 만들기" else "여행 저장하기",
+                when {
+                    isSubmitting -> "저장 중..."
+                    isGroupTrip -> "여행방 만들기"
+                    else -> "여행 저장하기"
+                },
                 fontFamily = PretendardSemiBoldFontFamily,
                 fontSize = 15.sp,
             )
