@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,6 +27,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -58,7 +63,7 @@ internal fun TravelOverviewCard(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(199.dp),
+            .height(176.dp),
     ) {
         Image(
             painter = painterResource(R.drawable.gayadi_letter),
@@ -69,7 +74,7 @@ internal fun TravelOverviewCard(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 24.dp, vertical = 22.dp),
+                .padding(horizontal = 24.dp, vertical = 16.dp),
         ) {
             Text(
                 "우리 여행 진행률",
@@ -77,11 +82,11 @@ internal fun TravelOverviewCard(
                 fontWeight = FontWeight.SemiBold,
                 color = TextPrimary,
             )
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(8.dp))
             BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp),
+                    .height(44.dp),
             ) {
                 LinearProgressIndicator(
                     progress = { progress },
@@ -124,10 +129,15 @@ internal fun TravelOverviewCard(
                     )
                 }
             }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(4.dp))
             Column(
                 Modifier
                     .fillMaxWidth()
+                    .minimumInteractiveComponentSize()
+                    .semantics {
+                        role = Role.Button
+                        contentDescription = "함께하는 친구 ${participantCount}명 보기"
+                    }
                     .clickable(onClick = onParticipants),
             ) {
                 Text(
@@ -136,7 +146,7 @@ internal fun TravelOverviewCard(
                     fontWeight = FontWeight.SemiBold,
                     color = TextPrimary,
                 )
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     UserCharacterAvatar(myCharacterKey, "내 캐릭터", Modifier.requiredSize(30.dp))
                     Spacer(Modifier.width(4.dp))
