@@ -4,7 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.gayadi.android.domain.model.TourPlace
 import com.gayadi.android.domain.usecase.GetTourPlacesUseCase
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -78,27 +80,145 @@ class FakePlaceRepository : PlaceRepository {
 class TourApiPlaceRepository(
     private val getTourPlaces: GetTourPlacesUseCase,
 ) : PlaceRepository {
-    override suspend fun getPlaces(regionName: String): Result<List<PlaceItem>> =
-        getTourPlaces().map { places ->
-            places.map { place ->
-                PlaceItem(
-                    id = place.contentId,
-                    name = place.title,
-                    category = "관광명소",
-                    rating = 0.0,
-                    reviews = 0,
-                    crowdLevel = CrowdLevel.NORMAL,
-                    emoji = "🏞️",
-                    description = listOf(place.address, place.addressDetail)
-                        .filter(String::isNotBlank)
-                        .joinToString(" "),
-                    imageUrl = place.imageUrl,
-                    longitude = place.longitude,
-                    latitude = place.latitude,
-                    hasRealtimeDetails = false,
-                )
+    override suspend fun getPlaces(regionName: String): Result<List<PlaceItem>> {
+        val placesByContentId = linkedMapOf<String, PrioritizedPlaceItem>()
+        TOUR_PLACE_REQUESTS.forEach { request ->
+            val categoryPlaces = getTourPlaces(
+                contentTypeId = request.contentTypeId,
+                lclsSystm1 = request.lclsSystm1,
+                lclsSystm2 = request.lclsSystm2,
+                maxPages = MAX_PAGES_PER_CATEGORY,
+            ).getOrElse { error ->
+                if (error is CancellationException) throw error
+                return Result.failure(error)
+            }
+            categoryPlaces.forEach { place ->
+                val existing = placesByContentId[place.contentId]
+                if (existing == null || request.priority > existing.priority) {
+                    placesByContentId[place.contentId] = PrioritizedPlaceItem(
+                        item = place.toPlaceItem(
+                            forcedCategory = request.forcedCategory,
+                            fallbackContentTypeId = request.contentTypeId,
+                        ),
+                        priority = request.priority,
+                    )
+                }
             }
         }
+        return Result.success(placesByContentId.values.map(PrioritizedPlaceItem::item))
+    }
+
+    private fun TourPlace.toPlaceItem(
+        forcedCategory: TourPlaceCategory?,
+        fallbackContentTypeId: Int,
+    ): PlaceItem {
+        val placeCategory = forcedCategory ?: category(fallbackContentTypeId)
+        return PlaceItem(
+            id = contentId,
+            name = title,
+            category = placeCategory.label,
+            rating = 0.0,
+            reviews = 0,
+            crowdLevel = CrowdLevel.NORMAL,
+            emoji = placeCategory.emoji,
+            description = listOf(address, addressDetail)
+                .filter(String::isNotBlank)
+                .joinToString(" "),
+            imageUrl = imageUrl,
+            longitude = longitude,
+            latitude = latitude,
+            hasRealtimeDetails = false,
+        )
+    }
+
+    private fun TourPlace.category(fallbackContentTypeId: Int): TourPlaceCategory =
+        when (contentTypeId.trim().ifBlank { fallbackContentTypeId.toString() }) {
+            TOURIST_ATTRACTION_CONTENT_TYPE_ID.toString() -> TourPlaceCategory.TOURIST_ATTRACTION
+            STAY_CONTENT_TYPE_ID.toString() -> TourPlaceCategory.STAY
+            RESTAURANT_CONTENT_TYPE_ID.toString() -> {
+                val foodCategoryLevel2 = lclsSystm2.trim()
+                val foodCategoryLevel3 = lclsSystm3.trim()
+                val hasStructuredFoodCategory =
+                    foodCategoryLevel2.isNotBlank() || foodCategoryLevel3.isNotBlank()
+                val isStructuredCafe = foodCategoryLevel2.startsWith(CAFE_CATEGORY_PREFIX, ignoreCase = true) ||
+                    foodCategoryLevel3.startsWith(CAFE_CATEGORY_PREFIX, ignoreCase = true)
+                val isFallbackCafe = !hasStructuredFoodCategory &&
+                    CAFE_TITLE_KEYWORDS.any { title.contains(it, ignoreCase = true) }
+                if (isStructuredCafe || isFallbackCafe) {
+                    TourPlaceCategory.CAFE
+                } else {
+                    TourPlaceCategory.RESTAURANT
+                }
+            }
+            else -> TourPlaceCategory.TOURIST_ATTRACTION
+        }
+
+    private data class PrioritizedPlaceItem(
+        val item: PlaceItem,
+        val priority: Int,
+    )
+
+    private enum class TourPlaceCategory(
+        val label: String,
+        val emoji: String,
+    ) {
+        TOURIST_ATTRACTION("관광명소", "🏞️"),
+        RESTAURANT("맛집", "🍲"),
+        CAFE("카페", "☕"),
+        STAY("숙소", "🏨"),
+    }
+
+    private data class TourPlaceRequest(
+        val contentTypeId: Int,
+        val lclsSystm1: String? = null,
+        val lclsSystm2: String? = null,
+        val forcedCategory: TourPlaceCategory? = null,
+        val priority: Int = GENERIC_RESULT_PRIORITY,
+    )
+
+    private companion object {
+        const val TOURIST_ATTRACTION_CONTENT_TYPE_ID = 12
+        const val STAY_CONTENT_TYPE_ID = 32
+        const val RESTAURANT_CONTENT_TYPE_ID = 39
+        const val RESTAURANT_CATEGORY_PREFIX = "FD01"
+        const val CAFE_CATEGORY_PREFIX = "FD05"
+        const val FOOD_CATEGORY_PREFIX = "FD"
+        const val MAX_PAGES_PER_CATEGORY = 1
+        const val GENERIC_RESULT_PRIORITY = 0
+        const val EXACT_RESTAURANT_RESULT_PRIORITY = 1
+        const val EXACT_CAFE_RESULT_PRIORITY = 2
+        val TOUR_PLACE_REQUESTS = listOf(
+            TourPlaceRequest(contentTypeId = TOURIST_ATTRACTION_CONTENT_TYPE_ID),
+            TourPlaceRequest(contentTypeId = RESTAURANT_CONTENT_TYPE_ID),
+            TourPlaceRequest(
+                contentTypeId = RESTAURANT_CONTENT_TYPE_ID,
+                lclsSystm1 = FOOD_CATEGORY_PREFIX,
+                lclsSystm2 = RESTAURANT_CATEGORY_PREFIX,
+                forcedCategory = TourPlaceCategory.RESTAURANT,
+                priority = EXACT_RESTAURANT_RESULT_PRIORITY,
+            ),
+            TourPlaceRequest(
+                contentTypeId = RESTAURANT_CONTENT_TYPE_ID,
+                lclsSystm1 = FOOD_CATEGORY_PREFIX,
+                lclsSystm2 = CAFE_CATEGORY_PREFIX,
+                forcedCategory = TourPlaceCategory.CAFE,
+                priority = EXACT_CAFE_RESULT_PRIORITY,
+            ),
+            TourPlaceRequest(contentTypeId = STAY_CONTENT_TYPE_ID),
+        )
+        val CAFE_TITLE_KEYWORDS = listOf(
+            "카페",
+            "커피",
+            "cafe",
+            "coffee",
+            "로스터리",
+            "베이커리",
+            "bakery",
+            "디저트",
+            "티룸",
+            "찻집",
+        )
+    }
 }
 
 class PlaceViewModel(

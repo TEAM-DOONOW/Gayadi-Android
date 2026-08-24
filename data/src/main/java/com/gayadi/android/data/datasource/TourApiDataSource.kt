@@ -12,7 +12,14 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 interface TourApiDataSource {
-    suspend fun getPlaces(pageSize: Int, contentTypeId: Int): List<TourPlaceDto>
+    suspend fun getPlaces(
+        pageSize: Int,
+        contentTypeId: Int,
+        lclsSystm1: String? = null,
+        lclsSystm2: String? = null,
+        lclsSystm3: String? = null,
+        maxPages: Int? = null,
+    ): List<TourPlaceDto>
 }
 
 class HttpTourApiDataSource(
@@ -23,21 +30,42 @@ class HttpTourApiDataSource(
 ) : TourApiDataSource {
     private val normalizedBaseUrl = baseUrl.trimEnd('/')
 
-    override suspend fun getPlaces(pageSize: Int, contentTypeId: Int): List<TourPlaceDto> =
+    override suspend fun getPlaces(
+        pageSize: Int,
+        contentTypeId: Int,
+        lclsSystm1: String?,
+        lclsSystm2: String?,
+        lclsSystm3: String?,
+        maxPages: Int?,
+    ): List<TourPlaceDto> =
         withContext(Dispatchers.IO) {
             require(normalizedBaseUrl.isNotBlank()) { "관광 API 서버 주소가 설정되지 않았습니다." }
             require(pageSize in 1..MAX_PAGE_SIZE) {
                 "관광 API 페이지 크기는 1개 이상 ${MAX_PAGE_SIZE}개 이하여야 합니다."
             }
+            require(maxPages == null || maxPages >= 1) {
+                "관광 API 최대 페이지 수는 1개 이상이어야 합니다."
+            }
 
             val places = mutableListOf<TourPlaceDto>()
             val seenCursors = mutableSetOf<String>()
             var cursor: String? = null
+            var pagesLoaded = 0
             do {
                 currentCoroutineContext().ensureActive()
-                val page = requestPage(pageSize, cursor, contentTypeId)
+                val page = requestPage(
+                    pageSize = pageSize,
+                    cursor = cursor,
+                    contentTypeId = contentTypeId,
+                    lclsSystm1 = lclsSystm1,
+                    lclsSystm2 = lclsSystm2,
+                    lclsSystm3 = lclsSystm3,
+                )
+                pagesLoaded += 1
                 places += page.items
-                val nextCursor = page.nextCursor
+                val nextCursor = page.nextCursor.takeUnless {
+                    maxPages != null && pagesLoaded >= maxPages
+                }
                 check(nextCursor == null || seenCursors.add(nextCursor)) {
                     "관광 API가 동일한 다음 페이지 커서를 반복했습니다."
                 }
@@ -50,12 +78,18 @@ class HttpTourApiDataSource(
         pageSize: Int,
         cursor: String?,
         contentTypeId: Int,
+        lclsSystm1: String?,
+        lclsSystm2: String?,
+        lclsSystm3: String?,
     ): TourPage {
-        val requestUrl = URL(
-            "$normalizedBaseUrl/api/v1/tour/areas" +
-                "?pageSize=$pageSize&contentTypeId=$contentTypeId" +
-                cursor?.let { "&cursor=${it.urlEncoded()}" }.orEmpty(),
-        )
+        val requestUrl = URL(buildString {
+            append("$normalizedBaseUrl/api/v1/tour/areas")
+            append("?pageSize=$pageSize&contentTypeId=$contentTypeId")
+            appendQueryParameter("lclsSystm1", lclsSystm1)
+            appendQueryParameter("lclsSystm2", lclsSystm2)
+            appendQueryParameter("lclsSystm3", lclsSystm3)
+            cursor?.let { append("&cursor=${it.urlEncoded()}") }
+        })
         val connection = connectionFactory(requestUrl).apply {
             requestMethod = "GET"
             connectTimeout = CONNECT_TIMEOUT_MILLIS
@@ -83,6 +117,15 @@ class HttpTourApiDataSource(
         }
     }
 
+    private fun StringBuilder.appendQueryParameter(name: String, value: String?) {
+        value?.takeIf(String::isNotBlank)?.let {
+            append('&')
+            append(name)
+            append('=')
+            append(URLEncoder.encode(it, StandardCharsets.UTF_8.name()))
+        }
+    }
+
     internal fun parsePlaces(body: String): List<TourPlaceDto> =
         parsePlaces(JSONObject(body))
 
@@ -100,6 +143,10 @@ class HttpTourApiDataSource(
                         firstImage = item.optString("firstImage"),
                         mapX = item.optString("mapX"),
                         mapY = item.optString("mapY"),
+                        contentTypeId = item.optString("contentTypeId"),
+                        lclsSystm1 = item.optString("lclsSystm1"),
+                        lclsSystm2 = item.optString("lclsSystm2"),
+                        lclsSystm3 = item.optString("lclsSystm3"),
                     ),
                 )
             }

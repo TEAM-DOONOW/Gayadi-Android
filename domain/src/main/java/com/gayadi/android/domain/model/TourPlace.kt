@@ -8,4 +8,8 @@ data class TourPlace(
     val imageUrl: String,
     val longitude: Double?,
     val latitude: Double?,
+    val contentTypeId: String = "",
+    val lclsSystm1: String = "",
+    val lclsSystm2: String = "",
+    val lclsSystm3: String = "",
 )

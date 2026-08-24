@@ -11,4 +11,8 @@ fun TourPlaceDto.toDomain() = TourPlace(
     imageUrl = firstImage,
     longitude = mapX.toDoubleOrNull(),
     latitude = mapY.toDoubleOrNull(),
+    contentTypeId = contentTypeId,
+    lclsSystm1 = lclsSystm1,
+    lclsSystm2 = lclsSystm2,
+    lclsSystm3 = lclsSystm3,
 )

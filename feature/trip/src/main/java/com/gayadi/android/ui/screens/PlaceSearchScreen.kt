@@ -133,7 +133,7 @@ fun PlaceSearchScreen(
             ) {
                 item {
                     val listLabel = if (uiState.filteredPlaces.any { !it.hasRealtimeDetails }) {
-                        "관광지 추천"
+                        "장소 추천"
                     } else {
                         uiState.regionName
                     }
