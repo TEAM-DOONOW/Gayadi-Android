@@ -4,7 +4,7 @@ import com.gayadi.android.domain.model.TourPlace
 
 interface TourRepository {
     suspend fun getPlaces(
-        numOfRows: Int,
+        pageSize: Int,
         contentTypeId: Int,
         lclsSystm1: String? = null,
         lclsSystm2: String? = null,

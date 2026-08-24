@@ -97,6 +97,7 @@ class FileTravelRepositoryTest {
             val restored = repository.getTravelState().getOrThrow()
 
             assertEquals(null, restored.schedules.single().endTime)
+            assertEquals("", restored.schedules.single().memo)
             assertTrue(restored.expenses.isEmpty())
             assertEquals(LOCAL_CURRENT_USER_ID, restored.currentUserId)
 
@@ -207,6 +208,7 @@ class FileTravelRepositoryTest {
                 order = 0,
                 isVisited = true,
                 endTime = "11:30",
+                memo = "정문에서 만나기",
             ),
         ),
         favoritePlaceIds = setOf("place-3"),

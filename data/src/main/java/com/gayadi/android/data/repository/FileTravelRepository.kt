@@ -139,6 +139,7 @@ class FileTravelRepository(
                     put("order", schedule.order)
                     put("isVisited", schedule.isVisited)
                     put("endTime", schedule.endTime ?: JSONObject.NULL)
+                    put("memo", schedule.memo)
                 })
             }
         })
@@ -218,6 +219,7 @@ class FileTravelRepository(
                 order = schedule.optInt("order"),
                 isVisited = schedule.optBoolean("isVisited"),
                 endTime = schedule.optNullableString("endTime"),
+                memo = schedule.optString("memo"),
             )
         },
         favoritePlaceIds = root.optJSONArray("favoritePlaceIds").strings().toSet(),

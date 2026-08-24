@@ -203,7 +203,7 @@ class TourApiPlaceRepositoryTest {
 
 private data class RecordedTourQuery(
     val contentTypeId: Int,
-    val numOfRows: Int = 100,
+    val pageSize: Int = 100,
     val lclsSystm1: String? = null,
     val lclsSystm2: String? = null,
     val lclsSystm3: String? = null,
@@ -216,7 +216,7 @@ private class RecordingTourRepository(
     val requests = mutableListOf<RecordedTourQuery>()
 
     override suspend fun getPlaces(
-        numOfRows: Int,
+        pageSize: Int,
         contentTypeId: Int,
         lclsSystm1: String?,
         lclsSystm2: String?,
@@ -225,7 +225,7 @@ private class RecordingTourRepository(
     ): Result<List<TourPlace>> {
         val query = RecordedTourQuery(
             contentTypeId = contentTypeId,
-            numOfRows = numOfRows,
+            pageSize = pageSize,
             lclsSystm1 = lclsSystm1,
             lclsSystm2 = lclsSystm2,
             lclsSystm3 = lclsSystm3,

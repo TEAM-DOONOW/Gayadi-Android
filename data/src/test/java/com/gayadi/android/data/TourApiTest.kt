@@ -78,11 +78,78 @@ class TourApiTest {
     }
 
     @Test
+    fun followsServerCursorContractUntilLastPageAndKeepsFilters() = runTest {
+        val requestedUrls = mutableListOf<URL>()
+        val responses = ArrayDeque(
+            listOf(
+                tourPage("place-1", "첫 번째 장소", "cursor +/="),
+                tourPage("place-2", "두 번째 장소", null),
+            ),
+        )
+        val dataSource = stubbedDataSource(requestedUrls, responses)
+
+        val places = dataSource.getPlaces(
+            pageSize = 1,
+            contentTypeId = 39,
+            lclsSystm1 = "FD",
+            lclsSystm2 = "FD05",
+            lclsSystm3 = "FD050100",
+        )
+
+        val requests = requestedUrls.map { parseQuery(it.query) }
+        assertEquals(listOf("place-1", "place-2"), places.map(TourPlaceDto::contentId))
+        assertEquals(2, requests.size)
+        requests.forEach { query ->
+            assertEquals("1", query["pageSize"])
+            assertEquals("39", query["contentTypeId"])
+            assertEquals("FD", query["lclsSystm1"])
+            assertEquals("FD05", query["lclsSystm2"])
+            assertEquals("FD050100", query["lclsSystm3"])
+            assertFalse(query.containsKey("pageNo"))
+            assertFalse(query.containsKey("numOfRows"))
+        }
+        assertFalse(requests[0].containsKey("cursor"))
+        assertEquals("cursor +/=", requests[1]["cursor"])
+    }
+
+    @Test
+    fun rejectsRepeatedNextCursor() = runTest {
+        val requestedUrls = mutableListOf<URL>()
+        val repeatedPage = tourPage("place-1", "반복 장소", "repeated-cursor")
+        val dataSource = stubbedDataSource(
+            requestedUrls = requestedUrls,
+            responses = ArrayDeque(listOf(repeatedPage, repeatedPage)),
+        )
+
+        val result = runCatching {
+            dataSource.getPlaces(pageSize = 1, contentTypeId = 12)
+        }
+
+        assertTrue(result.isFailure)
+        assertEquals(
+            "관광 API가 동일한 다음 페이지 커서를 반복했습니다.",
+            result.exceptionOrNull()?.message,
+        )
+        assertEquals(2, requestedUrls.size)
+    }
+
+    @Test
+    fun reusesCachedResponseForSameRequest() = runTest {
+        val dataSource = CountingTourApiDataSource()
+        val repository = DefaultTourRepository(dataSource)
+
+        repository.getPlaces(pageSize = 100, contentTypeId = 12).getOrThrow()
+        repository.getPlaces(pageSize = 100, contentTypeId = 12).getOrThrow()
+
+        assertEquals(1, dataSource.requestCount)
+    }
+
+    @Test
     fun useCasePropagatesFullQueryAndCacheSeparatesEveryDimension() = runTest {
         val dataSource = RecordingTourApiDataSource()
         val useCase = GetTourPlacesUseCase(DefaultTourRepository(dataSource))
         val baseQuery = RecordedTourQuery(
-            numOfRows = 50,
+            pageSize = 50,
             contentTypeId = 39,
             lclsSystm1 = "FD",
             lclsSystm2 = "FD05",
@@ -90,7 +157,7 @@ class TourApiTest {
             maxPages = 1,
         )
         val distinctQueries = listOf(
-            baseQuery.copy(numOfRows = 51),
+            baseQuery.copy(pageSize = 51),
             baseQuery.copy(contentTypeId = 32),
             baseQuery.copy(lclsSystm1 = "FE"),
             baseQuery.copy(lclsSystm2 = "FD06"),
@@ -106,49 +173,55 @@ class TourApiTest {
     }
 
     @Test
-    fun maxPagesLimitsRequestsAndClassificationFiltersReachTheServer() = runTest {
-        val requestedUrls = mutableListOf<URL>()
-        val dataSource = stubbedDataSource(
-            requestedUrls = requestedUrls,
-            responses = ArrayDeque(listOf(tourPage("cafe", "테스트 카페", totalCount = 300))),
-        )
-
-        val places = dataSource.getPlaces(
-            numOfRows = 100,
-            contentTypeId = 39,
-            lclsSystm1 = "FD",
-            lclsSystm2 = "FD05",
-            lclsSystm3 = "FD050100",
-            maxPages = 1,
-        )
-
-        val query = parseQuery(requestedUrls.single().query)
-        assertEquals(listOf("cafe"), places.map(TourPlaceDto::contentId))
-        assertEquals("100", query["numOfRows"])
-        assertEquals("1", query["pageNo"])
-        assertEquals("39", query["contentTypeId"])
-        assertEquals("FD", query["lclsSystm1"])
-        assertEquals("FD05", query["lclsSystm2"])
-        assertEquals("FD050100", query["lclsSystm3"])
-    }
-
-    @Test
-    fun omittedMaxPagesPreservesUnlimitedPagination() = runTest {
+    fun maxPagesCapsCursorRequestsAndClassificationFiltersReachEveryPage() = runTest {
         val requestedUrls = mutableListOf<URL>()
         val dataSource = stubbedDataSource(
             requestedUrls = requestedUrls,
             responses = ArrayDeque(
                 listOf(
-                    tourPage("first", "첫 장소", totalCount = 2),
-                    tourPage("second", "두 번째 장소", totalCount = 2),
+                    tourPage("cafe-1", "첫 카페", "next-2"),
+                    tourPage("cafe-2", "두 번째 카페", "next-3"),
                 ),
             ),
         )
 
-        val places = dataSource.getPlaces(numOfRows = 1, contentTypeId = 12)
+        val places = dataSource.getPlaces(
+            pageSize = 100,
+            contentTypeId = 39,
+            lclsSystm1 = "FD",
+            lclsSystm2 = "FD05",
+            lclsSystm3 = "FD050100",
+            maxPages = 2,
+        )
+
+        assertEquals(listOf("cafe-1", "cafe-2"), places.map(TourPlaceDto::contentId))
+        assertEquals(2, requestedUrls.size)
+        requestedUrls.map { parseQuery(it.query) }.forEach { query ->
+            assertEquals("100", query["pageSize"])
+            assertEquals("39", query["contentTypeId"])
+            assertEquals("FD", query["lclsSystm1"])
+            assertEquals("FD05", query["lclsSystm2"])
+            assertEquals("FD050100", query["lclsSystm3"])
+        }
+    }
+
+    @Test
+    fun omittedMaxPagesPreservesUnlimitedCursorPagination() = runTest {
+        val requestedUrls = mutableListOf<URL>()
+        val dataSource = stubbedDataSource(
+            requestedUrls = requestedUrls,
+            responses = ArrayDeque(
+                listOf(
+                    tourPage("first", "첫 장소", "next"),
+                    tourPage("second", "두 번째 장소", null),
+                ),
+            ),
+        )
+
+        val places = dataSource.getPlaces(pageSize = 1, contentTypeId = 12)
 
         assertEquals(listOf("first", "second"), places.map(TourPlaceDto::contentId))
-        assertEquals(listOf("1", "2"), requestedUrls.map { parseQuery(it.query)["pageNo"] })
+        assertEquals(listOf(null, "next"), requestedUrls.map { parseQuery(it.query)["cursor"] })
     }
 
     @Test
@@ -156,11 +229,11 @@ class TourApiTest {
         var connectionCreated = false
         val dataSource = HttpTourApiDataSource("http://example.com") { url ->
             connectionCreated = true
-            StubHttpURLConnection(url, tourPage("unused", "미사용", totalCount = 1))
+            StubHttpURLConnection(url, tourPage("unused", "미사용", null))
         }
 
         val result = runCatching {
-            dataSource.getPlaces(numOfRows = 100, contentTypeId = 12, maxPages = 0)
+            dataSource.getPlaces(pageSize = 100, contentTypeId = 12, maxPages = 0)
         }
 
         assertTrue(result.exceptionOrNull() is IllegalArgumentException)
@@ -174,7 +247,7 @@ class TourApiTest {
         var caught: CancellationException? = null
 
         try {
-            repository.getPlaces(numOfRows = 100, contentTypeId = 12)
+            repository.getPlaces(pageSize = 100, contentTypeId = 12)
         } catch (cancellation: CancellationException) {
             caught = cancellation
         }
@@ -184,7 +257,7 @@ class TourApiTest {
 }
 
 private data class RecordedTourQuery(
-    val numOfRows: Int,
+    val pageSize: Int,
     val contentTypeId: Int,
     val lclsSystm1: String?,
     val lclsSystm2: String?,
@@ -192,13 +265,29 @@ private data class RecordedTourQuery(
     val maxPages: Int?,
 )
 
+private class CountingTourApiDataSource : TourApiDataSource {
+    var requestCount = 0
+
+    override suspend fun getPlaces(
+        pageSize: Int,
+        contentTypeId: Int,
+        lclsSystm1: String?,
+        lclsSystm2: String?,
+        lclsSystm3: String?,
+        maxPages: Int?,
+    ): List<TourPlaceDto> {
+        requestCount += 1
+        return tourPlace(contentTypeId)
+    }
+}
+
 private class RecordingTourApiDataSource(
     private val failure: Throwable? = null,
 ) : TourApiDataSource {
     val requests = mutableListOf<RecordedTourQuery>()
 
     override suspend fun getPlaces(
-        numOfRows: Int,
+        pageSize: Int,
         contentTypeId: Int,
         lclsSystm1: String?,
         lclsSystm2: String?,
@@ -206,7 +295,7 @@ private class RecordingTourApiDataSource(
         maxPages: Int?,
     ): List<TourPlaceDto> {
         requests += RecordedTourQuery(
-            numOfRows = numOfRows,
+            pageSize = pageSize,
             contentTypeId = contentTypeId,
             lclsSystm1 = lclsSystm1,
             lclsSystm2 = lclsSystm2,
@@ -214,24 +303,26 @@ private class RecordingTourApiDataSource(
             maxPages = maxPages,
         )
         failure?.let { throw it }
-        return listOf(
-            TourPlaceDto(
-                contentId = "1",
-                title = "테스트 장소",
-                address = "서울",
-                addressDetail = "",
-                firstImage = "",
-                mapX = "126.0",
-                mapY = "37.0",
-                contentTypeId = contentTypeId.toString(),
-            ),
-        )
+        return tourPlace(contentTypeId)
     }
 }
 
+private fun tourPlace(contentTypeId: Int): List<TourPlaceDto> = listOf(
+    TourPlaceDto(
+        contentId = "1",
+        title = "테스트 장소",
+        address = "서울",
+        addressDetail = "",
+        firstImage = "",
+        mapX = "126.0",
+        mapY = "37.0",
+        contentTypeId = contentTypeId.toString(),
+    ),
+)
+
 private suspend fun GetTourPlacesUseCase.load(query: RecordedTourQuery) {
     invoke(
-        numOfRows = query.numOfRows,
+        pageSize = query.pageSize,
         contentTypeId = query.contentTypeId,
         lclsSystm1 = query.lclsSystm1,
         lclsSystm2 = query.lclsSystm2,
@@ -275,14 +366,13 @@ private fun parseQuery(rawQuery: String?): Map<String, String> =
             name to value
         }
 
-private fun tourPage(
-    contentId: String,
-    title: String,
-    totalCount: Int,
-): String = JSONObject().apply {
-    put("items", JSONArray().put(JSONObject().apply {
-        put("contentId", contentId)
-        put("title", title)
-    }))
-    put("totalCount", totalCount)
-}.toString()
+private fun tourPage(contentId: String, title: String, nextCursor: String?): String =
+    JSONObject().apply {
+        put("items", JSONArray().put(JSONObject().apply {
+            put("contentId", contentId)
+            put("title", title)
+        }))
+        put("totalCount", 1)
+        put("pageSize", 1)
+        put("nextCursor", nextCursor ?: JSONObject.NULL)
+    }.toString()

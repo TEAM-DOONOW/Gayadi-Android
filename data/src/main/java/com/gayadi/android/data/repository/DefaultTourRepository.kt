@@ -12,7 +12,7 @@ class DefaultTourRepository(
     private val cache = mutableMapOf<TourPlacesCacheKey, List<TourPlace>>()
 
     override suspend fun getPlaces(
-        numOfRows: Int,
+        pageSize: Int,
         contentTypeId: Int,
         lclsSystm1: String?,
         lclsSystm2: String?,
@@ -20,7 +20,7 @@ class DefaultTourRepository(
         maxPages: Int?,
     ): Result<List<TourPlace>> = try {
         val cacheKey = TourPlacesCacheKey(
-            numOfRows = numOfRows,
+            pageSize = pageSize,
             contentTypeId = contentTypeId,
             lclsSystm1 = lclsSystm1,
             lclsSystm2 = lclsSystm2,
@@ -29,7 +29,7 @@ class DefaultTourRepository(
         )
         Result.success(
             cache[cacheKey] ?: dataSource.getPlaces(
-                numOfRows = numOfRows,
+                pageSize = pageSize,
                 contentTypeId = contentTypeId,
                 lclsSystm1 = lclsSystm1,
                 lclsSystm2 = lclsSystm2,
@@ -46,7 +46,7 @@ class DefaultTourRepository(
 }
 
 private data class TourPlacesCacheKey(
-    val numOfRows: Int,
+    val pageSize: Int,
     val contentTypeId: Int,
     val lclsSystm1: String?,
     val lclsSystm2: String?,
