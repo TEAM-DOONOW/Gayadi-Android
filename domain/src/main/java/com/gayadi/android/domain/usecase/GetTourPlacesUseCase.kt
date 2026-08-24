@@ -7,7 +7,7 @@ class GetTourPlacesUseCase(
     private val repository: TourRepository,
 ) {
     suspend operator fun invoke(
-        numOfRows: Int = 100,
+        pageSize: Int = 100,
         contentTypeId: Int = 12,
-    ): Result<List<TourPlace>> = repository.getPlaces(numOfRows, contentTypeId)
+    ): Result<List<TourPlace>> = repository.getPlaces(pageSize, contentTypeId)
 }

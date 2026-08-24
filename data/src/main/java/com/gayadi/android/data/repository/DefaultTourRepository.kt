@@ -11,11 +11,11 @@ class DefaultTourRepository(
     private val cache = mutableMapOf<Pair<Int, Int>, List<TourPlace>>()
 
     override suspend fun getPlaces(
-        numOfRows: Int,
+        pageSize: Int,
         contentTypeId: Int,
     ): Result<List<TourPlace>> = runCatching {
-        val cacheKey = numOfRows to contentTypeId
-        cache[cacheKey] ?: dataSource.getPlaces(numOfRows, contentTypeId)
+        val cacheKey = pageSize to contentTypeId
+        cache[cacheKey] ?: dataSource.getPlaces(pageSize, contentTypeId)
             .map { it.toDomain() }
             .also { cache[cacheKey] = it }
     }
