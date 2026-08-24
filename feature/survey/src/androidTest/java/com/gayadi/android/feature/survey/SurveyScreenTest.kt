@@ -2,6 +2,7 @@ package com.gayadi.android.feature.survey
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.gayadi.android.feature.survey.presentation.SurveyScreen
@@ -57,7 +58,7 @@ class SurveyScreenTest {
         }
 
         composeRule.onNodeWithText("테스트 시작하기").assertIsDisplayed()
-        composeRule.onNodeWithText("여행 성향 질문을 불러오고 있어요").assertDoesNotExist()
+        composeRule.onNodeWithContentDescription("비행기를 타고 이동하는 가야디").assertDoesNotExist()
     }
 
     /** Starting before the content arrives shows the loading screen. */
@@ -75,6 +76,6 @@ class SurveyScreenTest {
             }
         }
 
-        composeRule.onNodeWithText("여행 성향 질문을 불러오고 있어요").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("비행기를 타고 이동하는 가야디").assertIsDisplayed()
     }
 }
