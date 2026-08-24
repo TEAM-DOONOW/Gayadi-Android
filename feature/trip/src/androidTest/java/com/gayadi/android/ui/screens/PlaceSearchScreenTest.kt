@@ -86,4 +86,64 @@ class PlaceSearchScreenTest {
         composeRule.onNodeWithText("서울 · 4곳").assertIsDisplayed()
         composeRule.onNodeWithText("광장시장").assertIsDisplayed()
     }
+
+    @Test
+    fun categoryChipsShowOnlyTheSelectedTourApiCategory() {
+        var state by mutableStateOf(
+            PlaceUiState(
+                selectedCategory = "관광명소",
+                places = listOf(
+                    tourApiPlace("restaurant", "실데이터 맛집", "맛집", "🍲"),
+                    tourApiPlace("cafe", "실데이터 카페", "카페", "☕"),
+                    tourApiPlace("attraction", "실데이터 관광명소", "관광명소", "🏞️"),
+                    tourApiPlace("stay", "실데이터 숙소", "숙소", "🏨"),
+                ),
+                isLoading = false,
+            ),
+        )
+        composeRule.setContent {
+            GayadiTheme {
+                PlaceSearchScreen(
+                    uiState = state,
+                    onBack = {},
+                    onQueryChange = { state = state.copy(query = it) },
+                    onCategorySelected = { state = state.copy(selectedCategory = it) },
+                    onPlaceClick = {},
+                    onRetry = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("장소 추천 · 1곳").assertIsDisplayed()
+        composeRule.onNodeWithText("실데이터 관광명소").assertIsDisplayed()
+
+        composeRule.onNodeWithText("맛집").performClick()
+        composeRule.onNodeWithText("실데이터 맛집").assertIsDisplayed()
+        composeRule.onNodeWithText("실데이터 관광명소").assertDoesNotExist()
+
+        composeRule.onNodeWithText("카페").performClick()
+        composeRule.onNodeWithText("실데이터 카페").assertIsDisplayed()
+        composeRule.onNodeWithText("실데이터 맛집").assertDoesNotExist()
+
+        composeRule.onNodeWithText("숙소").performClick()
+        composeRule.onNodeWithText("실데이터 숙소").assertIsDisplayed()
+        composeRule.onNodeWithText("실데이터 카페").assertDoesNotExist()
+    }
 }
+
+private fun tourApiPlace(
+    id: String,
+    name: String,
+    category: String,
+    emoji: String,
+) = PlaceItem(
+    id = id,
+    name = name,
+    category = category,
+    rating = 0.0,
+    reviews = 0,
+    crowdLevel = CrowdLevel.NORMAL,
+    emoji = emoji,
+    description = "TourAPI 장소",
+    hasRealtimeDetails = false,
+)

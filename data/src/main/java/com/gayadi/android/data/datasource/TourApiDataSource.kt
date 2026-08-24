@@ -3,6 +3,8 @@ package com.gayadi.android.data.datasource
 import com.gayadi.android.data.model.TourPlaceDto
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -13,27 +15,51 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 interface TourApiDataSource {
-    suspend fun getPlaces(numOfRows: Int, contentTypeId: Int): List<TourPlaceDto>
+    suspend fun getPlaces(
+        numOfRows: Int,
+        contentTypeId: Int,
+        lclsSystm1: String? = null,
+        lclsSystm2: String? = null,
+        lclsSystm3: String? = null,
+        maxPages: Int? = null,
+    ): List<TourPlaceDto>
 }
 
 class HttpTourApiDataSource(
     baseUrl: String,
+    private val connectionFactory: (URL) -> HttpURLConnection = { url ->
+        url.openConnection() as HttpURLConnection
+    },
 ) : TourApiDataSource {
     private val normalizedBaseUrl = baseUrl.trimEnd('/')
 
-    override suspend fun getPlaces(numOfRows: Int, contentTypeId: Int): List<TourPlaceDto> =
+    override suspend fun getPlaces(
+        numOfRows: Int,
+        contentTypeId: Int,
+        lclsSystm1: String?,
+        lclsSystm2: String?,
+        lclsSystm3: String?,
+        maxPages: Int?,
+    ): List<TourPlaceDto> =
         withContext(Dispatchers.IO) {
             require(normalizedBaseUrl.isNotBlank()) { "관광 API 서버 주소가 설정되지 않았습니다." }
             require(numOfRows in 1..MAX_NUM_OF_ROWS) {
                 "관광 API 페이지 크기는 1개 이상 ${MAX_NUM_OF_ROWS}개 이하여야 합니다."
+            }
+            require(maxPages == null || maxPages >= 1) {
+                "관광 API 최대 페이지 수는 1개 이상이어야 합니다."
             }
 
             val firstPage = requestPage(
                 pageNo = 1,
                 numOfRows = numOfRows,
                 contentTypeId = contentTypeId,
+                lclsSystm1 = lclsSystm1,
+                lclsSystm2 = lclsSystm2,
+                lclsSystm3 = lclsSystm3,
             )
-            val totalPages = (firstPage.totalCount + numOfRows - 1) / numOfRows
+            val availablePages = (firstPage.totalCount + numOfRows - 1) / numOfRows
+            val totalPages = maxPages?.let { minOf(availablePages, it) } ?: availablePages
             if (totalPages <= 1) {
                 return@withContext firstPage.items
             }
@@ -43,7 +69,14 @@ class HttpTourApiDataSource(
                 (2..totalPages).map { pageNo ->
                     async {
                         semaphore.withPermit {
-                            requestPage(pageNo, numOfRows, contentTypeId).items
+                            requestPage(
+                                pageNo = pageNo,
+                                numOfRows = numOfRows,
+                                contentTypeId = contentTypeId,
+                                lclsSystm1 = lclsSystm1,
+                                lclsSystm2 = lclsSystm2,
+                                lclsSystm3 = lclsSystm3,
+                            ).items
                         }
                     }
                 }.awaitAll().flatten()
@@ -55,12 +88,18 @@ class HttpTourApiDataSource(
         pageNo: Int,
         numOfRows: Int,
         contentTypeId: Int,
+        lclsSystm1: String?,
+        lclsSystm2: String?,
+        lclsSystm3: String?,
     ): TourPage {
-        val requestUrl = URL(
-            "$normalizedBaseUrl/api/v1/tour/areas" +
-                "?numOfRows=$numOfRows&pageNo=$pageNo&contentTypeId=$contentTypeId",
-        )
-        val connection = (requestUrl.openConnection() as HttpURLConnection).apply {
+        val requestUrl = URL(buildString {
+            append("$normalizedBaseUrl/api/v1/tour/areas")
+            append("?numOfRows=$numOfRows&pageNo=$pageNo&contentTypeId=$contentTypeId")
+            appendQueryParameter("lclsSystm1", lclsSystm1)
+            appendQueryParameter("lclsSystm2", lclsSystm2)
+            appendQueryParameter("lclsSystm3", lclsSystm3)
+        })
+        val connection = connectionFactory(requestUrl).apply {
             requestMethod = "GET"
             connectTimeout = CONNECT_TIMEOUT_MILLIS
             readTimeout = READ_TIMEOUT_MILLIS
@@ -87,6 +126,15 @@ class HttpTourApiDataSource(
         }
     }
 
+    private fun StringBuilder.appendQueryParameter(name: String, value: String?) {
+        value?.takeIf(String::isNotBlank)?.let {
+            append('&')
+            append(name)
+            append('=')
+            append(URLEncoder.encode(it, StandardCharsets.UTF_8.name()))
+        }
+    }
+
     internal fun parsePlaces(body: String): List<TourPlaceDto> =
         parsePlaces(JSONObject(body))
 
@@ -104,6 +152,10 @@ class HttpTourApiDataSource(
                         firstImage = item.optString("firstImage"),
                         mapX = item.optString("mapX"),
                         mapY = item.optString("mapY"),
+                        contentTypeId = item.optString("contentTypeId"),
+                        lclsSystm1 = item.optString("lclsSystm1"),
+                        lclsSystm2 = item.optString("lclsSystm2"),
+                        lclsSystm3 = item.optString("lclsSystm3"),
                     ),
                 )
             }
