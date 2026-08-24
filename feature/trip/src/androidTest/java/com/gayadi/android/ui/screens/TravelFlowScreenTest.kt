@@ -28,6 +28,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 @RunWith(AndroidJUnit4::class)
 class TravelFlowScreenTest {
@@ -229,11 +231,12 @@ class TravelFlowScreenTest {
     */
     @Test
     fun tripListDeleteWarnsAboutCascadedCostsAndRequiresConfirmation() {
+        val startDate = LocalDate.now().plusDays(7)
         val trip = TripSummary(
             id = "trip-28",
             name = "제주 여행",
-            startDate = "2026.08.19",
-            endDate = "2026.08.21",
+            startDate = startDate.format(DateTimeFormatter.ofPattern("yyyy.MM.dd")),
+            endDate = startDate.plusDays(2).format(DateTimeFormatter.ofPattern("yyyy.MM.dd")),
             cities = listOf("제주"),
             coverImageResList = emptyList(),
         )
@@ -293,13 +296,13 @@ class TravelFlowScreenTest {
             }
         }
 
-        composeRule.onNodeWithText("비용 저장하기").performClick()
+        composeRule.onNodeWithText("저장").performClick()
         composeRule.onNodeWithText("금액을 입력해 주세요").assertIsDisplayed()
         composeRule.onNodeWithText("비용 내용을 입력해 주세요").assertIsDisplayed()
 
-        composeRule.onNodeWithText("금액").performTextInput("35001")
-        composeRule.onNodeWithText("내용").performTextInput("점심 식사")
-        composeRule.onNodeWithText("비용 저장하기").performClick()
+        composeRule.onNodeWithContentDescription("지출 금액").performTextInput("35001")
+        composeRule.onNodeWithContentDescription("지출 내용").performTextInput("점심 식사")
+        composeRule.onNodeWithText("저장").performClick()
 
         composeRule.runOnIdle {
             assertEquals(35_001L, saved?.amount)
@@ -377,9 +380,9 @@ class TravelFlowScreenTest {
             }
         }
 
-        composeRule.onNodeWithText("비용 수정").assertIsDisplayed()
+        composeRule.onNodeWithText("지출 수정").assertIsDisplayed()
         composeRule.onNodeWithText("비용 내역을 찾을 수 없어요").assertIsDisplayed()
-        composeRule.onNodeWithText("수정 내용 저장하기").assertDoesNotExist()
+        composeRule.onNodeWithText("저장").assertDoesNotExist()
         composeRule.runOnIdle { assertFalse(saved) }
     }
 
@@ -408,10 +411,10 @@ class TravelFlowScreenTest {
             }
         }
 
-        composeRule.onNodeWithText("금액").performTextInput("12000")
-        composeRule.onNodeWithText("내용").performTextInput("KTX")
-        composeRule.onNodeWithText("비용 저장하기").performClick()
-        composeRule.onNodeWithText("비용 저장하기").performClick()
+        composeRule.onNodeWithContentDescription("지출 금액").performTextInput("12000")
+        composeRule.onNodeWithContentDescription("지출 내용").performTextInput("KTX")
+        composeRule.onNodeWithText("저장").performClick()
+        composeRule.onNodeWithText("저장").performClick()
 
         composeRule.runOnIdle {
             assertEquals(2, submittedExpenses.size)
@@ -444,8 +447,8 @@ class TravelFlowScreenTest {
             }
         }
 
-        composeRule.onNodeWithText("금액").performTextInput("12000")
-        composeRule.onNodeWithText("내용").performTextInput("KTX")
+        composeRule.onNodeWithContentDescription("지출 금액").performTextInput("12000")
+        composeRule.onNodeWithContentDescription("지출 내용").performTextInput("KTX")
         restorationTester.emulateSavedInstanceStateRestore()
 
         composeRule.onNodeWithText("12000").assertIsDisplayed()
@@ -529,12 +532,12 @@ class TravelFlowScreenTest {
             }
         }
 
-        composeRule.onNodeWithText("비용 수정").assertIsDisplayed()
-        composeRule.onNodeWithText("금액").performTextClearance()
-        composeRule.onNodeWithText("금액").performTextInput("42000")
-        composeRule.onNodeWithText("내용").performTextClearance()
-        composeRule.onNodeWithText("내용").performTextInput("저녁 식사")
-        composeRule.onNodeWithText("수정 내용 저장하기").performClick()
+        composeRule.onNodeWithText("지출 수정").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("지출 금액").performTextClearance()
+        composeRule.onNodeWithContentDescription("지출 금액").performTextInput("42000")
+        composeRule.onNodeWithContentDescription("지출 내용").performTextClearance()
+        composeRule.onNodeWithContentDescription("지출 내용").performTextInput("저녁 식사")
+        composeRule.onNodeWithText("저장").performClick()
 
         composeRule.runOnIdle {
             assertEquals("expense-1", saved?.id)
@@ -617,15 +620,8 @@ class TravelFlowScreenTest {
             }
         }
 
-        composeRule.onAllNodesWithText("45,001원").onFirst().assertIsDisplayed()
-        composeRule.onNodeWithText("비용 2건 · 참여자 2명").assertIsDisplayed()
-        composeRule.onNodeWithText("정산 내역").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("각자 정산").assertDoesNotExist()
-        composeRule.onNodeWithText("사람별 정산").assertDoesNotExist()
-        composeRule.onNodeWithText("여행곰 → 나").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("22,501원").assertIsDisplayed()
-        composeRule.onNodeWithText("12:00 · 나 결제").assertDoesNotExist()
-        composeRule.onNodeWithText("분담 나 · 여행곰").assertDoesNotExist()
+        composeRule.onNodeWithText("45,001").assertIsDisplayed()
+        composeRule.onNodeWithText("KRW 45,001").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("점심 식사 메뉴").performClick()
         composeRule.onNodeWithText("삭제").performClick()
         composeRule.onNodeWithText("비용을 삭제할까요?").assertIsDisplayed()
@@ -633,17 +629,17 @@ class TravelFlowScreenTest {
 
         composeRule.runOnIdle { assertEquals("expense-1", deletedExpenseId) }
         composeRule.onNodeWithText("점심 식사").assertDoesNotExist()
-        composeRule.onNodeWithText("비용 1건 · 참여자 2명").assertIsDisplayed()
-        composeRule.onAllNodesWithText("10,000원").onFirst().assertIsDisplayed()
-        composeRule.onNodeWithText("1인당 5,000원").assertIsDisplayed()
-        composeRule.onNodeWithText("45,001원").assertDoesNotExist()
-        composeRule.onNodeWithText("여행곰 → 나").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("5,000원").assertIsDisplayed()
-        composeRule.onNodeWithText("22,501원").assertDoesNotExist()
+        composeRule.onNodeWithText("10,000").assertIsDisplayed()
+        composeRule.onAllNodesWithText("KRW 10,000").onFirst().assertIsDisplayed()
+        composeRule.onNodeWithText("45,001").assertDoesNotExist()
+        composeRule.onNodeWithText("KRW 45,001").assertDoesNotExist()
+        composeRule.onNodeWithText("정산").performClick()
+        composeRule.onNodeWithText("친구와 정산").assertIsDisplayed()
+        composeRule.onAllNodesWithText("KRW 5,000").onFirst().assertIsDisplayed()
     }
 
     @Test
-    fun ledgerShowsEachTransferTargetWhenMultiplePeoplePaid() {
+    fun ledgerShowsParticipantSettlementAmountsWhenMultiplePeoplePaid() {
         val participants = listOf(
             TravelParticipant("local-user", "minji"),
             TravelParticipant("friend-1", "여행곰"),
@@ -703,16 +699,14 @@ class TravelFlowScreenTest {
             }
         }
 
-        composeRule.onNodeWithText("정산 내역").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("바다별 → minji").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("6,000원").assertIsDisplayed()
-        composeRule.onNodeWithText("바다별 → 여행곰").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("3,000원").assertIsDisplayed()
-        composeRule.onNodeWithText("저녁 식사").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("카페").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("18:00 · minji 결제").assertDoesNotExist()
-        composeRule.onNodeWithText("18:30 · 여행곰 결제").assertDoesNotExist()
-        composeRule.onNodeWithText("분담 minji · 여행곰 · 바다별").assertDoesNotExist()
+        composeRule.onNodeWithText("정산").performClick()
+        composeRule.onNodeWithText("친구와 정산").assertIsDisplayed()
+        composeRule.onNodeWithText("minji").assertIsDisplayed()
+        composeRule.onNodeWithText("여행곰").assertIsDisplayed()
+        composeRule.onNodeWithText("바다별").assertIsDisplayed()
+        composeRule.onNodeWithText("KRW 6,000").assertIsDisplayed()
+        composeRule.onNodeWithText("KRW 3,000").assertIsDisplayed()
+        composeRule.onAllNodesWithText("KRW 9,000").onFirst().assertIsDisplayed()
     }
 
     @Test
@@ -734,7 +728,7 @@ class TravelFlowScreenTest {
             }
         }
 
-        composeRule.onNodeWithText("합계 계산 불가").assertIsDisplayed()
+        composeRule.onNodeWithText("계산 불가").assertIsDisplayed()
         composeRule.onNodeWithText("정산 정보를 계산하지 못했어요").assertIsDisplayed()
         composeRule.onNodeWithText("결제자를 선택해 주세요.").assertIsDisplayed()
     }
