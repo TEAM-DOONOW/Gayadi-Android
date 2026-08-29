@@ -190,6 +190,7 @@ class FileTravelRepositoryTest {
                 status = TripStatus.ONGOING,
                 participantIds = listOf("user-101"),
                 inviteCode = "JEJU28",
+                version = 7,
             ),
         ),
         participants = listOf(TravelParticipant("user-101", "여행곰", "character_pca")),

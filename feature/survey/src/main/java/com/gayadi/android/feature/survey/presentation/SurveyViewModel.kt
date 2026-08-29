@@ -5,6 +5,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.gayadi.android.domain.usecase.CalculateSurveyResultUseCase
 import com.gayadi.android.domain.usecase.GetSurveyUseCase
+import com.gayadi.android.domain.usecase.SubmitSurveyAnswersUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -14,6 +15,7 @@ import kotlinx.coroutines.flow.update
 class SurveyViewModel(
     private val getSurvey: GetSurveyUseCase,
     private val calculateSurveyResult: CalculateSurveyResultUseCase,
+    private val submitSurveyAnswers: SubmitSurveyAnswersUseCase? = null,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(SurveyUiState())
     private var activeRequestGeneration = 0L
@@ -43,7 +45,7 @@ class SurveyViewModel(
         _uiState.update {
             it.copy(
                 selectedOption = index,
-                answers = it.answers + (question.id to option.code),
+                answers = it.answers + (question.id to option.id),
                 resultErrorMessage = null,
             )
         }
@@ -54,7 +56,33 @@ class SurveyViewModel(
         if (state.selectedOption == null) return null
         val definition = state.definition ?: return null
         if (state.isLastQuestion) {
-            return runCatching { calculateSurveyResult(definition, state.answers) }
+            val submit = submitSurveyAnswers
+            if (submit != null) {
+                _uiState.update { it.copy(isSubmitting = true, resultErrorMessage = null) }
+                submit(state.answers) { result ->
+                    result.fold(
+                        onSuccess = { surveyResult ->
+                            _uiState.update {
+                                it.copy(isSubmitting = false, completedResultCode = surveyResult.code)
+                            }
+                        },
+                        onFailure = { error ->
+                            _uiState.update {
+                                it.copy(
+                                    isSubmitting = false,
+                                    resultErrorMessage = error.message ?: "결과를 저장하지 못했습니다.",
+                                )
+                            }
+                        },
+                    )
+                }
+                return null
+            }
+            val scoringAnswers = definition.questions.associate { question ->
+                val selectedId = state.answers[question.id]
+                question.id to question.options.firstOrNull { it.id == selectedId }?.code.orEmpty()
+            }
+            return runCatching { calculateSurveyResult(definition, scoringAnswers) }
                 .onFailure { error ->
                     _uiState.update {
                         it.copy(
@@ -71,6 +99,10 @@ class SurveyViewModel(
             )
         }
         return null
+    }
+
+    fun consumeCompletedResult() {
+        _uiState.update { it.copy(completedResultCode = null) }
     }
 
     /**
@@ -113,8 +145,9 @@ class SurveyViewModel(
         fun factory(
             getSurvey: GetSurveyUseCase,
             calculateSurveyResult: CalculateSurveyResultUseCase,
+            submitSurveyAnswers: SubmitSurveyAnswersUseCase? = null,
         ) = viewModelFactory {
-            initializer { SurveyViewModel(getSurvey, calculateSurveyResult) }
+            initializer { SurveyViewModel(getSurvey, calculateSurveyResult, submitSurveyAnswers) }
         }
     }
 }

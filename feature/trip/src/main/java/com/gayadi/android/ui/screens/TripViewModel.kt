@@ -27,11 +27,20 @@ import com.gayadi.android.domain.usecase.RemoveSharedTripParticipantUseCase
 import com.gayadi.android.domain.usecase.SubmitSharedTripAvailabilityUseCase
 import com.gayadi.android.domain.usecase.FinalizeSharedTripDatesUseCase
 import com.gayadi.android.domain.model.SharedTripInvite
+import com.gayadi.android.domain.repository.AuthRepository
+import com.gayadi.android.domain.repository.CreateTripCommand
+import com.gayadi.android.domain.repository.DateCoordinationSnapshot
+import com.gayadi.android.domain.repository.SchedulePatch
+import com.gayadi.android.domain.repository.TravelGateway
+import com.gayadi.android.domain.repository.UpdateTripCommand
 import com.gayadi.android.domain.usecase.ValidateTravelExpenseUseCase
 import java.util.UUID
 import java.nio.charset.StandardCharsets
 import java.util.Base64
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -70,6 +79,8 @@ class TripViewModel(
     private val removeSharedTripParticipant: RemoveSharedTripParticipantUseCase? = null,
     private val submitSharedTripAvailability: SubmitSharedTripAvailabilityUseCase? = null,
     private val finalizeSharedTripDates: FinalizeSharedTripDatesUseCase? = null,
+    private val travelGateway: TravelGateway? = null,
+    private val authRepository: AuthRepository? = null,
 ) : ViewModel() {
     private val persistenceMutex = Mutex()
     private val reservedInviteCodes = mutableSetOf<String>()
@@ -82,12 +93,14 @@ class TripViewModel(
     val selectedTripId = uiState.map { it.travelState.selectedTripId }
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
-    val availableParticipants = listOf(
+    private val localDemoParticipants = listOf(
         TravelParticipant(LOCAL_CURRENT_USER_ID, "나"),
         TravelParticipant("user-101", "여행곰", "character_pca"),
         TravelParticipant("user-102", "바다별", "character_sca"),
         TravelParticipant("user-103", "산책러", "character_snr"),
     )
+    val availableParticipants: List<TravelParticipant>
+        get() = if (travelGateway == null) localDemoParticipants else _uiState.value.travelState.participants
 
     init {
         loadState()
@@ -96,6 +109,10 @@ class TripViewModel(
     fun retry() = loadState()
 
     suspend fun publishInvite(trip: TripSummary): Result<Unit> {
+        if (travelGateway != null) {
+            return if (trip.inviteCode.isNotBlank()) Result.success(Unit)
+            else Result.failure(IllegalStateException("서버에서 초대 코드를 발급하지 못했어요"))
+        }
         val publisher = publishTripInvite
             ?: return Result.failure(IllegalStateException("여행 초대 서버를 사용할 수 없어요"))
         val state = _uiState.value.travelState
@@ -108,6 +125,10 @@ class TripViewModel(
     suspend fun publishInvite(tripId: String): Result<Unit> {
         val trip = _uiState.value.travelState.trips.find { it.id == tripId }
             ?: return Result.failure(IllegalArgumentException("여행을 찾을 수 없어요"))
+        if (travelGateway != null) {
+            return if (trip.inviteCode.isNotBlank()) Result.success(Unit)
+            else Result.failure(IllegalStateException("서버에서 초대 코드를 발급하지 못했어요"))
+        }
         val publisher = publishTripInvite
             ?: return Result.failure(IllegalStateException("여행 초대 서버를 사용할 수 없어요"))
         val state = _uiState.value.travelState
@@ -136,7 +157,32 @@ class TripViewModel(
         }
     }
 
-    fun addTrip(trip: TripSummary): Result<TripSummary> = allocateInviteCode().map { inviteCode ->
+    suspend fun addTrip(trip: TripSummary): Result<TripSummary> {
+        val gateway = travelGateway
+        if (gateway != null) {
+            return runCatching {
+                gateway.createTrip(
+                    CreateTripCommand(
+                        name = trip.name,
+                        startDate = trip.startDate,
+                        endDate = trip.endDate,
+                        cities = trip.cities,
+                    ),
+                ).copy(
+                    coverImageResList = trip.coverImageResList,
+                    isGroupTrip = trip.isGroupTrip,
+                )
+            }.mapCatching { created ->
+                persistRemoteMutation("여행을 만들었어요") { state ->
+                    state.copy(
+                        trips = listOf(created) + state.trips.filterNot { it.id == created.id },
+                        selectedTripId = created.id,
+                    )
+                }.getOrThrow()
+                created.toSummary()
+            }
+        }
+        return allocateInviteCode().map { inviteCode ->
         val savedTrip = trip.copy(inviteCode = inviteCode)
         mutate("여행을 만들었어요") { state ->
             val currentUser = state.localCurrentUser()
@@ -148,6 +194,7 @@ class TripViewModel(
             )
         }
         savedTrip
+        }
     }
 
     /** Keeps the device-local user selectable as payer and split participant for every trip. */
@@ -165,47 +212,104 @@ class TripViewModel(
         )
     }
 
-    fun updateTrip(trip: TripSummary) = mutate("여행 정보를 수정했어요") { state ->
-        state.copy(trips = state.trips.map { if (it.id == trip.id) trip.toDomain(it) else it })
+    suspend fun updateTrip(trip: TripSummary): Result<TripSummary> {
+        val gateway = travelGateway
+        if (gateway != null) {
+            val current = domainTripById(trip.id)
+                ?: return Result.failure(IllegalArgumentException("여행을 찾을 수 없어요"))
+            return runCatching {
+                gateway.updateTrip(
+                    trip.id,
+                    UpdateTripCommand(
+                        name = trip.name,
+                        startDate = trip.startDate,
+                        endDate = trip.endDate,
+                        cities = trip.cities,
+                        version = current.version,
+                    ),
+                ).copy(
+                    coverImageResList = trip.coverImageResList,
+                    isGroupTrip = trip.isGroupTrip,
+                    dateAvailability = current.dateAvailability,
+                )
+            }.mapCatching { updated ->
+                persistRemoteMutation("여행 정보를 수정했어요") { state ->
+                    state.copy(trips = state.trips.map { if (it.id == updated.id) updated else it })
+                }.getOrThrow()
+                updated.toSummary()
+            }
+        }
+        mutate("여행 정보를 수정했어요") { state ->
+            state.copy(trips = state.trips.map { if (it.id == trip.id) trip.toDomain(it) else it })
+        }
+        return Result.success(trip)
     }
 
-    fun deleteTrip(tripId: String) = mutate("여행을 삭제했어요") { state ->
-        state.copy(
-            trips = state.trips.filterNot { it.id == tripId },
-            invitations = state.invitations.filterNot { it.tripId == tripId },
-            schedules = state.schedules.filterNot { it.tripId == tripId },
-            expenses = state.expenses.filterNot { it.tripId == tripId },
-            sharedFundAmounts = state.sharedFundAmounts - tripId,
-            appliedRouteIds = state.appliedRouteIds.filterKeys { !it.startsWith("$tripId:") },
-            selectedTripId = state.selectedTripId.takeUnless { it == tripId },
-        )
+    fun deleteTrip(tripId: String) {
+        val remove: (TravelState) -> TravelState = { state ->
+            state.copy(
+                trips = state.trips.filterNot { it.id == tripId },
+                invitations = state.invitations.filterNot { it.tripId == tripId },
+                schedules = state.schedules.filterNot { it.tripId == tripId },
+                expenses = state.expenses.filterNot { it.tripId == tripId },
+                sharedFundAmounts = state.sharedFundAmounts - tripId,
+                appliedRouteIds = state.appliedRouteIds.filterKeys { !it.startsWith("$tripId:") },
+                selectedTripId = state.selectedTripId.takeUnless { it == tripId },
+            )
+        }
+        val gateway = travelGateway
+        if (gateway == null) {
+            mutate("여행을 삭제했어요", remove)
+        } else {
+            viewModelScope.launch(ioDispatcher) {
+                runCatching { gateway.deleteTrip(tripId) }.fold(
+                    onSuccess = { persistRemoteMutation("여행을 삭제했어요", remove) },
+                    onFailure = ::showTravelError,
+                )
+            }
+        }
     }
 
     fun selectTrip(tripId: String) = mutate(null) { state ->
         if (state.trips.none { it.id == tripId }) state else state.copy(selectedTripId = tripId)
     }
 
-    fun startTrip(tripId: String) = mutate("여행을 시작했어요") { state ->
-        state.updateTrip(tripId) { trip ->
-            if (trip.status == TripStatus.PLANNING) trip.copy(status = TripStatus.ONGOING) else trip
-        }
-    }
+    fun startTrip(tripId: String) = updateTripStatus(tripId, TripStatus.ONGOING, "여행을 시작했어요")
 
-    fun finishTrip(tripId: String) = mutate("여행을 종료했어요") { state ->
-        state.updateTrip(tripId) { trip ->
-            if (trip.status == TripStatus.ONGOING) trip.copy(status = TripStatus.COMPLETED) else trip
-        }
-    }
+    fun finishTrip(tripId: String) = updateTripStatus(tripId, TripStatus.COMPLETED, "여행을 종료했어요")
 
-    fun addParticipant(tripId: String, participantId: String) = mutate("참여자를 추가했어요") { state ->
-        val participant = availableParticipants.find { it.id == participantId } ?: return@mutate state
-        state.copy(
-            participants = (state.participants + participant).distinctBy(TravelParticipant::id),
-            trips = state.trips.map { trip ->
-                if (trip.id == tripId) trip.copy(participantIds = (trip.participantIds + participantId).distinct())
-                else trip
-            },
-        )
+    fun addParticipant(tripId: String, participantId: String) {
+        val gateway = travelGateway
+        if (gateway != null) {
+            viewModelScope.launch(ioDispatcher) {
+                runCatching { gateway.addParticipant(tripId, participantId) }.fold(
+                    onSuccess = { participant ->
+                        persistRemoteMutation("참여자를 추가했어요") { state ->
+                            state.copy(
+                                participants = (state.participants + participant).distinctBy(TravelParticipant::id),
+                                trips = state.trips.map { trip ->
+                                    if (trip.id == tripId) {
+                                        trip.copy(participantIds = (trip.participantIds + participant.id).distinct())
+                                    } else trip
+                                },
+                            )
+                        }
+                    },
+                    onFailure = ::showTravelError,
+                )
+            }
+            return
+        }
+        mutate("참여자를 추가했어요") { state ->
+            val participant = availableParticipants.find { it.id == participantId } ?: return@mutate state
+            state.copy(
+                participants = (state.participants + participant).distinctBy(TravelParticipant::id),
+                trips = state.trips.map { trip ->
+                    if (trip.id == tripId) trip.copy(participantIds = (trip.participantIds + participantId).distinct())
+                    else trip
+                },
+            )
+        }
     }
 
     fun removeParticipant(tripId: String, participantId: String) {
@@ -228,6 +332,31 @@ class TripViewModel(
                 _uiState.update { it.copy(message = "비용 내역에 포함된 참여자는 내보낼 수 없어요") }
             }
             else -> {
+                val gateway = travelGateway
+                if (gateway != null) {
+                    viewModelScope.launch(ioDispatcher) {
+                        runCatching { gateway.removeParticipant(tripId, participantId) }.fold(
+                            onSuccess = {
+                                persistRemoteMutation("참여자를 내보냈어요") { current ->
+                                    current.updateTrip(tripId) {
+                                        it.copy(
+                                            participantIds = it.participantIds - participantId,
+                                            dateAvailability = it.dateAvailability - participantId,
+                                        )
+                                    }.copy(
+                                        participants = current.participants.filterNot { participant ->
+                                            participant.id == participantId && current.trips.none { other ->
+                                                other.id != tripId && participant.id in other.participantIds
+                                            }
+                                        },
+                                    )
+                                }
+                            },
+                            onFailure = ::showTravelError,
+                        )
+                    }
+                    return
+                }
                 val remoteRemover = removeSharedTripParticipant
                 if (remoteRemover != null && trip.inviteCode.length == INVITE_CODE_LENGTH) {
                     viewModelScope.launch(ioDispatcher) {
@@ -263,6 +392,20 @@ class TripViewModel(
 
     fun submitDateAvailability(tripId: String, participantId: String, dates: List<String>) {
         val normalizedDates = dates.distinct().sorted()
+        val gateway = travelGateway
+        if (gateway != null) {
+            if (participantId != _uiState.value.travelState.currentUserId) {
+                showTravelError(IllegalArgumentException("다른 참여자의 가능 날짜는 대신 저장할 수 없어요"))
+                return
+            }
+            viewModelScope.launch(ioDispatcher) {
+                runCatching { gateway.submitDateAvailability(tripId, normalizedDates) }.fold(
+                    onSuccess = { applyDateCoordination(it, "가능한 날짜를 저장했어요") },
+                    onFailure = ::showTravelError,
+                )
+            }
+            return
+        }
         val trip = _uiState.value.travelState.trips.find { it.id == tripId }
         mutate("가능한 날짜를 저장했어요") { state ->
             state.updateTrip(tripId) { trip ->
@@ -277,6 +420,16 @@ class TripViewModel(
     }
 
     fun finalizeGroupTripDates(tripId: String, startDate: String, endDate: String) {
+        val gateway = travelGateway
+        if (gateway != null) {
+            viewModelScope.launch(ioDispatcher) {
+                runCatching { gateway.finalizeTripDates(tripId, startDate, endDate) }.fold(
+                    onSuccess = { applyDateCoordination(it, "여행 날짜를 확정했어요") },
+                    onFailure = ::showTravelError,
+                )
+            }
+            return
+        }
         val trip = _uiState.value.travelState.trips.find { it.id == tripId }
         mutate("여행 날짜를 확정했어요") { state ->
             state.updateTrip(tripId) { it.copy(startDate = startDate, endDate = endDate) }
@@ -289,6 +442,9 @@ class TripViewModel(
     }
 
     fun createInvitation(tripId: String, inviteeId: String): String {
+        if (travelGateway != null) {
+            return domainTripById(tripId)?.inviteCode.orEmpty()
+        }
         val invitation = TravelInvitation(
             id = UUID.randomUUID().toString(),
             tripId = tripId,
@@ -308,6 +464,26 @@ class TripViewModel(
     fun cancelInvitation(invitationId: String) = decideInvitation(invitationId, InvitationStatus.CANCELLED)
 
     fun joinByCode(code: String) {
+        val gateway = travelGateway
+        if (gateway != null) {
+            viewModelScope.launch(ioDispatcher) {
+                runCatching { gateway.joinTrip(code) }.fold(
+                    onSuccess = { membership ->
+                        persistRemoteMutation("${membership.trip.name} 여행에 참여했어요") { state ->
+                            state.copy(
+                                trips = state.trips.filterNot { it.id == membership.trip.id } + membership.trip,
+                                participants = (state.participants + membership.participant)
+                                    .distinctBy(TravelParticipant::id),
+                                selectedTripId = membership.trip.id,
+                            )
+                        }
+                        loadState()
+                    },
+                    onFailure = ::showTravelError,
+                )
+            }
+            return
+        }
         val invitation = _uiState.value.travelState.invitations.find {
             it.code.equals(code.trim(), ignoreCase = true) && it.status == InvitationStatus.PENDING
         }
@@ -318,9 +494,50 @@ class TripViewModel(
         }
     }
 
-    fun upsertSchedule(schedule: TravelSchedule) = mutate("일정을 저장했어요") { state ->
-        val current = state.schedules.filterNot { it.id == schedule.id }
-        state.copy(schedules = (current + schedule).normalizeOrders(schedule.tripId))
+    fun upsertSchedule(schedule: TravelSchedule) {
+        val gateway = travelGateway
+        if (gateway != null) {
+            viewModelScope.launch(ioDispatcher) {
+                val request = runCatching {
+                    if (schedule.id.toLongOrNull() == null) {
+                        gateway.createSchedule(schedule.tripId, schedule)
+                    } else {
+                        gateway.updateSchedule(
+                            schedule.tripId,
+                            schedule.id,
+                            SchedulePatch(
+                                title = schedule.title,
+                                date = schedule.date,
+                                time = schedule.time,
+                                endTime = schedule.endTime,
+                                clearEndTime = schedule.endTime == null,
+                                memo = schedule.memo,
+                                type = schedule.type,
+                                placeId = schedule.placeId,
+                                clearPlaceId = schedule.placeId == null,
+                                isVisited = schedule.isVisited,
+                            ),
+                        )
+                    }
+                }
+                request.fold(
+                    onSuccess = { saved ->
+                        persistRemoteMutation("일정을 저장했어요") { state ->
+                            val withoutDraft = state.schedules.filterNot {
+                                it.id == schedule.id || it.id == saved.id
+                            }
+                            state.copy(schedules = (withoutDraft + saved).normalizeOrders(saved.tripId))
+                        }
+                    },
+                    onFailure = ::showTravelError,
+                )
+            }
+            return
+        }
+        mutate("일정을 저장했어요") { state ->
+            val current = state.schedules.filterNot { it.id == schedule.id }
+            state.copy(schedules = (current + schedule).normalizeOrders(schedule.tripId))
+        }
     }
 
     fun addPlaceSchedule(tripId: String, placeId: String, title: String, time: String, memo: String) {
@@ -340,12 +557,31 @@ class TripViewModel(
         )
     }
 
-    fun deleteSchedule(scheduleId: String) = mutate("일정을 삭제했어요") { state ->
-        val tripId = state.schedules.find { it.id == scheduleId }?.tripId ?: return@mutate state
-        state.copy(
-            schedules = state.schedules.filterNot { it.id == scheduleId }.normalizeOrders(tripId),
-            expenses = state.expenses.filterNot { it.scheduleId == scheduleId },
-        )
+    fun deleteSchedule(scheduleId: String) {
+        val gateway = travelGateway
+        val tripId = _uiState.value.travelState.schedules.find { it.id == scheduleId }?.tripId ?: return
+        if (gateway == null) {
+            mutate("일정을 삭제했어요") { state ->
+                state.copy(
+                    schedules = state.schedules.filterNot { it.id == scheduleId }.normalizeOrders(tripId),
+                    expenses = state.expenses.filterNot { it.scheduleId == scheduleId },
+                )
+            }
+        } else {
+            viewModelScope.launch(ioDispatcher) {
+                runCatching { gateway.deleteSchedule(tripId, scheduleId) }.fold(
+                    onSuccess = {
+                        persistRemoteMutation("일정을 삭제했어요") { state ->
+                            state.copy(
+                                schedules = state.schedules.filterNot { it.id == scheduleId }.normalizeOrders(tripId),
+                                expenses = state.expenses.filterNot { it.scheduleId == scheduleId },
+                            )
+                        }
+                    },
+                    onFailure = ::showTravelError,
+                )
+            }
+        }
     }
 
     fun saveExpense(expense: TravelExpense) {
@@ -360,6 +596,7 @@ class TripViewModel(
         if (!_uiState.value.isSavingExpense) {
             _uiState.update { it.copy(isSavingExpense = true, expenseErrorMessage = null) }
         }
+        travelGateway?.let { gateway -> return persistRemoteExpense(gateway, expense) }
         val persistedResult = try {
             persistenceMutex.withLock {
                 val transform: (TravelState) -> TravelState = { state -> state.withValidatedExpense(expense) }
@@ -401,13 +638,46 @@ class TripViewModel(
         return persistedResult.map { Unit }
     }
 
-    fun deleteExpense(expenseId: String) = mutate("비용을 삭제했어요") { state ->
-        state.copy(expenses = state.expenses.filterNot { it.id == expenseId })
+    fun deleteExpense(expenseId: String) {
+        val gateway = travelGateway
+        if (gateway == null) {
+            mutate("비용을 삭제했어요") { state ->
+                state.copy(expenses = state.expenses.filterNot { it.id == expenseId })
+            }
+            return
+        }
+        val expense = expenseById(expenseId) ?: return
+        viewModelScope.launch(ioDispatcher) {
+            runCatching { gateway.deleteExpense(expense.tripId, expenseId) }.fold(
+                onSuccess = {
+                    persistRemoteMutation("비용을 삭제했어요") { state ->
+                        state.copy(expenses = state.expenses.filterNot { it.id == expenseId })
+                    }
+                },
+                onFailure = ::showTravelError,
+            )
+        }
     }
 
-    fun addSharedFund(tripId: String, amount: Long) = mutate("공동 경비를 설정했어요") { state ->
-        require(amount > 0L) { "공동 경비 금액을 입력해 주세요" }
-        state.copy(sharedFundAmounts = state.sharedFundAmounts + (tripId to amount))
+    fun addSharedFund(tripId: String, amount: Long) {
+        val gateway = travelGateway
+        if (gateway == null) {
+            mutate("공동 경비를 설정했어요") { state ->
+                require(amount > 0L) { "공동 경비 금액을 입력해 주세요" }
+                state.copy(sharedFundAmounts = state.sharedFundAmounts + (tripId to amount))
+            }
+            return
+        }
+        viewModelScope.launch(ioDispatcher) {
+            runCatching { gateway.contributeSharedFund(tripId, amount) }.fold(
+                onSuccess = { fund ->
+                    persistRemoteMutation("공동 경비를 충전했어요") { state ->
+                        state.copy(sharedFundAmounts = state.sharedFundAmounts + (tripId to fund.contributedAmount))
+                    }
+                },
+                onFailure = ::showTravelError,
+            )
+        }
     }
 
     fun sharedFundBalanceForTrip(tripId: String): Long {
@@ -431,27 +701,102 @@ class TripViewModel(
             _uiState.value.travelState.participantIdsForTrip(tripId),
         )
 
-    fun moveSchedule(scheduleId: String, direction: Int) = mutate(null) { state ->
-        val schedule = state.schedules.find { it.id == scheduleId } ?: return@mutate state
-        val tripSchedules = state.schedules.filter { it.tripId == schedule.tripId }.sortedBy { it.order }.toMutableList()
-        val from = tripSchedules.indexOfFirst { it.id == scheduleId }
-        val to = (from + direction).coerceIn(0, tripSchedules.lastIndex)
-        if (from == to) return@mutate state
-        val moved = tripSchedules.removeAt(from)
-        tripSchedules.add(to, moved)
-        val reordered = tripSchedules.mapIndexed { index, item -> item.copy(order = index) }
-        state.copy(schedules = state.schedules.filterNot { it.tripId == schedule.tripId } + reordered)
+    fun moveSchedule(scheduleId: String, direction: Int) {
+        val gateway = travelGateway
+        if (gateway == null) {
+            mutate(null) { current ->
+                val schedule = current.schedules.find { it.id == scheduleId } ?: return@mutate current
+                val tripSchedules = current.schedules.filter { it.tripId == schedule.tripId }
+                    .sortedBy { it.order }.toMutableList()
+                val from = tripSchedules.indexOfFirst { it.id == scheduleId }
+                val to = (from + direction).coerceIn(0, tripSchedules.lastIndex)
+                if (from == to) return@mutate current
+                val moved = tripSchedules.removeAt(from)
+                tripSchedules.add(to, moved)
+                val reordered = tripSchedules.mapIndexed { index, item -> item.copy(order = index) }
+                current.copy(schedules = current.schedules.filterNot { it.tripId == schedule.tripId } + reordered)
+            }
+        } else {
+            val state = _uiState.value.travelState
+            val schedule = state.schedules.find { it.id == scheduleId } ?: return
+            val tripSchedules = state.schedules.filter { it.tripId == schedule.tripId }
+                .sortedBy { it.order }.toMutableList()
+            val from = tripSchedules.indexOfFirst { it.id == scheduleId }
+            val to = (from + direction).coerceIn(0, tripSchedules.lastIndex)
+            if (from == to) return
+            val moved = tripSchedules.removeAt(from)
+            tripSchedules.add(to, moved)
+            val reordered = tripSchedules.mapIndexed { index, item -> item.copy(order = index) }
+            viewModelScope.launch(ioDispatcher) {
+                runCatching { gateway.reorderSchedules(schedule.tripId, reordered.map(TravelSchedule::id)) }.fold(
+                    onSuccess = { saved ->
+                        persistRemoteMutation(null) { current ->
+                            current.copy(schedules = current.schedules.filterNot { it.tripId == schedule.tripId } + saved)
+                        }
+                    },
+                    onFailure = ::showTravelError,
+                )
+            }
+        }
     }
 
-    fun toggleVisited(scheduleId: String) = mutate(null) { state ->
-        state.copy(schedules = state.schedules.map {
-            if (it.id == scheduleId) it.copy(isVisited = !it.isVisited) else it
-        })
+    fun toggleVisited(scheduleId: String) {
+        val gateway = travelGateway
+        if (gateway == null) {
+            mutate(null) { state ->
+                state.copy(schedules = state.schedules.map {
+                    if (it.id == scheduleId) it.copy(isVisited = !it.isVisited) else it
+                })
+            }
+        } else {
+            val schedule = _uiState.value.travelState.schedules.find { it.id == scheduleId } ?: return
+            viewModelScope.launch(ioDispatcher) {
+                runCatching {
+                    gateway.updateSchedule(
+                        schedule.tripId,
+                        schedule.id,
+                        SchedulePatch(isVisited = !schedule.isVisited),
+                    )
+                }.fold(
+                    onSuccess = { saved ->
+                        persistRemoteMutation(null) { state ->
+                            state.copy(schedules = state.schedules.map { if (it.id == saved.id) saved else it })
+                        }
+                    },
+                    onFailure = ::showTravelError,
+                )
+            }
+        }
     }
 
-    fun toggleFavorite(placeId: String) = mutate(null) { state ->
-        val favorites = state.favoritePlaceIds
-        state.copy(favoritePlaceIds = if (placeId in favorites) favorites - placeId else favorites + placeId)
+    fun toggleFavorite(placeId: String) {
+        val gateway = travelGateway
+        if (gateway == null) {
+            mutate(null) { state ->
+                val favorites = state.favoritePlaceIds
+                state.copy(favoritePlaceIds = if (placeId in favorites) favorites - placeId else favorites + placeId)
+            }
+            return
+        }
+        val shouldSave = placeId !in _uiState.value.travelState.favoritePlaceIds
+        viewModelScope.launch(ioDispatcher) {
+            runCatching {
+                if (shouldSave) gateway.saveFavoritePlace(placeId) else gateway.deleteFavoritePlace(placeId)
+            }.fold(
+                onSuccess = {
+                    persistRemoteMutation(null) { state ->
+                        state.copy(
+                            favoritePlaceIds = if (shouldSave) {
+                                state.favoritePlaceIds + placeId
+                            } else {
+                                state.favoritePlaceIds - placeId
+                            },
+                        )
+                    }
+                },
+                onFailure = ::showTravelError,
+            )
+        }
     }
 
     fun applyRoute(tripId: String, routeType: String, optionId: String) = mutate("추천 경로를 적용했어요") { state ->
@@ -509,21 +854,206 @@ class TripViewModel(
         }
     }
 
+    private suspend fun persistRemoteExpense(
+        gateway: TravelGateway,
+        expense: TravelExpense,
+    ): Result<Unit> {
+        val result = try {
+            val current = _uiState.value.travelState
+            current.withValidatedExpense(expense)
+            val saved = if (expense.id.toLongOrNull() != null && current.expenses.any { it.id == expense.id }) {
+                gateway.updateExpense(expense.tripId, expense)
+            } else {
+                gateway.createExpense(expense.tripId, expense)
+            }
+            persistRemoteMutation("비용을 저장했어요") { state ->
+                state.copy(expenses = state.expenses.filterNot { it.id == expense.id || it.id == saved.id } + saved)
+            }.getOrThrow()
+            Result.success(saved)
+        } catch (cancellation: kotlinx.coroutines.CancellationException) {
+            _uiState.update { it.copy(isSavingExpense = false) }
+            throw cancellation
+        } catch (error: Throwable) {
+            Result.failure(error)
+        }
+        result.fold(
+            onSuccess = { saved ->
+                _uiState.update {
+                    it.copy(
+                        isSavingExpense = false,
+                        savedExpenseId = saved.id,
+                        expenseErrorMessage = null,
+                    )
+                }
+            },
+            onFailure = { error ->
+                _uiState.update {
+                    it.copy(
+                        isSavingExpense = false,
+                        expenseErrorMessage = error.message ?: "비용 정보를 저장하지 못했어요",
+                    )
+                }
+            },
+        )
+        return result.map { Unit }
+    }
+
+    private fun updateTripStatus(tripId: String, status: TripStatus, message: String) {
+        val gateway = travelGateway
+        if (gateway == null) {
+            mutate(message) { state ->
+                state.updateTrip(tripId) { trip ->
+                    if (
+                        status == TripStatus.ONGOING && trip.status == TripStatus.PLANNING ||
+                        status == TripStatus.COMPLETED && trip.status == TripStatus.ONGOING
+                    ) trip.copy(status = status) else trip
+                }
+            }
+            return
+        }
+        val current = domainTripById(tripId) ?: return
+        if (current.status == status) return
+        viewModelScope.launch(ioDispatcher) {
+            runCatching { gateway.updateTripStatus(tripId, status) }.fold(
+                onSuccess = { updated ->
+                    persistRemoteMutation(message) { state ->
+                        state.copy(trips = state.trips.map { trip ->
+                            if (trip.id == updated.id) {
+                                updated.copy(
+                                    coverImageResList = trip.coverImageResList,
+                                    isGroupTrip = trip.isGroupTrip,
+                                    dateAvailability = trip.dateAvailability,
+                                )
+                            } else trip
+                        })
+                    }
+                },
+                onFailure = ::showTravelError,
+            )
+        }
+    }
+
+    private suspend fun applyDateCoordination(snapshot: DateCoordinationSnapshot, message: String) {
+        val availability = snapshot.participants
+            .filter { it.submitted }
+            .associate { it.participant.id to it.dates }
+        persistRemoteMutation(message) { state ->
+            state.copy(
+                trips = state.trips.map { trip ->
+                    if (trip.id == snapshot.tripId) {
+                        trip.copy(
+                            startDate = snapshot.startDate,
+                            endDate = snapshot.endDate,
+                            dateAvailability = availability,
+                            version = snapshot.tripVersion,
+                        )
+                    } else trip
+                },
+                participants = (state.participants + snapshot.participants.map { it.participant })
+                    .distinctBy(TravelParticipant::id),
+            )
+        }
+    }
+
+    private suspend fun persistRemoteMutation(
+        message: String?,
+        transform: (TravelState) -> TravelState,
+    ): Result<TravelState> = persistenceMutex.withLock {
+        val result = runCatching { transform(_uiState.value.travelState) }.fold(
+            onSuccess = { candidate -> saveTravelState(candidate).map { candidate } },
+            onFailure = { Result.failure(it) },
+        )
+        result.onSuccess { persisted ->
+            savedStateHandle[SELECTED_TRIP_ID_KEY] = persisted.selectedTripId
+            _uiState.update {
+                it.copy(travelState = persisted, message = message, errorMessage = null)
+            }
+        }.onFailure(::showTravelError)
+        result
+    }
+
+    private fun showTravelError(error: Throwable) {
+        _uiState.update { it.copy(errorMessage = error.message ?: "여행 정보를 동기화하지 못했어요") }
+    }
+
+    private suspend fun loadRemoteState(cached: TravelState): TravelState {
+        val gateway = requireNotNull(travelGateway)
+        val currentUserId = authRepository?.current()?.getOrThrow()?.id?.toString()
+            ?: throw IllegalStateException("로그인 사용자 정보를 확인할 수 없어요")
+        val trips = buildList {
+            var offset = 0
+            do {
+                val page = gateway.listTrips(limit = REMOTE_PAGE_SIZE, offset = offset)
+                addAll(page)
+                offset += page.size
+            } while (page.size == REMOTE_PAGE_SIZE)
+        }
+        val bundles = coroutineScope {
+            trips.map { remoteTrip ->
+                async {
+                    val participants = gateway.listParticipants(remoteTrip.id)
+                    val coordination = runCatching { gateway.getDateCoordination(remoteTrip.id) }.getOrNull()
+                    val cachedTrip = cached.trips.find { it.id == remoteTrip.id }
+                    val trip = remoteTrip.copy(
+                        coverImageResList = cachedTrip?.coverImageResList
+                            ?: cityCoverImageResources(remoteTrip.cities),
+                        isGroupTrip = cachedTrip?.isGroupTrip ?: (participants.size > 1),
+                        dateAvailability = coordination?.participants
+                            ?.filter { it.submitted }
+                            ?.associate { it.participant.id to it.dates }
+                            .orEmpty(),
+                        version = coordination?.tripVersion ?: remoteTrip.version,
+                    )
+                    RemoteTripBundle(
+                        trip = trip,
+                        participants = participants,
+                        invitations = runCatching { gateway.listInvitations(remoteTrip.id, limit = 100) }
+                            .getOrDefault(emptyList()),
+                        schedules = gateway.listSchedules(remoteTrip.id),
+                        expenses = gateway.listExpenses(remoteTrip.id),
+                        contributedAmount = runCatching { gateway.getSharedFund(remoteTrip.id).contributedAmount }
+                            .getOrDefault(0L),
+                    )
+                }
+            }.awaitAll()
+        }
+        val tripIds = bundles.map { it.trip.id }.toSet()
+        return TravelState(
+            trips = bundles.map { it.trip },
+            participants = bundles.flatMap { it.participants }.distinctBy(TravelParticipant::id),
+            invitations = bundles.flatMap { it.invitations },
+            schedules = bundles.flatMap { it.schedules },
+            favoritePlaceIds = gateway.listFavoritePlaceIds(),
+            appliedRouteIds = cached.appliedRouteIds.filterKeys { key -> tripIds.any { key.startsWith("$it:") } },
+            selectedTripId = cached.selectedTripId?.takeIf { it in tripIds },
+            expenses = bundles.flatMap { it.expenses },
+            sharedFundAmounts = bundles.associate { it.trip.id to it.contributedAmount },
+            currentUserId = currentUserId,
+        )
+    }
+
     private fun loadState() {
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
         viewModelScope.launch(ioDispatcher) {
             getTravelState().fold(
                 onSuccess = { state ->
-                    val restored = if (state.trips.isEmpty() && legacyTrips.isNotEmpty()) {
-                        state.copy(trips = legacyTrips.map(TripSummary::toDomain))
-                    } else state
+                    val restoredResult = if (travelGateway == null) {
+                        Result.success(
+                            if (state.trips.isEmpty() && legacyTrips.isNotEmpty()) {
+                                state.copy(trips = legacyTrips.map(TripSummary::toDomain))
+                            } else state,
+                        )
+                    } else {
+                        runCatching { loadRemoteState(state) }
+                    }
+                    restoredResult.fold(onSuccess = { restored ->
                     savedStateHandle[SELECTED_TRIP_ID_KEY] = restored.selectedTripId
                     _uiState.value = TravelUiState(
                         travelState = restored,
                         isLoading = false,
                         hasLoadedTravelState = true,
                     )
-                    publishTripInvite?.let { publisher ->
+                    if (travelGateway == null) publishTripInvite?.let { publisher ->
                         val owner = restored.localCurrentUser()
                         restored.trips.filter {
                             it.inviteCode.length == INVITE_CODE_LENGTH &&
@@ -534,6 +1064,15 @@ class TripViewModel(
                     }
                     restartInviteObservers(restored)
                     if (restored !== state) persistLatest()
+                    }, onFailure = { error ->
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                hasLoadedTravelState = false,
+                                errorMessage = error.message ?: "여행 정보를 불러오지 못했어요",
+                            )
+                        }
+                    })
                 },
                 onFailure = { error ->
                     _uiState.update {
@@ -580,6 +1119,7 @@ class TripViewModel(
     private fun restartInviteObservers(state: TravelState) {
         inviteObserverJobs.values.forEach(Job::cancel)
         inviteObserverJobs.clear()
+        if (travelGateway != null) return
         state.trips.map(TravelTrip::inviteCode).filter { it.length == INVITE_CODE_LENGTH }.forEach(::observeInvite)
     }
 
@@ -624,6 +1164,15 @@ class TripViewModel(
     private fun showInviteError(error: Throwable) {
         _uiState.update { it.copy(errorMessage = error.message ?: "여행 초대 동기화에 실패했어요") }
     }
+
+    private data class RemoteTripBundle(
+        val trip: TravelTrip,
+        val participants: List<TravelParticipant>,
+        val invitations: List<TravelInvitation>,
+        val schedules: List<TravelSchedule>,
+        val expenses: List<TravelExpense>,
+        val contributedAmount: Long,
+    )
 
     private fun allocateInviteCode(): Result<String> = synchronized(reservedInviteCodes) {
         _uiState.value.travelState.trips.mapTo(reservedInviteCodes) { it.inviteCode }
@@ -684,6 +1233,7 @@ class TripViewModel(
     companion object {
         private const val SELECTED_TRIP_ID_KEY = "selected_trip_id"
         private const val LEGACY_TRIPS_KEY = "saved_trips"
+        private const val REMOTE_PAGE_SIZE = 100
 
         fun factory(
             getTravelState: GetTravelStateUseCase,
@@ -694,6 +1244,8 @@ class TripViewModel(
             removeSharedTripParticipant: RemoveSharedTripParticipantUseCase? = null,
             submitSharedTripAvailability: SubmitSharedTripAvailabilityUseCase? = null,
             finalizeSharedTripDates: FinalizeSharedTripDatesUseCase? = null,
+            travelGateway: TravelGateway? = null,
+            authRepository: AuthRepository? = null,
         ) = viewModelFactory {
             initializer {
                 TripViewModel(
@@ -706,6 +1258,8 @@ class TripViewModel(
                     removeSharedTripParticipant = removeSharedTripParticipant,
                     submitSharedTripAvailability = submitSharedTripAvailability,
                     finalizeSharedTripDates = finalizeSharedTripDates,
+                    travelGateway = travelGateway,
+                    authRepository = authRepository,
                 )
             }
         }
@@ -776,6 +1330,7 @@ private fun TripSummary.toDomain(existing: TravelTrip? = null) = TravelTrip(
     isGroupTrip = existing?.isGroupTrip ?: isGroupTrip,
     dateAvailability = existing?.dateAvailability ?: dateAvailability,
     ownerId = existing?.ownerId?.ifBlank { ownerId } ?: ownerId,
+    version = existing?.version ?: 0,
 )
 
 private const val INVITE_CODE_LENGTH = 6

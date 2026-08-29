@@ -58,15 +58,26 @@ internal fun NavGraphBuilder.myPageGraph(context: AppNavigationContext) = with(c
             onOpenPrivacyPolicy = {
                 navController.navigate(Routes.legalDocument(LegalDocumentType.PRIVACY_POLICY.documentId))
             },
-            onLogout = returnToLogin,
+            onLogout = {
+                appScope.launch(Dispatchers.IO) {
+                    appContainer.authRepository.logout().fold(
+                        onSuccess = {
+                            tripViewModel.clearAllTravelData()
+                            withContext(Dispatchers.Main) { returnToLogin() }
+                        },
+                        onFailure = { error ->
+                            sharedProfileViewModel.showError(error.message ?: "로그아웃하지 못했어요")
+                        },
+                    )
+                }
+            },
             onDeleteAccount = {
                 appScope.launch(Dispatchers.IO) {
-                    appContainer.clearUserProfileUseCase().fold(
+                    appContainer.authRepository.withdraw().fold(
                         onSuccess = {
                             tripViewModel.clearAllTravelData().fold(
                                 onSuccess = {
                                     withContext(Dispatchers.Main) {
-                                        sharedProfileViewModel.reload()
                                         returnToLogin()
                                     }
                                 },
@@ -78,7 +89,7 @@ internal fun NavGraphBuilder.myPageGraph(context: AppNavigationContext) = with(c
                             )
                         },
                         onFailure = { error ->
-                            sharedProfileViewModel.showError(error.message ?: "프로필을 삭제하지 못했어요")
+                            sharedProfileViewModel.showError(error.message ?: "계정을 삭제하지 못했어요")
                         },
                     )
                 }

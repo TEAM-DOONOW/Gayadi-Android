@@ -13,7 +13,8 @@ import com.gayadi.android.feature.survey.presentation.SurveyViewModel
 import com.gayadi.android.feature.surveyresult.presentation.SurveyResultRoute
 import com.gayadi.android.feature.surveyresult.presentation.SurveyResultViewModel
 import com.gayadi.android.ui.components.GayadiLoadingScreen
-import com.gayadi.android.ui.screens.LoginScreen
+import com.gayadi.android.ui.screens.AuthRoute
+import com.gayadi.android.ui.screens.AuthViewModel
 
 internal fun NavGraphBuilder.onboardingGraph(context: AppNavigationContext) = with(context) {
     composable(Routes.STARTUP) {
@@ -27,8 +28,24 @@ internal fun NavGraphBuilder.onboardingGraph(context: AppNavigationContext) = wi
         }
     }
     composable(Routes.LOGIN) {
-        LoginScreen(
-            onStart = { navController.navigate(Routes.BASIC_INFO) },
+        val authViewModel: AuthViewModel = viewModel(
+            factory = AuthViewModel.factory(appContainer.authRepository),
+        )
+        AuthRoute(
+            viewModel = authViewModel,
+            onAuthenticated = { completion ->
+                sharedProfileViewModel.reload()
+                tripViewModel.retry()
+                val destination = when {
+                    completion.isNewAccount -> Routes.BASIC_INFO
+                    completion.session.user.introduction.isNullOrBlank() -> Routes.BASIC_INFO
+                    completion.session.user.characterKey.isNullOrBlank() -> Routes.SURVEY
+                    else -> Routes.MY_TRIP
+                }
+                navController.navigate(destination) {
+                    popUpTo(Routes.LOGIN) { inclusive = true }
+                }
+            },
         )
     }
     composable(Routes.BASIC_INFO) {
@@ -45,6 +62,7 @@ internal fun NavGraphBuilder.onboardingGraph(context: AppNavigationContext) = wi
             factory = SurveyViewModel.factory(
                 appContainer.getSurveyUseCase,
                 appContainer.calculateSurveyResultUseCase,
+                appContainer.submitSurveyAnswersUseCase,
             ),
         )
         SurveyRoute(

@@ -29,6 +29,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -88,6 +89,12 @@ fun SurveyRoute(
     onComplete: (String) -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    LaunchedEffect(uiState.completedResultCode) {
+        uiState.completedResultCode?.let { resultCode ->
+            viewModel.consumeCompletedResult()
+            onComplete(resultCode)
+        }
+    }
     SurveyScreen(
         uiState = uiState,
         onStart = { viewModel.onEvent(SurveyUiEvent.Start) },
@@ -233,7 +240,7 @@ internal fun SurveyScreen(
         }
         Button(
             onClick = onNext,
-            enabled = uiState.selectedOption != null,
+            enabled = uiState.selectedOption != null && !uiState.isSubmitting,
             modifier = Modifier.fillMaxWidth().height(55.dp),
             shape = RoundedCornerShape(0.dp),
             colors = ButtonDefaults.buttonColors(
@@ -245,7 +252,11 @@ internal fun SurveyScreen(
             elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
         ) {
             Text(
-                text = if (uiState.isLastQuestion) "결과 보기" else "다음",
+                text = when {
+                    uiState.isSubmitting -> "결과 계산 중..."
+                    uiState.isLastQuestion -> "결과 보기"
+                    else -> "다음"
+                },
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
             )

@@ -12,13 +12,18 @@ class StartupDestinationTest {
     }
 
     @Test
-    fun nicknameOnlyProfileResumesSurvey() {
-        assertEquals(Routes.SURVEY, resolveStartupDestination(UserProfile("미르", "")))
+    fun profileWithoutIntroductionResumesBasicInfo() {
+        assertEquals(Routes.BASIC_INFO, resolveStartupDestination(UserProfile("미르", "")))
+    }
+
+    @Test
+    fun basicProfileResumesSurvey() {
+        assertEquals(Routes.SURVEY, resolveStartupDestination(UserProfile("미르", "여행 좋아요")))
     }
 
     @Test
     fun completedProfileSkipsOnboarding() {
-        val profile = UserProfile("미르", "", characterKey = "character_pca")
+        val profile = UserProfile("미르", "여행 좋아요", characterKey = "character_pca")
 
         assertEquals(Routes.MY_TRIP, resolveStartupDestination(profile))
     }

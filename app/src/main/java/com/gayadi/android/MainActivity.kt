@@ -21,10 +21,9 @@ import java.io.File
 class MainActivity : ComponentActivity() {
     private val appContainer by lazy {
         AppContainer(
-            profileFile = File(filesDir, "user-profile.xml"),
             travelFile = File(filesDir, "travel-state.json"),
-            tourApiBaseUrl = BuildConfig.TOUR_API_BASE_URL,
-            appVersion = BuildConfig.VERSION_NAME,
+            tokenFile = File(filesDir, "auth-token"),
+            apiBaseUrl = BuildConfig.API_BASE_URL,
         )
     }
 

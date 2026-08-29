@@ -13,6 +13,8 @@ data class SurveyUiState(
     val currentIndex: Int = 0,
     val selectedOption: Int? = null,
     val answers: Map<String, String> = emptyMap(),
+    val isSubmitting: Boolean = false,
+    val completedResultCode: String? = null,
 ) {
     /** Ordered questions from the loaded survey definition. */
     val questions: List<SurveyQuestion>

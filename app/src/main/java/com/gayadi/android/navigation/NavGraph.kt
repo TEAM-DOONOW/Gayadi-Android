@@ -34,6 +34,8 @@ fun GayadiNavHost(appContainer: AppContainer) {
             appContainer.removeSharedTripParticipantUseCase,
             appContainer.submitSharedTripAvailabilityUseCase,
             appContainer.finalizeSharedTripDatesUseCase,
+            appContainer.travelGateway,
+            appContainer.authRepository,
         ),
     )
     val placeViewModel: PlaceViewModel = viewModel(
@@ -90,6 +92,7 @@ fun GayadiNavHost(appContainer: AppContainer) {
 
 internal fun resolveStartupDestination(profile: UserProfile?): String = when {
     profile?.nickname.isNullOrBlank() -> Routes.LOGIN
+    profile?.introduction.isNullOrBlank() -> Routes.BASIC_INFO
     profile?.characterKey.isNullOrBlank() -> Routes.SURVEY
     else -> Routes.MY_TRIP
 }

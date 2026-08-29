@@ -120,7 +120,7 @@ internal fun cityCoverImageResources(cities: List<String>): List<Int> =
 @Composable
 fun TripCreateScreen(
     onBack: () -> Unit,
-    onCreate: (TripSummary) -> Result<TripSummary>,
+    onCreate: suspend (TripSummary) -> Result<TripSummary>,
     onPublishInvite: suspend (TripSummary) -> Result<Unit> = { Result.success(Unit) },
     onStartTrip: (TripSummary) -> Unit = {},
     onCoordinateDates: (TripSummary) -> Unit = {},
@@ -163,10 +163,10 @@ fun TripCreateScreen(
             onCreate = {
                 viewModel.beginSubmission()
                 val trip = viewModel.createDraft()
-                onCreate(trip).fold(
-                    onSuccess = { savedTrip ->
-                        if (!uiState.isEditing) {
-                            coroutineScope.launch {
+                coroutineScope.launch {
+                    onCreate(trip).fold(
+                        onSuccess = { savedTrip ->
+                            if (!uiState.isEditing) {
                                 onPublishInvite(savedTrip).fold(
                                     onSuccess = { viewModel.complete(savedTrip) },
                                     onFailure = { error ->
@@ -175,13 +175,13 @@ fun TripCreateScreen(
                                         )
                                     },
                                 )
+                            } else {
+                                viewModel.finishEditing()
                             }
-                        } else {
-                            viewModel.finishEditing()
-                        }
-                    },
-                    onFailure = { viewModel.submissionFailed(it.message ?: "여행을 만들지 못했어요") },
-                )
+                        },
+                        onFailure = { viewModel.submissionFailed(it.message ?: "여행을 만들지 못했어요") },
+                    )
+                }
             },
         )
         TripCreateStep.COMPLETE -> uiState.createdTrip?.let { trip ->
@@ -381,7 +381,7 @@ fun TripCreationCompleteScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Text(
-                            text = if (trip.isGroupTrip) "날짜 조율 전" else "D-$daysUntilTrip",
+                            text = if (trip.isGroupTrip) "날짜 조율 가능" else "D-$daysUntilTrip",
                             modifier = Modifier
                                 .background(Color(0xFFFFDDD4))
                                 .padding(horizontal = 8.dp, vertical = 2.dp),
@@ -400,11 +400,7 @@ fun TripCreationCompleteScreen(
                         )
                         Spacer(Modifier.height(5.dp))
                         Text(
-                            text = if (trip.isGroupTrip) {
-                                "친구들과 가능한 날짜를 정해보세요"
-                            } else {
-                                "${trip.startDate} - ${trip.endDate}"
-                            },
+                            text = "${trip.startDate} - ${trip.endDate}",
                             modifier = Modifier.fillMaxWidth(),
                             fontFamily = PretendardFontFamily,
                             fontSize = 14.sp,
@@ -627,7 +623,7 @@ private fun TripDetailsStep(
     isSubmitting: Boolean,
     onCreate: () -> Unit,
 ) {
-    val canCreate = name.isNotBlank() && (isGroupTrip || startDate != null && endDate != null)
+    val canCreate = name.isNotBlank() && startDate != null && endDate != null
     Column(
         modifier = Modifier.fillMaxSize().background(Color(0xFFFAFAFB)).padding(horizontal = 20.dp),
     ) {
@@ -650,30 +646,33 @@ private fun TripDetailsStep(
         if (isGroupTrip) {
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                "여행방을 만든 뒤 친구들과 가능한 날짜를 조율해요.",
+                "먼저 희망 기간을 정한 뒤 친구들과 가능한 날짜를 다시 조율해요.",
                 fontFamily = PretendardFontFamily,
                 fontSize = 13.sp,
                 color = Color(0xFF9295A5),
             )
-        } else {
-            Spacer(modifier = Modifier.height(22.dp))
-            Text("여행 기간", fontFamily = PretendardSemiBoldFontFamily, fontSize = 14.sp)
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                DateField(
-                    startDate?.format(tripCreateDateFormatter).orEmpty(),
-                    "시작일",
-                    onSelectStart,
-                    Modifier.weight(1f),
-                )
-                Text("~", Modifier.padding(horizontal = 10.dp), fontFamily = PretendardSemiBoldFontFamily)
-                DateField(
-                    endDate?.format(tripCreateDateFormatter).orEmpty(),
-                    "종료일",
-                    onSelectEnd,
-                    Modifier.weight(1f),
-                )
-            }
+        }
+        Spacer(modifier = Modifier.height(22.dp))
+        Text(
+            if (isGroupTrip) "희망 여행 기간" else "여행 기간",
+            fontFamily = PretendardSemiBoldFontFamily,
+            fontSize = 14.sp,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            DateField(
+                startDate?.format(tripCreateDateFormatter).orEmpty(),
+                "시작일",
+                onSelectStart,
+                Modifier.weight(1f),
+            )
+            Text("~", Modifier.padding(horizontal = 10.dp), fontFamily = PretendardSemiBoldFontFamily)
+            DateField(
+                endDate?.format(tripCreateDateFormatter).orEmpty(),
+                "종료일",
+                onSelectEnd,
+                Modifier.weight(1f),
+            )
         }
         Spacer(modifier = Modifier.weight(1f))
         errorMessage?.let {

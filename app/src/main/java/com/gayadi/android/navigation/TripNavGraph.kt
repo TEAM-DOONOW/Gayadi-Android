@@ -176,9 +176,7 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
             initialTrip = tripViewModel.tripById(tripId),
             onBack = { navController.popBackStack() },
             onCreate = { trip ->
-                tripViewModel.updateTrip(trip)
-                navController.popBackStack()
-                Result.success(trip)
+                tripViewModel.updateTrip(trip).onSuccess { navController.popBackStack() }
             },
         )
     }
@@ -198,6 +196,7 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
             onBack = { navController.popBackStack() },
             onRemove = { tripViewModel.removeParticipant(tripId, it) },
             onPublishInvite = { tripViewModel.publishInvite(tripId) },
+            onCoordinateDates = { navController.navigate(Routes.groupDateCoordination(tripId)) },
         )
     }
     composable(

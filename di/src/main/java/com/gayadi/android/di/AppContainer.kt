@@ -1,19 +1,24 @@
 package com.gayadi.android.di
 
-import com.gayadi.android.data.repository.InMemoryProfileRepository
 import com.gayadi.android.data.repository.FileTravelRepository
 import com.gayadi.android.data.repository.DefaultTourRepository
-import com.gayadi.android.data.datasource.HttpTourApiDataSource
-import com.gayadi.android.data.datasource.FileProfileLocalDataSource
-import com.gayadi.android.data.datasource.FirestoreSurveyDataSource
+import com.gayadi.android.data.datasource.ServerPlaceApiDataSource
+import com.gayadi.android.data.datasource.RemoteSurveyDataSource
 import com.gayadi.android.data.repository.DefaultSurveyRepository
 import com.gayadi.android.data.repository.DefaultLegalDocumentRepository
 import com.gayadi.android.data.repository.DefaultInquiryRepository
 import com.gayadi.android.data.repository.DefaultNoticeRepository
 import com.gayadi.android.data.repository.FirestoreTripInviteRepository
-import com.gayadi.android.data.datasource.FirestoreInquiryDataSource
-import com.gayadi.android.data.datasource.FirestoreLegalDocumentDataSource
-import com.gayadi.android.data.datasource.FirestoreNoticeDataSource
+import com.gayadi.android.data.datasource.RemoteInquiryDataSource
+import com.gayadi.android.data.datasource.RemoteLegalDocumentDataSource
+import com.gayadi.android.data.datasource.RemoteNoticeDataSource
+import com.gayadi.android.data.remote.FileTokenStore
+import com.gayadi.android.data.remote.GayadiHttpClient
+import com.gayadi.android.data.remote.travel.ServerTravelGateway
+import com.gayadi.android.data.repository.RemoteAuthRepository
+import com.gayadi.android.data.repository.RemoteProfileRepository
+import com.gayadi.android.domain.repository.AuthRepository
+import com.gayadi.android.domain.repository.TravelGateway
 import com.gayadi.android.domain.repository.ProfileRepository
 import com.gayadi.android.domain.repository.SurveyRepository
 import com.gayadi.android.domain.usecase.CalculateSurveyResultUseCase
@@ -36,6 +41,7 @@ import com.gayadi.android.domain.usecase.SubmitSharedTripAvailabilityUseCase
 import com.gayadi.android.domain.usecase.FinalizeSharedTripDatesUseCase
 import com.gayadi.android.domain.usecase.SaveTravelStateUseCase
 import com.gayadi.android.domain.usecase.SubmitInquiryUseCase
+import com.gayadi.android.domain.usecase.SubmitSurveyAnswersUseCase
 import com.gayadi.android.domain.usecase.UpdateTravelStateUseCase
 import com.gayadi.android.domain.usecase.GetTourPlacesUseCase
 import com.google.firebase.firestore.FirebaseFirestore
@@ -44,25 +50,28 @@ import java.util.UUID
 
 /** Application composition root that wires data implementations to domain use cases. */
 class AppContainer(
-    profileFile: File,
     travelFile: File,
-    tourApiBaseUrl: String,
-    appVersion: String = DEFAULT_APP_VERSION,
+    tokenFile: File,
+    apiBaseUrl: String,
 ) {
     private val firestore = FirebaseFirestore.getInstance()
+    private val tokenStore = FileTokenStore(tokenFile)
+    private val httpClient = GayadiHttpClient(apiBaseUrl, tokenStore)
+    val authRepository: AuthRepository = RemoteAuthRepository(httpClient, tokenStore)
     private val profileRepository: ProfileRepository =
-        InMemoryProfileRepository(FileProfileLocalDataSource(profileFile))
+        RemoteProfileRepository(httpClient, tokenStore)
+    private val remoteSurveyDataSource = RemoteSurveyDataSource(httpClient)
     private val surveyRepository: SurveyRepository =
-        DefaultSurveyRepository(FirestoreSurveyDataSource(firestore))
+        DefaultSurveyRepository(remoteSurveyDataSource)
     private val legalDocumentRepository =
-        DefaultLegalDocumentRepository(FirestoreLegalDocumentDataSource(firestore))
-    private val noticeRepository = DefaultNoticeRepository(FirestoreNoticeDataSource(firestore))
+        DefaultLegalDocumentRepository(RemoteLegalDocumentDataSource(httpClient))
+    private val noticeRepository = DefaultNoticeRepository(RemoteNoticeDataSource(httpClient))
     private val travelRepository = FileTravelRepository(travelFile)
-    private val tourRepository = DefaultTourRepository(HttpTourApiDataSource(tourApiBaseUrl))
+    val travelGateway: TravelGateway = ServerTravelGateway(httpClient)
+    private val tourRepository = DefaultTourRepository(ServerPlaceApiDataSource(httpClient))
     private val installationId = loadInstallationId(File(travelFile.parentFile, "installation-id"))
     private val tripInviteRepository = FirestoreTripInviteRepository(firestore, installationId)
-    private val inquiryRepository =
-        DefaultInquiryRepository(FirestoreInquiryDataSource(firestore, installationId, appVersion))
+    private val inquiryRepository = DefaultInquiryRepository(RemoteInquiryDataSource(httpClient))
 
     /** Use case used to persist onboarding profile input. */
     val saveBasicInfoUseCase = SaveBasicInfoUseCase(profileRepository)
@@ -89,7 +98,10 @@ class AppContainer(
     val updateTravelStateUseCase = UpdateTravelStateUseCase(travelRepository)
 
     /** Resolves a persisted trip invite code and joins the local user to that trip. */
-    val joinTripByInviteCodeUseCase = JoinTripByInviteCodeUseCase(travelRepository, tripInviteRepository)
+    val joinTripByInviteCodeUseCase = JoinTripByInviteCodeUseCase(
+        repository = travelRepository,
+        travelGateway = travelGateway,
+    )
 
     /** Publishes one local trip so another installation can resolve and join its invite code. */
     val publishTripInviteUseCase = PublishTripInviteUseCase(tripInviteRepository)
@@ -108,6 +120,9 @@ class AppContainer(
     /** Use case used to retrieve one result card from Firestore. */
     val getSurveyResultUseCase = GetSurveyResultUseCase(surveyRepository)
 
+    /** Submits answer option IDs and uses the server as the authoritative scorer. */
+    val submitSurveyAnswersUseCase = SubmitSurveyAnswersUseCase(surveyRepository)
+
     /** Loads the published terms or privacy policy from Firestore. */
     val getLegalDocumentUseCase = GetLegalDocumentUseCase(legalDocumentRepository)
 
@@ -124,8 +139,6 @@ class AppContainer(
     val getTourPlacesUseCase = GetTourPlacesUseCase(tourRepository)
 
     private companion object {
-        const val DEFAULT_APP_VERSION = "1.0.0"
-
         fun loadInstallationId(file: File): String {
             val existing = file.takeIf(File::exists)?.readText()?.trim().orEmpty()
             if (existing.isNotBlank()) return existing

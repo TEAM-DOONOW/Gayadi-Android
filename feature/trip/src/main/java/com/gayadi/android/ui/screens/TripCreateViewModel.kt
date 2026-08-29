@@ -59,13 +59,15 @@ class TripCreateViewModel(
         state.copy(
             selectedCities = if (city in state.selectedCities) {
                 state.selectedCities - city
+            } else if (state.selectedCities.size >= MAX_CITY_COUNT) {
+                state.selectedCities
             } else {
                 state.selectedCities + city
             },
         )
     }
 
-    fun updateName(name: String) = update { it.copy(name = name, errorMessage = null) }
+    fun updateName(name: String) = update { it.copy(name = name.take(MAX_TRIP_NAME_LENGTH), errorMessage = null) }
 
     fun openDatePicker(field: TripDateField) = update { it.copy(selectingDateField = field) }
 
@@ -75,14 +77,17 @@ class TripCreateViewModel(
         when (field) {
             TripDateField.START -> state.copy(
                 startDate = date,
-                endDate = state.endDate?.takeUnless { it.isBefore(date) },
+                endDate = state.endDate?.takeUnless { it.isBefore(date) || it.isAfter(date.plusDays(30)) },
                 selectingDateField = null,
                 errorMessage = null,
             )
-            TripDateField.END -> if (state.startDate == null || !date.isBefore(state.startDate)) {
+            TripDateField.END -> if (
+                state.startDate == null ||
+                !date.isBefore(state.startDate) && !date.isAfter(state.startDate.plusDays(30))
+            ) {
                 state.copy(endDate = date, selectingDateField = null, errorMessage = null)
             } else {
-                state.copy(selectingDateField = null)
+                state.copy(selectingDateField = null, errorMessage = "여행 기간은 31일까지 설정할 수 있어요")
             }
         }
     }
@@ -211,6 +216,8 @@ class TripCreateViewModel(
         private const val CREATED_TRIP_IMAGES_KEY = "trip_create_created_images"
         private const val CREATED_TRIP_INVITE_KEY = "trip_create_created_invite"
         private const val CREATED_TRIP_GROUP_KEY = "trip_create_created_group"
+        private const val MAX_CITY_COUNT = 10
+        private const val MAX_TRIP_NAME_LENGTH = 100
     }
 }
 

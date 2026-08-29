@@ -36,7 +36,7 @@ class SurveyViewModelTest {
 
         assertTrue(viewModel.uiState.value.hasStarted)
         assertEquals(1, viewModel.uiState.value.selectedOption)
-        assertEquals("S", viewModel.uiState.value.answers["q01"])
+        assertEquals("b", viewModel.uiState.value.answers["q01"])
     }
 
     @Test

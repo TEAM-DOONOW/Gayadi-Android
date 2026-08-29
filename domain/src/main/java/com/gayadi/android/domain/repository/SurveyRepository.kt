@@ -10,4 +10,12 @@ interface SurveyRepository {
 
     /** Loads one result definition by code. */
     fun loadResult(code: String, callback: (Result<SurveyResult>) -> Unit)
+
+    /** Submits question-to-option identifiers and returns the server-scored result. */
+    fun submitAnswers(
+        answers: Map<String, String>,
+        callback: (Result<SurveyResult>) -> Unit,
+    ) {
+        callback(Result.failure(UnsupportedOperationException("설문 제출을 지원하지 않습니다.")))
+    }
 }
