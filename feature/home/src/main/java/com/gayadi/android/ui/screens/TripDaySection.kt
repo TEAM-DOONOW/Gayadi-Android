@@ -66,7 +66,7 @@ internal fun TripDaySection(
         onClick = onAddPlace,
         modifier = Modifier
             .fillMaxWidth()
-            .height(48.dp),
+            .height(34.dp),
         shape = RoundedCornerShape(0.dp),
         border = BorderStroke(1.dp, PrimaryAction),
         colors = ButtonDefaults.outlinedButtonColors(
@@ -74,7 +74,7 @@ internal fun TripDaySection(
             contentColor = PrimaryAction,
         ),
     ) {
-        Text("장소 추가", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+        Text("장소 추가", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 

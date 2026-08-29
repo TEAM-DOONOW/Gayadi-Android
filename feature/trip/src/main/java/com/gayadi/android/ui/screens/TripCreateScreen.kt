@@ -40,7 +40,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -357,7 +356,7 @@ fun TripCreationCompleteScreen(
                 text = "새로운 여행이 만들어졌어요!",
                 modifier = Modifier.fillMaxWidth(),
                 fontFamily = PretendardSemiBoldFontFamily,
-                fontSize = 25.sp,
+                fontSize = 22.sp,
                 color = TextPrimary,
                 textAlign = TextAlign.Center,
             )
@@ -461,7 +460,7 @@ fun TripCreationCompleteScreen(
                 .padding(horizontal = 24.dp)
                 .padding(top = 12.dp, bottom = 20.dp),
         ) {
-            OutlinedButton(
+            Button(
                 onClick = {
                     shareTripInviteToKakao(context, trip.name, trip.cities, trip.inviteCode)
                 },
@@ -469,7 +468,6 @@ fun TripCreationCompleteScreen(
                     .fillMaxWidth()
                     .heightIn(min = 54.dp),
                 shape = RoundedCornerShape(2.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFEE500)),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color(0xFFFEE500),
                     contentColor = Color(0xFF191919),

@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.outlined.Luggage
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -26,7 +27,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -116,8 +116,13 @@ fun MyTripScreen(
                 fontSize = 22.sp,
                 color = TextPrimary,
             )
-            IconButton(onClick = onOpenSettings) {
-                Icon(Icons.Filled.Settings, contentDescription = "설정", tint = TripAccentColor)
+            Row {
+                IconButton(onClick = onJoinTrip) {
+                    Icon(Icons.Filled.PersonAdd, contentDescription = "초대 코드로 여행 참여", tint = TripAccentColor)
+                }
+                IconButton(onClick = onOpenSettings) {
+                    Icon(Icons.Filled.Settings, contentDescription = "설정", tint = TripAccentColor)
+                }
             }
         }
 
@@ -166,19 +171,6 @@ fun MyTripScreen(
             }
         }
 
-        OutlinedButton(
-            onClick = onJoinTrip,
-            modifier = Modifier.fillMaxWidth().height(50.dp),
-            shape = RoundedCornerShape(2.dp),
-        ) {
-            Text(
-                "초대 코드로 여행 참여하기",
-                fontFamily = PretendardSemiBoldFontFamily,
-                fontSize = 15.sp,
-                color = TripAccentColor,
-            )
-        }
-        Spacer(modifier = Modifier.height(8.dp))
         Button(
             onClick = onAddTrip,
             modifier = Modifier.fillMaxWidth().height(50.dp),
