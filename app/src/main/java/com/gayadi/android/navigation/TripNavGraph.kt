@@ -138,6 +138,9 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
             trips = trips,
             onAddTrip = { navController.navigate(Routes.TRIP_CREATE) },
             onJoinTrip = { navController.navigate(Routes.FRIEND_ADD) },
+            onJoinTripWithCode = { inviteCode ->
+                navController.navigate("friend_add?inviteCode=$inviteCode")
+            },
             onDeleteTrip = tripViewModel::deleteTrip,
             onOpenTripDetail = { tripId ->
                 val trip = travelUiState.travelState.trip(tripId)
@@ -380,12 +383,17 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
     ) { backStackEntry ->
         val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
         val placeId = backStackEntry.arguments?.getString("placeId")
+        val nearbyUiState by placeViewModel.nearbyUiState.collectAsStateWithLifecycle()
+        LaunchedEffect(placeId) { placeViewModel.loadNearbyPlaces(placeId) }
         NearbyPlacesScreen(
-            places = placeViewModel.nearbyPlaces(placeId),
+            places = nearbyUiState.places,
             favoriteIds = travelUiState.travelState.favoritePlaceIds,
             onBack = { navController.popBackStack() },
             onPlaceClick = { navController.navigate(Routes.placeDetail(tripId, it)) },
             onToggleFavorite = tripViewModel::toggleFavorite,
+            isLoading = nearbyUiState.isLoading,
+            errorMessage = nearbyUiState.errorMessage,
+            onRetry = { placeViewModel.loadNearbyPlaces(placeId) },
         )
     }
     composable(

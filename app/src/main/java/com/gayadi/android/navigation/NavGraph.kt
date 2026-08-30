@@ -37,7 +37,11 @@ fun GayadiNavHost(appContainer: AppContainer) {
         ),
     )
     val placeViewModel: PlaceViewModel = viewModel(
-        factory = PlaceViewModel.factory(appContainer.getTourPlacesUseCase),
+        factory = PlaceViewModel.factory(
+            appContainer.getTourPlacesUseCase,
+            appContainer.getNearbyTourPlacesUseCase,
+            appContainer.searchTourPlacesUseCase,
+        ),
     )
     val trips by tripViewModel.trips.collectAsStateWithLifecycle()
     val selectedTripId by tripViewModel.selectedTripId.collectAsStateWithLifecycle()

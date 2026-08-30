@@ -38,6 +38,8 @@ import com.gayadi.android.domain.usecase.SaveTravelStateUseCase
 import com.gayadi.android.domain.usecase.SubmitInquiryUseCase
 import com.gayadi.android.domain.usecase.UpdateTravelStateUseCase
 import com.gayadi.android.domain.usecase.GetTourPlacesUseCase
+import com.gayadi.android.domain.usecase.GetNearbyTourPlacesUseCase
+import com.gayadi.android.domain.usecase.SearchTourPlacesUseCase
 import com.google.firebase.firestore.FirebaseFirestore
 import java.io.File
 import java.util.UUID
@@ -122,6 +124,8 @@ class AppContainer(
 
     /** Loads and caches the tourism places exposed by the Gayadi backend. */
     val getTourPlacesUseCase = GetTourPlacesUseCase(tourRepository)
+    val getNearbyTourPlacesUseCase = GetNearbyTourPlacesUseCase(tourRepository)
+    val searchTourPlacesUseCase = SearchTourPlacesUseCase(tourRepository)
 
     private companion object {
         const val DEFAULT_APP_VERSION = "1.0.0"

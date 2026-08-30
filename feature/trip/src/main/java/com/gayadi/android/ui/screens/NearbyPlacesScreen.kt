@@ -3,6 +3,7 @@ package com.gayadi.android.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -41,18 +42,33 @@ fun NearbyPlacesScreen(
     onBack: () -> Unit,
     onPlaceClick: (String) -> Unit,
     onToggleFavorite: (String) -> Unit,
+    isLoading: Boolean = false,
+    errorMessage: String? = null,
+    onRetry: () -> Unit = {},
 ) {
     Column(Modifier.fillMaxSize().background(Color.White)) {
         GayadiTopAppBar(title = "주변 장소", subtitle = "거리·날씨·혼잡도 기준", onBack = onBack)
-        LazyColumn(
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
+        when {
+            isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                androidx.compose.material3.CircularProgressIndicator(color = PrimaryBlue)
+            }
+            errorMessage != null -> Column(
+                Modifier.fillMaxSize().padding(20.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(errorMessage, color = TextSecondary)
+                androidx.compose.material3.Button(onClick = onRetry) { Text("다시 시도") }
+            }
+            else -> LazyColumn(
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
             items(places, key = PlaceItem::id) { place ->
                 Card(
                     modifier = Modifier.fillMaxWidth().clickable { onPlaceClick(place.id) },
                     colors = CardDefaults.cardColors(containerColor = SurfaceCard),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(0.dp),
                 ) {
                     Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(place.emoji, fontSize = 30.sp, modifier = Modifier.size(44.dp))
@@ -74,6 +90,7 @@ fun NearbyPlacesScreen(
                         }
                     }
                 }
+            }
             }
         }
     }

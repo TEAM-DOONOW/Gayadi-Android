@@ -60,7 +60,7 @@ class NoticeUseCasesTest {
 
     private fun notice(id: String, publishedAt: String, isPinned: Boolean = false) = Notice(
         id = id,
-        title = "업데이트 $id",
+        title = "공지사항 $id",
         category = NoticeCategory.UPDATE,
         version = "1.2.0",
         publishedAt = publishedAt,
