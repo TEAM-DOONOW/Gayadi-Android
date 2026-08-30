@@ -12,14 +12,18 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -56,7 +60,7 @@ fun SurveyResultRoute(
     onStart: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    SurveyResultScreen(
+        SurveyResultScreen(
         uiState = uiState,
         onRetry = viewModel::retry,
         onStart = onStart,
@@ -80,13 +84,19 @@ internal fun SurveyResultScreen(
         else -> ResultContent(
             result = uiState.result,
             nickname = uiState.nickname,
+            introduction = uiState.introduction,
             onStart = onStart,
         )
     }
 }
 
 @Composable
-private fun ResultContent(result: SurveyResult, nickname: String?, onStart: () -> Unit) {
+private fun ResultContent(
+    result: SurveyResult,
+    nickname: String?,
+    introduction: String?,
+    onStart: () -> Unit,
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -110,57 +120,90 @@ private fun ResultContent(result: SurveyResult, nickname: String?, onStart: () -
         Column(
             modifier = Modifier
                 .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+                .verticalScroll(rememberScrollState()),
         ) {
-            Spacer(modifier = Modifier.height(28.dp))
-            Box(
-                modifier = Modifier
-                    .width(260.dp)
-                    .aspectRatio(1.08f)
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(Color(0xFFF6F6F8)),
-                contentAlignment = Alignment.Center,
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                val characterDrawable = characterDrawableFor(result.characterKey)
-                Image(
-                    painter = painterResource(characterDrawable),
-                    contentDescription = "${result.name} 캐릭터",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Fit,
+                Spacer(modifier = Modifier.height(28.dp))
+                Box(
+                    modifier = Modifier.size(100.dp).clip(CircleShape).background(Color(0xFFF3F3F5)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    val characterDrawable = characterDrawableFor(result.characterKey)
+                    Image(
+                        painter = painterResource(characterDrawable),
+                        contentDescription = "${result.name} 캐릭터",
+                        modifier = Modifier.size(80.dp),
+                        contentScale = ContentScale.Fit,
+                    )
+                }
+                Spacer(modifier = Modifier.height(18.dp))
+                Text(
+                    text = nickname ?: "여행자",
+                    fontSize = 18.sp,
+                    fontFamily = PretendardSemiBoldFontFamily,
+                    color = TextPrimary,
                 )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = introduction ?: "나만의 방식으로 여행을 즐기는 여행자예요.",
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp,
+                    fontFamily = PretendardFontFamily,
+                    color = TextSecondary,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(modifier = Modifier.height(28.dp))
             }
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(
-                text = greetingFor(nickname),
-                fontSize = 14.sp,
-                fontFamily = PretendardFontFamily,
-                color = TextSecondary,
+
+            Box(
+                modifier = Modifier.fillMaxWidth().height(12.dp).background(Color(0xFFF0F0F5)),
             )
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = result.name,
-                fontSize = 22.sp,
-                lineHeight = 30.sp,
-                fontFamily = PretendardSemiBoldFontFamily,
-                color = TextPrimary,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = result.summary.asBalancedTwoLines(),
-                fontSize = 14.sp,
-                lineHeight = 22.sp,
-                fontFamily = PretendardFontFamily,
-                color = TextSecondary,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.widthIn(max = 270.dp),
-            )
-            Spacer(modifier = Modifier.height(20.dp))
-            TravelResultDetails(result)
-            Spacer(modifier = Modifier.height(28.dp))
+
+            Box(
+                modifier = Modifier.fillMaxWidth().background(Color(0xFFF0F0F5)),
+            ) {
+                val sectionShape = RoundedCornerShape(topStart = 48.dp, topEnd = 48.dp)
+                Card(
+                    modifier = Modifier.fillMaxWidth().clip(sectionShape),
+                    shape = sectionShape,
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Spacer(modifier = Modifier.height(30.dp))
+                        Text(
+                            text = result.name,
+                            fontSize = 22.sp,
+                            lineHeight = 30.sp,
+                            fontFamily = PretendardSemiBoldFontFamily,
+                            color = TextPrimary,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = result.summary.asBalancedTwoLines(),
+                            fontSize = 14.sp,
+                            lineHeight = 22.sp,
+                            fontFamily = PretendardFontFamily,
+                            color = TextSecondary,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.widthIn(max = 270.dp),
+                        )
+                        Spacer(modifier = Modifier.height(20.dp))
+                        TravelResultDetails(result)
+                        Spacer(modifier = Modifier.height(28.dp))
+                    }
+                }
+            }
         }
         Button(
             onClick = onStart,
@@ -252,6 +295,7 @@ private fun SurveyResultPreview() {
                 ),
             ),
             nickname = "민수",
+            introduction = "새로운 곳을 찾아 즐겁게 여행하는 여행자예요.",
             onStart = {},
         )
     }

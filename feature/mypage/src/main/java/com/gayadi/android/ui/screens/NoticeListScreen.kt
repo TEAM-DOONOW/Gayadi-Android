@@ -1,7 +1,6 @@
 package com.gayadi.android.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -37,15 +37,7 @@ import com.gayadi.android.domain.model.NoticeCategory
 import com.gayadi.android.domain.model.NoticeSection
 import com.gayadi.android.ui.components.GayadiLoadingScreen
 import com.gayadi.android.ui.components.GayadiTopAppBar
-import com.gayadi.android.ui.theme.Border
 import com.gayadi.android.ui.theme.GayadiTheme
-import com.gayadi.android.ui.theme.SurfaceCard
-import com.gayadi.android.ui.theme.TagBlue
-import com.gayadi.android.ui.theme.TagBlueText
-import com.gayadi.android.ui.theme.TagGreen
-import com.gayadi.android.ui.theme.TagGreenText
-import com.gayadi.android.ui.theme.TagOrange
-import com.gayadi.android.ui.theme.TagOrangeText
 import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary
 import com.gayadi.android.ui.theme.TextTertiary
@@ -78,7 +70,7 @@ internal fun NoticeListScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize().background(Color.White)) {
-        GayadiTopAppBar(title = "업데이트", onBack = onBack, showDivider = true)
+        GayadiTopAppBar(title = "공지사항", onBack = onBack, showDivider = true)
 
         when {
             uiState.errorMessage != null -> NoticeListMessage(
@@ -91,11 +83,10 @@ internal fun NoticeListScreen(
             )
             else -> LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(top = 12.dp, bottom = 16.dp),
             ) {
                 items(uiState.notices, key = Notice::id) { notice ->
-                    NoticeCard(notice = notice, onClick = { onOpenNotice(notice.id) })
+                    NoticeRow(notice = notice, onClick = { onOpenNotice(notice.id) })
                 }
             }
         }
@@ -118,57 +109,38 @@ private fun NoticeListMessage(message: String, onRetry: (() -> Unit)?) {
 }
 
 @Composable
-private fun NoticeCard(notice: Notice, onClick: () -> Unit) {
+private fun NoticeRow(notice: Notice, onClick: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(SurfaceCard)
-            .border(1.dp, Border.copy(alpha = 0.4f), RoundedCornerShape(14.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .background(Color.White)
+            .padding(horizontal = 48.dp, vertical = 10.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            NoticeCategoryChip(notice.category)
-            if (notice.isPinned) {
-                Spacer(Modifier.width(6.dp))
-                Text("고정", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = TextTertiary)
+            Column(Modifier.weight(1f)) {
+                Text(notice.title, fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium, color = TextPrimary, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Start)
+                Spacer(Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(notice.publishedAt.replace('-', '.'), fontSize = 12.sp, color = TextTertiary)
+                    if (notice.isPinned) {
+                        Spacer(Modifier.width(6.dp))
+                        Box(Modifier.size(22.dp).clip(RoundedCornerShape(50)).background(Color(0xFFE5005A)), contentAlignment = Alignment.Center) {
+                            Text("N", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        }
+                    }
+                }
             }
-            Spacer(Modifier.weight(1f))
-            Text(notice.publishedAt, fontSize = 12.sp, color = TextTertiary)
+            Text("›", fontSize = 30.sp, color = TextPrimary)
         }
-        Spacer(Modifier.height(10.dp))
-        Text(
-            text = notice.title,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = TextPrimary,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Spacer(Modifier.height(6.dp))
-        Text(
-            text = notice.summary,
-            fontSize = 13.sp,
-            lineHeight = 20.sp,
-            color = TextSecondary,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
-        notice.version?.let { version ->
-            Spacer(Modifier.height(8.dp))
-            Text("버전 $version", fontSize = 12.sp, color = TagBlueText)
-        }
+        Box(Modifier.fillMaxWidth().padding(top = 12.dp).height(1.dp).background(Color(0xFFE6E6E6)))
     }
 }
 
 @Composable
 internal fun NoticeCategoryChip(category: NoticeCategory) {
-    val (background, foreground) = when (category) {
-        NoticeCategory.UPDATE -> TagBlue to TagBlueText
-        NoticeCategory.NOTICE -> TagGreen to TagGreenText
-        NoticeCategory.EVENT -> TagOrange to TagOrangeText
-    }
+    val background = Color(0xFFEAF1FF)
+    val foreground = Color(0xFF3F65A8)
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(10.dp))

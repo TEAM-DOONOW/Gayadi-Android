@@ -47,7 +47,7 @@ class LegalDocumentViewModelTest {
 
     private fun sampleDocument() = LegalDocument(
         id = "terms-of-service",
-        title = "가야디 이용약관",
+        title = "서비스 이용약관",
         version = "1.0.0",
         effectiveDate = "2026-08-12",
         summary = "서비스 이용 조건",

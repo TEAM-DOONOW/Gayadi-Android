@@ -1,16 +1,20 @@
 package com.gayadi.android.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -19,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -54,7 +59,7 @@ internal fun NoticeDetailScreen(
         uiState.notice == null -> Column(
             modifier = Modifier.fillMaxSize().background(Color.White),
         ) {
-            GayadiTopAppBar(title = "업데이트", onBack = onBack, showDivider = true)
+            GayadiTopAppBar(title = "공지사항", onBack = onBack, showDivider = true)
             Column(
                 modifier = Modifier.fillMaxSize().padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -68,26 +73,33 @@ internal fun NoticeDetailScreen(
         else -> {
             val notice = uiState.notice
             Column(modifier = Modifier.fillMaxSize().background(Color.White)) {
-                GayadiTopAppBar(title = notice.title, onBack = onBack, showDivider = true)
+                GayadiTopAppBar(title = "공지사항", onBack = onBack, showDivider = true)
                 Column(
-                    modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
+                    modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 48.dp, vertical = 24.dp),
                 ) {
+                    Text(notice.title, fontSize = 17.sp, lineHeight = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary, textAlign = TextAlign.Start)
+                    Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        NoticeCategoryChip(notice.category)
-                        Spacer(Modifier.width(8.dp))
-                        Text(notice.publishedAt, fontSize = 12.sp, color = TextTertiary)
+                        Text(notice.publishedAt.replace('-', '.'), fontSize = 12.sp, color = TextTertiary)
+                        if (notice.isPinned) {
+                            Spacer(Modifier.width(6.dp))
+                            Box(
+                                modifier = Modifier
+                                    .size(22.dp)
+                                    .background(Color(0xFFE5005A), RoundedCornerShape(50)),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text("N", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            }
+                        }
                     }
-                    Spacer(Modifier.height(14.dp))
-                    Text(notice.summary, fontSize = 14.sp, lineHeight = 22.sp, color = TextSecondary)
-                    notice.version?.let { version ->
-                        Spacer(Modifier.height(12.dp))
-                        Text("버전 $version", fontSize = 12.sp, color = PrimaryBlue)
-                    }
+                    Box(Modifier.fillMaxWidth().padding(vertical = 24.dp).height(1.dp).background(Color(0xFFE6E6E6)))
+                    Text(notice.summary, fontSize = 14.sp, lineHeight = 23.sp, color = TextPrimary, textAlign = TextAlign.Start)
                     Spacer(Modifier.height(24.dp))
                     notice.sections.forEach { section ->
-                        Text(section.title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                        Text(section.title, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary, textAlign = TextAlign.Start)
                         Spacer(Modifier.height(8.dp))
-                        Text(section.body, fontSize = 14.sp, lineHeight = 22.sp, color = TextSecondary)
+                        Text(section.body, fontSize = 14.sp, lineHeight = 23.sp, color = TextPrimary, textAlign = TextAlign.Start)
                         Spacer(Modifier.height(24.dp))
                     }
                 }
