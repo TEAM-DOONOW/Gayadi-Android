@@ -22,7 +22,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.ChevronRight
@@ -220,8 +220,8 @@ private fun LedgerTopBar(onBack: () -> Unit) {
         modifier = Modifier.fillMaxWidth().background(LedgerBackground).padding(start = 8.dp, end = 20.dp, top = 12.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로") }
-        Text("소비", fontSize = 21.sp, fontWeight = FontWeight.Bold, color = TextPrimary, modifier = Modifier.weight(1f))
+        IconButton(onClick = onBack) { Icon(Icons.Default.ChevronLeft, contentDescription = "뒤로") }
+        Text("소비", fontSize = 21.sp, fontWeight = FontWeight.Bold, color = LedgerBlue, modifier = Modifier.weight(1f))
     }
 }
 
@@ -420,7 +420,7 @@ private fun SettlementContent(
     onOpenDetails: (String, String) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("친구와 정산", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+        Text("친구와 정산", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = LedgerBlue)
         if (summary.balances.isEmpty()) {
             Card(colors = CardDefaults.cardColors(containerColor = LedgerSurface), shape = RoundedCornerShape(18.dp)) {
                 Text("여행 참여자가 없어요", modifier = Modifier.fillMaxWidth().padding(22.dp), fontSize = 14.sp, color = TextSecondary)
@@ -536,7 +536,7 @@ private fun StatisticsContent(total: Long, expenses: List<TravelExpense>) {
     }
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Column(Modifier.fillMaxWidth()) {
-            Text("카테고리별 지출", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+            Text("카테고리별 지출", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = LedgerBlue)
             Spacer(Modifier.height(12.dp))
             Text("총 지출", fontSize = 13.sp, color = TextSecondary)
             Text(total.toWon(), fontSize = 25.sp, fontWeight = FontWeight.Bold, color = TextPrimary)

@@ -29,13 +29,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -43,7 +44,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -69,9 +69,8 @@ import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.components.GayadiCompactTextField
 import com.gayadi.android.ui.components.GayadiBackButton
 import com.gayadi.android.ui.components.GayadiTopAppBar
-import java.time.Instant
 import java.time.LocalDate
-import java.time.ZoneOffset
+import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
 
@@ -198,20 +197,116 @@ fun TripCreateScreen(
             TripDateField.START -> uiState.startDate
             TripDateField.END -> uiState.endDate ?: uiState.startDate
         } ?: LocalDate.now()
-        val pickerState = rememberDatePickerState(initialSelectedDateMillis = initialDate.toUtcMillis())
-
-        DatePickerDialog(
-            onDismissRequest = viewModel::dismissDatePicker,
-            confirmButton = {
-                TextButton(onClick = {
-                    pickerState.selectedDateMillis?.toLocalDate()?.let { selectedDate ->
-                        viewModel.selectDate(field, selectedDate)
-                    }
-                }) { Text("확인") }
+        TripDatePickerDialog(
+            field = field,
+            initialDate = initialDate,
+            minimumDate = if (field == TripDateField.END) {
+                uiState.startDate ?: LocalDate.now()
+            } else {
+                LocalDate.now()
             },
-            dismissButton = { TextButton(onClick = viewModel::dismissDatePicker) { Text("취소") } },
-        ) { DatePicker(state = pickerState) }
+            onDismiss = viewModel::dismissDatePicker,
+            onConfirm = viewModel::selectDate,
+        )
     }
+}
+
+@Composable
+private fun TripDatePickerDialog(
+    field: TripDateField,
+    initialDate: LocalDate,
+    minimumDate: LocalDate,
+    onDismiss: () -> Unit,
+    onConfirm: (TripDateField, LocalDate) -> Unit,
+) {
+    var visibleMonth by remember(field, initialDate) { mutableStateOf(YearMonth.from(initialDate)) }
+    var selectedDate by remember(field, initialDate) { mutableStateOf(initialDate) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = if (field == TripDateField.START) "시작일 선택" else "종료일 선택",
+                fontFamily = PretendardSemiBoldFontFamily,
+                fontSize = 18.sp,
+                color = TextPrimary,
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { visibleMonth = visibleMonth.minusMonths(1) }) {
+                        Icon(Icons.Default.ChevronLeft, contentDescription = "이전 달")
+                    }
+                    Text(
+                        text = "${visibleMonth.year}년 ${visibleMonth.monthValue}월",
+                        modifier = Modifier.weight(1f),
+                        fontFamily = PretendardSemiBoldFontFamily,
+                        fontSize = 17.sp,
+                        color = TextPrimary,
+                        textAlign = TextAlign.Center,
+                    )
+                    IconButton(onClick = { visibleMonth = visibleMonth.plusMonths(1) }) {
+                        Icon(Icons.Default.ChevronRight, contentDescription = "다음 달")
+                    }
+                }
+                Row(Modifier.fillMaxWidth()) {
+                    listOf("일", "월", "화", "수", "목", "금", "토").forEach { dayOfWeek ->
+                        Text(
+                            dayOfWeek,
+                            Modifier.weight(1f).padding(vertical = 8.dp),
+                            textAlign = TextAlign.Center,
+                            color = Color(0xFF777781),
+                            fontSize = 12.sp,
+                        )
+                    }
+                }
+                val leading = visibleMonth.atDay(1).dayOfWeek.value % 7
+                val cells = (0 until 42).map { index ->
+                    (index - leading + 1).takeIf { it in 1..visibleMonth.lengthOfMonth() }
+                }
+                cells.chunked(7).forEach { week ->
+                    Row(Modifier.fillMaxWidth()) {
+                        week.forEach { day ->
+                            val date = day?.let(visibleMonth::atDay)
+                            val enabled = date != null && !date.isBefore(minimumDate)
+                            val selected = date == selectedDate
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .aspectRatio(1f)
+                                    .padding(vertical = 2.dp)
+                                    .clip(CircleShape)
+                                    .background(if (selected) tripCreateAccentColor else Color.Transparent)
+                                    .clickable(enabled = enabled) { selectedDate = date!! },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    text = day?.toString().orEmpty(),
+                                    color = when {
+                                        selected -> Color.White
+                                        !enabled -> Color(0xFFC9C9CE)
+                                        else -> TextPrimary
+                                    },
+                                    fontFamily = if (selected) PretendardSemiBoldFontFamily else PretendardFontFamily,
+                                    fontSize = 14.sp,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(field, selectedDate) }) { Text("확인") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("취소") } },
+        containerColor = Color.White,
+        shape = RoundedCornerShape(14.dp),
+    )
 }
 
 @Composable
@@ -723,6 +818,3 @@ private fun DateField(value: String, placeholder: String, onClick: () -> Unit, m
         },
     )
 }
-
-private fun LocalDate.toUtcMillis(): Long = atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
-private fun Long.toLocalDate(): LocalDate = Instant.ofEpochMilli(this).atZone(ZoneOffset.UTC).toLocalDate()
