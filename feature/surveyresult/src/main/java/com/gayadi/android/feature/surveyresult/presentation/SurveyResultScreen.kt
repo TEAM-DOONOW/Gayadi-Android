@@ -60,7 +60,7 @@ fun SurveyResultRoute(
     onStart: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-        SurveyResultScreen(
+    SurveyResultScreen(
         uiState = uiState,
         onRetry = viewModel::retry,
         onStart = onStart,
