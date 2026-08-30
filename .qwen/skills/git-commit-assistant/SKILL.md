@@ -14,7 +14,7 @@ Follow the project format: `<type>/#<issue-number>: <subject>`.
 3. Separate staged and unstaged changes. Identify unrelated changes and potential secrets such as credentials, tokens, signing files, or `.env` files.
 4. Do not stage unrelated files or potential secrets. Do not use `git add .` or `git add -A` by default; stage only explicitly selected paths.
 5. Select the commit type from the actual diff. Prefer a valid branch type when it agrees with the diff; otherwise explain the discrepancy.
-6. Extract the type and issue number from `<type>/#<issue-number>-<description>`. If none exists, do not invent one; ask the user because this project requires it.
+6. Extract the type and issue number from `<type>/#<issue-number>`. The branch name must end after the issue number. If none exists, do not invent one; ask the user because this project requires it.
 7. Draft a Korean subject by default, or English when requested. Keep it within 50 characters and follow the language-specific rules.
 8. Propose the message and, when helpful, `git commit -m "<type>/#<issue-number>: <subject>"`.
 9. Treat requests to review, draft, or prepare as proposal-only. Execute `git commit` only when the user explicitly asks to create the commit.

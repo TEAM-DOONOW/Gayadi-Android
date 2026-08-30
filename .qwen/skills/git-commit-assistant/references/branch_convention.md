@@ -2,16 +2,16 @@
 
 ## Structure
 
-`<type>/#<issue-number>-<description>`
+`<type>/#<issue-number>`
 
-Use one of the commit types from [the commit convention](convention.md). Keep the description short and use lowercase kebab-case.
+Use one of the commit types from [the commit convention](convention.md). Do not append a description after the issue number.
 
 ## Examples
 
-- `feat/#38-upload-api`
-- `fix/#105-token-leak`
-- `refactor/#88-mypage-vm`
-- `design/#112-login-screen`
+- `feat/#38`
+- `fix/#105`
+- `refactor/#88`
+- `design/#112`
 
 ## Issue Extraction
 
