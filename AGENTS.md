@@ -25,3 +25,9 @@
   user to provide a redacted value or a safe alternative.
 
   - Tests and commands must not dump the process environment.
+
+## UI and design work
+
+  - Before creating or changing any Compose page, read `design.md` and follow its design tokens, layout rules, component patterns, and verification checklist.
+  - Reuse components from `core/designsystem` and `core/ui` before adding feature-local UI implementations.
+  - If a UI task introduces a new reusable design decision, update `design.md` in the same change.
