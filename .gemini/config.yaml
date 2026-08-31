@@ -1,0 +1,52 @@
+have_fun: false
+
+memory_config:
+  disabled: false
+
+code_review:
+  disable: false
+
+  # 사소한 스타일 지적보다 실제 개선이 필요한 부분부터 리뷰
+  comment_severity_threshold: MEDIUM
+
+  # PR 하나에 리뷰가 과도하게 달리는 것 방지
+  max_review_comments: 10
+
+  pull_request_opened:
+    help: false
+    summary: true
+    code_review: true
+
+    # 작업 중인 Draft PR은 리뷰하지 않음
+    include_drafts: false
+
+ignore_patterns:
+  # Gradle / Build 결과물
+  - "**/build/**"
+  - "**/.gradle/**"
+  - "**/.idea/**"
+
+  # Local 환경 설정
+  - "**/local.properties"
+  - "**/.env"
+  - "**/.env.*"
+
+  # Generated code
+  - "**/generated/**"
+  - "**/build/generated/**"
+
+  # Binary / APK
+  - "**/*.apk"
+  - "**/*.aab"
+  - "**/*.jar"
+
+  # Signing / Credentials
+  - "**/secrets/**"
+  - "**/*.jks"
+  - "**/*.keystore"
+  - "**/*.p12"
+  - "**/*.pem"
+  - "**/*.key"
+
+  # 기타 자동 생성/캐시
+  - "**/.DS_Store"
