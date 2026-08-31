@@ -4,6 +4,12 @@
 
 `<type>/#<issue-number>: <subject>`
 
+## Branch
+
+`<type>/#<issue-number>`
+
+Do not append a description after the issue number.
+
 ## Body
 
 ```markdown

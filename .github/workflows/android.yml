@@ -17,6 +17,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
+      - name: Validate pull request branch name
+        if: github.event_name == 'pull_request'
+        env:
+          BRANCH_NAME: ${{ github.head_ref }}
+        run: |
+          BRANCH_PATTERN='^(feat|fix|docs|style|refactor|test|chore|add|ci|build|perf|design)/#[0-9]+$'
+          if [[ ! "$BRANCH_NAME" =~ $BRANCH_PATTERN ]]; then
+            echo "Invalid branch name: $BRANCH_NAME"
+            echo 'Expected format: <type>/#<issue-number> (example: fix/#93)'
+            exit 1
+          fi
+
       - name: Check out repository
         uses: actions/checkout@v4
         with:
