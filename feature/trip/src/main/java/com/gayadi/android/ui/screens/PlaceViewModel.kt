@@ -5,9 +5,12 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.gayadi.android.domain.model.TourPlace
+import com.gayadi.android.domain.usecase.GetNearbyTourPlacesUseCase
 import com.gayadi.android.domain.usecase.GetTourPlacesUseCase
+import com.gayadi.android.domain.usecase.SearchTourPlacesUseCase
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -51,8 +54,22 @@ data class PlaceUiState(
         }
 }
 
+data class NearbyPlacesUiState(
+    val places: List<PlaceItem> = emptyList(),
+    val isLoading: Boolean = false,
+    val errorMessage: String? = null,
+)
+
 interface PlaceRepository {
     suspend fun getPlaces(regionName: String = "제주 성산"): Result<List<PlaceItem>>
+
+    suspend fun searchPlaces(regionName: String, keyword: String): Result<List<PlaceItem>> =
+        getPlaces(regionName).map { places ->
+            places.filter { place ->
+                place.name.contains(keyword, ignoreCase = true) ||
+                    place.description.contains(keyword, ignoreCase = true)
+            }
+        }
 }
 
 class FakePlaceRepository : PlaceRepository {
@@ -79,6 +96,7 @@ class FakePlaceRepository : PlaceRepository {
 
 class TourApiPlaceRepository(
     private val getTourPlaces: GetTourPlacesUseCase,
+    private val searchTourPlaces: SearchTourPlacesUseCase? = null,
 ) : PlaceRepository {
     override suspend fun getPlaces(regionName: String): Result<List<PlaceItem>> {
         val placesByContentId = linkedMapOf<String, PrioritizedPlaceItem>()
@@ -106,6 +124,15 @@ class TourApiPlaceRepository(
             }
         }
         return Result.success(placesByContentId.values.map(PrioritizedPlaceItem::item))
+    }
+
+    override suspend fun searchPlaces(regionName: String, keyword: String): Result<List<PlaceItem>> {
+        val search = searchTourPlaces ?: return getPlaces(regionName).map { places ->
+            places.filter { it.name.contains(keyword, ignoreCase = true) }
+        }
+        return search(keyword = keyword, arrange = "C", maxPages = 1).map { places ->
+            places.map { it.toPlaceItem(forcedCategory = null, fallbackContentTypeId = it.contentTypeId.toIntOrNull() ?: 12) }
+        }
     }
 
     private fun TourPlace.toPlaceItem(
@@ -223,17 +250,45 @@ class TourApiPlaceRepository(
 
 class PlaceViewModel(
     private val repository: PlaceRepository = FakePlaceRepository(),
+    private val getNearbyTourPlaces: GetNearbyTourPlacesUseCase? = null,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(PlaceUiState())
     private val knownPlaces = mutableMapOf<String, PlaceItem>()
+    private val _nearbyUiState = MutableStateFlow(NearbyPlacesUiState())
     val uiState: StateFlow<PlaceUiState> = _uiState.asStateFlow()
+    val nearbyUiState: StateFlow<NearbyPlacesUiState> = _nearbyUiState.asStateFlow()
     private var loadJob: Job? = null
+    private var nearbyLoadJob: Job? = null
+    private var searchJob: Job? = null
 
     init {
         loadPlaces()
     }
 
-    fun updateQuery(query: String) = _uiState.update { it.copy(query = query) }
+    fun updateQuery(query: String) {
+        _uiState.update { it.copy(query = query) }
+        searchJob?.cancel()
+        if (query.isBlank()) {
+            loadPlaces()
+            return
+        }
+        val regionName = _uiState.value.regionName
+        _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+        searchJob = viewModelScope.launch {
+            delay(250)
+            repository.searchPlaces(regionName, query.trim()).fold(
+                onSuccess = { places ->
+                    knownPlaces.putAll(places.associateBy(PlaceItem::id))
+                    _uiState.update { it.copy(places = places, isLoading = false) }
+                },
+                onFailure = { error ->
+                    _uiState.update {
+                        it.copy(isLoading = false, errorMessage = error.message ?: "장소를 검색하지 못했습니다.")
+                    }
+                },
+            )
+        }
+    }
 
     fun selectCategory(category: String) = _uiState.update { it.copy(selectedCategory = category) }
 
@@ -252,6 +307,37 @@ class PlaceViewModel(
 
     fun nearbyPlaces(originPlaceId: String?): List<PlaceItem> =
         _uiState.value.places.filterNot { it.id == originPlaceId }.sortedBy(PlaceItem::distanceMeters)
+
+    fun loadNearbyPlaces(originPlaceId: String? = null) {
+        nearbyLoadJob?.cancel()
+        val origin = originPlaceId?.let(knownPlaces::get) ?: _uiState.value.places.firstOrNull()
+        if (getNearbyTourPlaces == null || origin?.longitude == null || origin.latitude == null) {
+            _nearbyUiState.value = NearbyPlacesUiState(places = nearbyPlaces(originPlaceId))
+            return
+        }
+        _nearbyUiState.value = NearbyPlacesUiState(isLoading = true)
+        nearbyLoadJob = viewModelScope.launch {
+            getNearbyTourPlaces(
+                mapX = origin.longitude.toString(),
+                mapY = origin.latitude.toString(),
+                radius = NEARBY_RADIUS_METERS,
+                arrange = "E",
+                maxPages = 1,
+            ).fold(
+                onSuccess = { places ->
+                    val nearby = places
+                        .filterNot { it.contentId == origin.id }
+                        .map(TourPlace::toNearbyPlaceItem)
+                    _nearbyUiState.value = NearbyPlacesUiState(places = nearby)
+                },
+                onFailure = { error ->
+                    _nearbyUiState.value = NearbyPlacesUiState(
+                        errorMessage = error.message ?: "주변 장소를 불러오지 못했습니다.",
+                    )
+                },
+            )
+        }
+    }
 
     private fun loadPlaces() {
         loadJob?.cancel()
@@ -273,13 +359,57 @@ class PlaceViewModel(
     }
 
     companion object {
+        private const val NEARBY_RADIUS_METERS = 2_000
+
         fun factory(repository: PlaceRepository = FakePlaceRepository()) = viewModelFactory {
             initializer { PlaceViewModel(repository) }
         }
 
         fun factory(getTourPlaces: GetTourPlacesUseCase) =
             factory(TourApiPlaceRepository(getTourPlaces))
+
+        fun factory(
+            getTourPlaces: GetTourPlacesUseCase,
+            getNearbyTourPlaces: GetNearbyTourPlacesUseCase,
+            searchTourPlaces: SearchTourPlacesUseCase,
+        ) = viewModelFactory {
+            initializer {
+                PlaceViewModel(
+                    repository = TourApiPlaceRepository(getTourPlaces, searchTourPlaces),
+                    getNearbyTourPlaces = getNearbyTourPlaces,
+                )
+            }
+        }
     }
+
+}
+
+private fun TourPlace.toNearbyPlaceItem(): PlaceItem {
+    val category = when (contentTypeId.trim()) {
+        "32" -> "숙소"
+        "39" -> "맛집"
+        else -> "관광명소"
+    }
+    val emoji = when (category) {
+        "숙소" -> "🏨"
+        "맛집" -> "🍲"
+        else -> "🏞️"
+    }
+    return PlaceItem(
+        id = contentId,
+        name = title,
+        category = category,
+        rating = 0.0,
+        reviews = 0,
+        crowdLevel = CrowdLevel.NORMAL,
+        emoji = emoji,
+        description = listOf(address, addressDetail).filter(String::isNotBlank).joinToString(" "),
+        distanceMeters = distanceMeters ?: 0,
+        imageUrl = imageUrl,
+        longitude = longitude,
+        latitude = latitude,
+        hasRealtimeDetails = false,
+    )
 }
 
 private fun regionalPlaces(regionName: String): List<PlaceItem> {

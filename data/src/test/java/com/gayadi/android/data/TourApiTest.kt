@@ -113,6 +113,40 @@ class TourApiTest {
     }
 
     @Test
+    fun requestsStaysFromStayEndpointWithTitleOrdering() = runTest {
+        val requestedUrls = mutableListOf<URL>()
+        val dataSource = stubbedDataSource(
+            requestedUrls = requestedUrls,
+            responses = ArrayDeque(listOf(tourPage("stay-1", "제주 스테이", null))),
+        )
+
+        dataSource.getPlaces(pageSize = 100, contentTypeId = 32)
+
+        assertEquals("/api/v1/tour/stays", requestedUrls.single().path)
+        assertEquals(
+            mapOf("pageSize" to "100", "arrange" to "A"),
+            parseQuery(requestedUrls.single().query),
+        )
+    }
+
+    @Test
+    fun requestsKeywordSearchWithEncodedKeywordAndModifiedOrdering() = runTest {
+        val requestedUrls = mutableListOf<URL>()
+        val dataSource = stubbedDataSource(
+            requestedUrls = requestedUrls,
+            responses = ArrayDeque(listOf(tourPage("market-1", "광장시장", null))),
+        )
+
+        dataSource.searchPlaces(pageSize = 10, keyword = "시장")
+
+        assertEquals("/api/v1/tour/keywords", requestedUrls.single().path)
+        assertEquals(
+            mapOf("pageSize" to "10", "arrange" to "C", "keyword" to "시장"),
+            parseQuery(requestedUrls.single().query),
+        )
+    }
+
+    @Test
     fun rejectsRepeatedNextCursor() = runTest {
         val requestedUrls = mutableListOf<URL>()
         val repeatedPage = tourPage("place-1", "반복 장소", "repeated-cursor")

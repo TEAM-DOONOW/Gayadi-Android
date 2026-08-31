@@ -28,7 +28,7 @@ class RepositoryMapperTest {
     fun legalDocumentMapper_preservesPublicationMetadataAndSections() {
         val document = LegalDocumentDto(
             id = "privacy-policy",
-            title = "개인정보처리방침",
+            title = "개인정보 처리방침",
             version = "1.0.0",
             effectiveDate = "2026-08-12",
             summary = "개인정보 처리 안내",
@@ -37,7 +37,7 @@ class RepositoryMapperTest {
         ).toDomain()
 
         assertEquals("privacy-policy", document.id)
-        assertEquals("개인정보처리방침", document.title)
+        assertEquals("개인정보 처리방침", document.title)
         assertEquals("1.0.0", document.version)
         assertEquals("2026-08-12", document.effectiveDate)
         assertEquals("개인정보 처리 안내", document.summary)

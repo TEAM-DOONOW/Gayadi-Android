@@ -88,6 +88,7 @@ internal fun TravelOverviewCard(
                     .fillMaxWidth()
                     .height(44.dp),
             ) {
+                val progressOffset = (maxWidth - 40.dp) * progress - 8.dp
                 LinearProgressIndicator(
                     progress = { progress },
                     modifier = Modifier
@@ -107,8 +108,8 @@ internal fun TravelOverviewCard(
                     modifier = Modifier
                         .size(40.dp)
                         .offset(
-                            x = (maxWidth - 40.dp) * progress,
-                            y = (-4).dp,
+                            x = progressOffset,
+                            y = (-8).dp,
                         ),
                     contentScale = ContentScale.Fit,
                 )
@@ -116,14 +117,14 @@ internal fun TravelOverviewCard(
                     modifier = Modifier
                         .width(40.dp)
                         .offset(
-                            x = (maxWidth - 40.dp) * progress,
-                            y = 27.dp,
+                            x = progressOffset,
+                            y = 15.dp,
                         ),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         "${(progress * 100).toInt()}%",
-                        fontSize = 14.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = PrimaryAction,
                     )

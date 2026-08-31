@@ -161,14 +161,8 @@ fun SettingsScreen(
                 Text("앱", fontSize = 18.sp, color = TextPrimary, fontWeight = FontWeight.Bold)
             }
             Spacer(modifier = Modifier.height(8.dp))
-
-            SettingsRow("다크 모드", trailing = { Text("준비 중", fontSize = 14.sp, color = TextSecondary) })
-            SettingsRow("언어", trailing = { Text("Ko", fontSize = 14.sp, color = TextSecondary) })
-            SettingsRow("버전 정보", trailing = { Text("1.0.0", fontSize = 14.sp, color = TextSecondary) })
-            SettingsRow("업데이트", onClick = onOpenNotices, trailing = {
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = TextTertiary)
-            })
-            SettingsRow("문의하기", onClick = onOpenInquiry, trailing = {
+            SettingsRow("언어", trailing = { Text("한국어", fontSize = 14.sp, color = TextSecondary) })
+            SettingsRow("공지사항", onClick = onOpenNotices, trailing = {
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = TextTertiary)
             })
             SettingsRow("서비스 이용약관", onClick = onOpenTerms, trailing = {
@@ -177,37 +171,11 @@ fun SettingsScreen(
             SettingsRow("개인정보처리방침", onClick = onOpenPrivacyPolicy, trailing = {
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = TextTertiary)
             })
+            SettingsRow("버전 정보", trailing = { Text("1.0.0", fontSize = 14.sp, color = TextSecondary) })
 
             Spacer(modifier = Modifier.height(32.dp))
         }
 
-        Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 20.dp)) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RectangleShape)
-                    .background(PrimaryAction)
-                    .border(1.dp, PrimaryAction, RectangleShape)
-                    .clickable(onClick = onLogout)
-                    .padding(vertical = 14.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text("시작 화면으로", fontSize = 15.sp, color = Color.White, fontWeight = FontWeight.Medium)
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = "내 데이터 삭제",
-                fontSize = 13.sp,
-                color = TextTertiary,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onDeleteAccount)
-                    .padding(vertical = 10.dp),
-            )
-        }
     }
 }
 

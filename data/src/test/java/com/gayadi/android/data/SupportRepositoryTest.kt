@@ -85,7 +85,7 @@ class SupportRepositoryTest {
 
     private fun dto(category: String?) = NoticeDto(
         id = "1-2-0",
-        title = "업데이트",
+        title = "공지사항",
         category = category,
         version = "1.2.0",
         publishedAt = "2026-08-20",

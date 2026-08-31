@@ -34,8 +34,14 @@ class SurveyResultViewModel(
     private fun loadResult() {
         _uiState.value = SurveyResultUiState(isLoading = true)
         viewModelScope.launch(ioDispatcher) {
-            val nickname = getBasicInfo()?.nickname?.takeIf(String::isNotBlank)
-            _uiState.value = SurveyResultUiState(isLoading = true, nickname = nickname)
+            val basicInfo = getBasicInfo()
+            val nickname = basicInfo?.nickname?.takeIf(String::isNotBlank)
+            val introduction = basicInfo?.introduction?.takeIf(String::isNotBlank)
+            _uiState.value = SurveyResultUiState(
+                isLoading = true,
+                nickname = nickname,
+                introduction = introduction,
+            )
             getSurveyResult(resultCode) { result ->
                 result.fold(
                     onSuccess = { surveyResult ->
@@ -46,12 +52,14 @@ class SurveyResultViewModel(
                                         isLoading = false,
                                         result = surveyResult,
                                         nickname = nickname,
+                                        introduction = introduction,
                                     )
                                 },
                                 onFailure = { error ->
                                     _uiState.value = SurveyResultUiState(
                                         isLoading = false,
                                         nickname = nickname,
+                                        introduction = introduction,
                                         errorMessage = error.message ?: "결과를 저장하지 못했습니다.",
                                     )
                                 },
@@ -60,8 +68,9 @@ class SurveyResultViewModel(
                     },
                     onFailure = { error ->
                         _uiState.value = SurveyResultUiState(
-                            isLoading = false,
-                            nickname = nickname,
+                        isLoading = false,
+                        nickname = nickname,
+                        introduction = introduction,
                             errorMessage = error.message ?: "결과를 불러오지 못했습니다.",
                         )
                     },

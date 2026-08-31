@@ -1,7 +1,6 @@
 package com.gayadi.android.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -25,7 +25,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.font.FontWeight
@@ -38,8 +37,6 @@ import com.gayadi.android.ui.components.GayadiLoadingScreen
 import com.gayadi.android.ui.components.GayadiTopAppBar
 import com.gayadi.android.ui.components.TravelResultDetails
 import com.gayadi.android.ui.theme.PrimaryAction
-import com.gayadi.android.ui.theme.TagPink
-import com.gayadi.android.ui.theme.TagPinkText
 import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary
 
@@ -88,41 +85,74 @@ private fun TravelProfileContent(
     result: com.gayadi.android.domain.model.SurveyResult,
     modifier: Modifier = Modifier,
 ) {
+    Column(
+        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+    ) {
         Column(
-            modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(32.dp))
             UserCharacterAvatar(
                 characterKey = profile.characterKey,
                 contentDescription = "${profile.nickname} 여행 캐릭터",
                 modifier = Modifier.size(104.dp),
             )
-            Spacer(modifier = Modifier.height(14.dp))
-            Text(profile.nickname, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = profile.nickname,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary,
+            )
             Spacer(modifier = Modifier.height(8.dp))
-            TravelStyleBadge(profile.travelStyleName ?: "여행 성향 미설정")
-            Spacer(modifier = Modifier.height(14.dp))
             Text(
                 text = profile.introduction.takeIf(String::isNotBlank)
                     ?: "나만의 방식으로 여행을 즐기는 여행자예요.",
-                fontSize = 13.sp,
-                lineHeight = 20.sp,
-                color = TextSecondary,
-                textAlign = TextAlign.Center,
-            )
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(
-                text = result.summary,
                 fontSize = 14.sp,
-                lineHeight = 22.sp,
+                lineHeight = 21.sp,
                 color = TextSecondary,
                 textAlign = TextAlign.Center,
             )
-            Spacer(modifier = Modifier.height(20.dp))
-            TravelResultDetails(result)
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(30.dp))
         }
+        Box(
+            modifier = Modifier.fillMaxWidth().height(12.dp).background(Color(0xFFF0F0F5)),
+        )
+        Box(
+            modifier = Modifier.fillMaxWidth().background(Color(0xFFF0F0F5)),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
+                    .background(Color.White)
+                    .padding(horizontal = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Spacer(modifier = Modifier.height(28.dp))
+                Text(
+                    text = result.name,
+                    fontSize = 21.sp,
+                    lineHeight = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary,
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = result.summary,
+                    fontSize = 14.sp,
+                    lineHeight = 22.sp,
+                    color = TextSecondary,
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(modifier = Modifier.height(26.dp))
+                TravelResultDetails(result)
+                Spacer(modifier = Modifier.height(32.dp))
+            }
+        }
+    }
 }
 
 @Composable
@@ -143,19 +173,5 @@ private fun ProfileUnavailable(message: String, onRetry: () -> Unit, modifier: M
         ) {
             Text("다시 시도", color = Color.White)
         }
-    }
-}
-
-@Composable
-private fun TravelStyleBadge(text: String) {
-    val shape = RoundedCornerShape(16.dp)
-    Box(
-        modifier = Modifier
-            .clip(shape)
-            .background(TagPink)
-            .border(1.dp, TagPinkText.copy(alpha = 0.35f), shape)
-            .padding(horizontal = 9.dp, vertical = 3.dp),
-    ) {
-        Text(text, fontSize = 12.sp, letterSpacing = 0.6.sp, color = TagPinkText, fontWeight = FontWeight.SemiBold)
     }
 }
