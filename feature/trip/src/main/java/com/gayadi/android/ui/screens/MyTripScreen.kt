@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.horizontalScroll
@@ -24,6 +25,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.PersonAdd
@@ -40,6 +42,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -49,6 +52,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
@@ -62,16 +66,25 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.gayadi.android.ui.components.UsageGuideCallout
+import com.gayadi.android.ui.components.UsageGuideOverlay
+import com.gayadi.android.ui.components.UsageGuidePlacement
 import com.gayadi.android.ui.theme.GayadiTheme
 import com.gayadi.android.ui.theme.PretendardFontFamily
 import com.gayadi.android.ui.theme.PretendardSemiBoldFontFamily
+import com.gayadi.android.ui.theme.PrimaryBlue
 import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary
 import com.gayadi.android.domain.model.TripStatus
@@ -102,6 +115,8 @@ data class TripSummary(
 @OptIn(ExperimentalMaterial3Api::class)
 fun MyTripScreen(
     trips: List<TripSummary>,
+    showUsageGuide: Boolean = false,
+    onUsageGuideFinished: () -> Unit = {},
     onAddTrip: () -> Unit,
     onJoinTrip: () -> Unit,
     onOpenTripDetail: (String) -> Unit,
@@ -111,6 +126,10 @@ fun MyTripScreen(
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     var showJoinTripSheet by rememberSaveable { mutableStateOf(false) }
+    var isUsageGuideVisible by rememberSaveable { mutableStateOf(showUsageGuide) }
+    var inviteButtonBounds by remember { mutableStateOf<Rect?>(null) }
+    var addButtonBounds by remember { mutableStateOf<Rect?>(null) }
+    val pageScrollState = rememberScrollState()
     val today = LocalDate.now()
     val ongoingTrips = trips.filter { trip ->
         trip.status != TripStatus.COMPLETED && trip.endDate.toTripDate()?.isBefore(today) != true
@@ -140,7 +159,7 @@ fun MyTripScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(pageScrollState)
                 .padding(bottom = 16.dp),
         ) {
         Spacer(modifier = Modifier.height(48.dp))
@@ -156,8 +175,15 @@ fun MyTripScreen(
                 color = TextPrimary,
             )
             Row {
-                IconButton(onClick = { showJoinTripSheet = true }) {
-                    Icon(Icons.Filled.PersonAdd, contentDescription = "초대 코드로 여행 참여", tint = TripAccentColor)
+                IconButton(
+                    onClick = { showJoinTripSheet = true },
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.PersonAdd,
+                        contentDescription = "초대 코드로 여행 참여",
+                        tint = TripAccentColor,
+                        modifier = Modifier.onGloballyPositioned { inviteButtonBounds = it.boundsInRoot() },
+                    )
                 }
                 IconButton(onClick = onOpenSettings) {
                     Icon(Icons.Filled.Settings, contentDescription = "설정", tint = TripAccentColor)
@@ -260,7 +286,10 @@ fun MyTripScreen(
 
                 Button(
                     onClick = onAddTrip,
-                    modifier = Modifier.fillMaxWidth().height(42.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(42.dp)
+                        .onGloballyPositioned { addButtonBounds = it.boundsInRoot() },
                     shape = RoundedCornerShape(2.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = TripAccentColor),
                 ) {
@@ -270,6 +299,54 @@ fun MyTripScreen(
             }
         }
         Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        if (isUsageGuideVisible) {
+            LaunchedEffect(pageScrollState.maxValue) {
+                pageScrollState.animateScrollTo(pageScrollState.maxValue)
+            }
+            val inviteTarget = inviteButtonBounds
+            val addTarget = addButtonBounds
+            if (inviteTarget != null && addTarget != null) {
+                val finishGuide = {
+                    isUsageGuideVisible = false
+                    onUsageGuideFinished()
+                }
+                UsageGuideOverlay(
+                    callouts = listOf(
+                        UsageGuideCallout(
+                            target = inviteTarget,
+                            text = buildAnnotatedString {
+                                append("초대 코드를 받았다면\n")
+                                withStyle(SpanStyle(color = PrimaryBlue, fontWeight = FontWeight.SemiBold)) {
+                                    append("사람 추가 버튼")
+                                }
+                                append("을 누르세요")
+                            },
+                            placement = UsageGuidePlacement.BELOW,
+                            spotlightPadding = 6.dp,
+                            spotlightRadius = 12.dp,
+                        ),
+                        UsageGuideCallout(
+                            target = addTarget,
+                            text = buildAnnotatedString {
+                                withStyle(SpanStyle(color = PrimaryBlue, fontWeight = FontWeight.SemiBold)) {
+                                    append("여행 추가하기")
+                                }
+                                append("를 눌러 새 여행을 만드세요")
+                            },
+                            placement = UsageGuidePlacement.ABOVE,
+                            spotlightPadding = 10.dp,
+                            spotlightRadius = 18.dp,
+                        ),
+                    ),
+                    onDismiss = finishGuide,
+                    onTargetClick = { targetIndex ->
+                        finishGuide()
+                        if (targetIndex == 0) showJoinTripSheet = true else onAddTrip()
+                    },
+                )
+            }
         }
     }
 

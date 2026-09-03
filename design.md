@@ -31,6 +31,7 @@ Gayadi는 여러 사람이 함께 여행을 준비하는 과정을 가볍고 친
 | 하단 탭 | `core/ui/.../components/BottomNavBar.kt` |
 | 로딩 상태 | `core/ui/.../components/GayadiLoadingScreen.kt` |
 | 일정 액션 바텀시트 | `core/ui/.../components/ScheduleOptionsBottomSheet.kt` |
+| 첫 사용 기능 안내 | `core/ui/.../components/UsageGuideOverlay.kt` |
 | 사용자 캐릭터 아바타 | `core/ui/.../components/UserCharacterAvatar.kt` |
 | 여행 성향 결과 UI | `core/ui/.../components/TravelResultDetails.kt` |
 
@@ -204,6 +205,14 @@ Gayadi는 여러 사람이 함께 여행을 준비하는 과정을 가볍고 친
 - 로딩 애니메이션이 너무 짧게 깜빡이지 않도록 기존 최소 노출 로직을 재사용한다.
 - 탭과 버튼은 즉시 시각 피드백을 주고, 긴 작업은 로딩 또는 비활성 상태를 표시한다.
 - 장식적인 반복 애니메이션을 일반 목록이나 폼에 추가하지 않는다.
+
+### 첫 사용 기능 안내
+
+- 첫 사용 안내는 별도 온보딩 화면보다 실제 화면 위의 `UsageGuideOverlay`를 우선 사용한다.
+- 안내 문구와 화살표는 대상 요소 가까이에 배치하고, 강조 영역은 실제 터치 영역 크기에 맞춘다.
+- 한 화면에서는 핵심 행동만 간결하게 안내하며 기능 목록을 길게 나열하지 않는다.
+- 사용자가 강조된 요소를 누르면 원래 동작을 실행하고, 닫기 버튼을 누르면 안내를 종료한다.
+- 반복 노출 여부는 안내별 버전 키로 관리한다.
 
 ## 10. 접근성과 품질
 

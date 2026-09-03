@@ -22,7 +22,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -38,6 +41,9 @@ internal fun TripDaySection(
     plans: List<HomeTravelPlan>,
     onAddPlace: () -> Unit,
     onPlanClick: (HomeTravelPlan) -> Unit,
+    onAddPlaceBoundsChanged: ((Rect) -> Unit)? = null,
+    highlightedPlanId: String? = null,
+    onPlanBoundsChanged: ((Rect) -> Unit)? = null,
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
@@ -57,7 +63,16 @@ internal fun TripDaySection(
     if (plans.isNotEmpty()) {
         Spacer(modifier = Modifier.height(12.dp))
         plans.forEachIndexed { index, plan ->
-            TravelPlanRow(index = index + 1, plan = plan, onClick = { onPlanClick(plan) })
+            TravelPlanRow(
+                index = index + 1,
+                plan = plan,
+                onClick = { onPlanClick(plan) },
+                modifier = if (plan.id == highlightedPlanId && onPlanBoundsChanged != null) {
+                    Modifier.onGloballyPositioned { onPlanBoundsChanged(it.boundsInRoot()) }
+                } else {
+                    Modifier
+                },
+            )
             Spacer(modifier = Modifier.height(8.dp))
         }
     }
@@ -66,7 +81,14 @@ internal fun TripDaySection(
         onClick = onAddPlace,
         modifier = Modifier
             .fillMaxWidth()
-            .height(34.dp),
+            .height(34.dp)
+            .then(
+                if (onAddPlaceBoundsChanged != null) {
+                    Modifier.onGloballyPositioned { onAddPlaceBoundsChanged(it.boundsInRoot()) }
+                } else {
+                    Modifier
+                },
+            ),
         shape = RoundedCornerShape(0.dp),
         border = BorderStroke(1.dp, PrimaryAction),
         colors = ButtonDefaults.outlinedButtonColors(
@@ -83,9 +105,10 @@ private fun TravelPlanRow(
     index: Int,
     plan: HomeTravelPlan,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Card(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clickable(role = Role.Button, onClick = onClick),
         shape = RoundedCornerShape(0.dp),

@@ -24,13 +24,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -42,7 +46,11 @@ import androidx.compose.ui.unit.sp
 import com.gayadi.android.feature.home.R
 import com.gayadi.android.ui.components.BottomNavBar
 import com.gayadi.android.ui.components.BottomTab
+import com.gayadi.android.ui.components.UsageGuideCallout
+import com.gayadi.android.ui.components.UsageGuideOverlay
+import com.gayadi.android.ui.components.UsageGuidePlacement
 import com.gayadi.android.ui.theme.GayadiTheme
+import com.gayadi.android.ui.theme.PrimaryBlue
 import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.components.ScheduleOptionsBottomSheet
 
@@ -61,6 +69,10 @@ fun RealtimeHomeScreen(
     kakaoMapJavaScriptKey: String = "",
     kakaoMapBaseUrl: String = "https://localhost",
     friendCharacterKeys: List<String?> = emptyList(),
+    showUsageGuide: Boolean = false,
+    onUsageGuideFinished: () -> Unit = {},
+    showScheduleActionsGuide: Boolean = false,
+    onScheduleActionsGuideFinished: () -> Unit = {},
     onNavigateMyTrip: () -> Unit,
     onNavigateMyPage: () -> Unit,
     onNavigateLedger: () -> Unit = {},
@@ -72,6 +84,12 @@ fun RealtimeHomeScreen(
     onNavigateRoutes: () -> Unit,
 ) {
     var selectedPlan by remember { mutableStateOf<HomeTravelPlan?>(null) }
+    var isUsageGuideVisible by rememberSaveable { mutableStateOf(showUsageGuide) }
+    var isScheduleGuideVisible by rememberSaveable { mutableStateOf(showScheduleActionsGuide) }
+    var participantsBounds by remember { mutableStateOf<Rect?>(null) }
+    var addPlaceBounds by remember { mutableStateOf<Rect?>(null) }
+    var firstPlanBounds by remember { mutableStateOf<Rect?>(null) }
+    val firstPlanId = travelPlans.firstOrNull()?.id
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -153,6 +171,7 @@ fun RealtimeHomeScreen(
                     myCharacterKey = uiState.profile?.characterKey,
                     friendCharacterKeys = friendCharacterKeys,
                     onParticipants = onNavigateParticipants,
+                    onParticipantsBoundsChanged = { participantsBounds = it },
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -173,12 +192,15 @@ fun RealtimeHomeScreen(
                     Text("여행 계획", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
                 }
                 Spacer(modifier = Modifier.height(14.dp))
-                tripDays.forEach { day ->
+                tripDays.forEachIndexed { dayIndex, day ->
                     TripDaySection(
                         day = day,
                         plans = travelPlans.filter { it.date == day.date },
                         onAddPlace = onNavigatePlaceSearch,
                         onPlanClick = { selectedPlan = it },
+                        onAddPlaceBoundsChanged = if (dayIndex == 0) ({ addPlaceBounds = it }) else null,
+                        highlightedPlanId = firstPlanId,
+                        onPlanBoundsChanged = { firstPlanBounds = it },
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                 }
@@ -223,6 +245,76 @@ fun RealtimeHomeScreen(
                     }
                 },
             )
+        }
+
+        if (isUsageGuideVisible) {
+            val participantTarget = participantsBounds
+            val addTarget = addPlaceBounds
+            if (participantTarget != null && addTarget != null) {
+                val finishGuide = {
+                    isUsageGuideVisible = false
+                    onUsageGuideFinished()
+                }
+                UsageGuideOverlay(
+                    callouts = listOf(
+                        UsageGuideCallout(
+                            target = participantTarget,
+                            text = buildAnnotatedString {
+                                append("친구 영역에서\n")
+                                withStyle(SpanStyle(color = PrimaryBlue, fontWeight = FontWeight.SemiBold)) {
+                                    append("여행 멤버")
+                                }
+                                append("를 관리해보세요")
+                            },
+                            placement = UsageGuidePlacement.ABOVE,
+                            spotlightPadding = 4.dp,
+                        ),
+                        UsageGuideCallout(
+                            target = addTarget,
+                            text = buildAnnotatedString {
+                                withStyle(SpanStyle(color = PrimaryBlue, fontWeight = FontWeight.SemiBold)) {
+                                    append("장소 추가")
+                                }
+                                append("를 눌러 일정을 채워보세요")
+                            },
+                            placement = UsageGuidePlacement.BELOW,
+                            spotlightPadding = 7.dp,
+                        ),
+                    ),
+                    onDismiss = finishGuide,
+                    onTargetClick = { index ->
+                        finishGuide()
+                        if (index == 0) onNavigateParticipants() else onNavigatePlaceSearch()
+                    },
+                )
+            }
+        } else if (!showUsageGuide && isScheduleGuideVisible && firstPlanId != null) {
+            firstPlanBounds?.let { planTarget ->
+                UsageGuideOverlay(
+                    callouts = listOf(
+                        UsageGuideCallout(
+                            target = planTarget,
+                            text = buildAnnotatedString {
+                                withStyle(SpanStyle(color = PrimaryBlue, fontWeight = FontWeight.SemiBold)) {
+                                    append("일정 카드")
+                                }
+                                append("를 눌러\n상세 내용을 확인해보세요")
+                            },
+                            placement = UsageGuidePlacement.BELOW,
+                            spotlightPadding = 6.dp,
+                        ),
+                    ),
+                    onDismiss = {
+                        isScheduleGuideVisible = false
+                        onScheduleActionsGuideFinished()
+                    },
+                    onTargetClick = {
+                        isScheduleGuideVisible = false
+                        onScheduleActionsGuideFinished()
+                        selectedPlan = travelPlans.firstOrNull { it.id == firstPlanId }
+                    },
+                )
+            }
         }
 
     }

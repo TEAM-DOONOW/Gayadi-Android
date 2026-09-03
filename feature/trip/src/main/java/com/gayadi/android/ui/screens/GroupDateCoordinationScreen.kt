@@ -33,12 +33,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gayadi.android.domain.model.TravelParticipant
@@ -47,7 +55,11 @@ import com.gayadi.android.ui.theme.PretendardFontFamily
 import com.gayadi.android.ui.theme.PretendardSemiBoldFontFamily
 import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.components.GayadiTopAppBar
+import com.gayadi.android.ui.components.UsageGuideCallout
+import com.gayadi.android.ui.components.UsageGuideOverlay
+import com.gayadi.android.ui.components.UsageGuidePlacement
 import com.gayadi.android.ui.components.UserCharacterAvatar
+import com.gayadi.android.ui.theme.PrimaryBlue
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
@@ -68,6 +80,8 @@ fun GroupDateCoordinationScreen(
     trip: TravelTrip?,
     currentUserId: String,
     canFinalize: Boolean = true,
+    showUsageGuide: Boolean = false,
+    onUsageGuideFinished: () -> Unit = {},
     participants: List<TravelParticipant>,
     candidates: List<TravelParticipant> = emptyList(),
     onBack: () -> Unit,
@@ -94,6 +108,10 @@ fun GroupDateCoordinationScreen(
         mutableStateOf(trip.dateAvailability[activeMemberId].orEmpty().toSet())
     }
     var finalRange by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var guideStep by rememberSaveable { mutableStateOf(0) }
+    var isUsageGuideVisible by rememberSaveable { mutableStateOf(showUsageGuide) }
+    var calendarBounds by remember { mutableStateOf<Rect?>(null) }
+    var submitButtonBounds by remember { mutableStateOf<Rect?>(null) }
     val memberIds = members.map { it.first }.toSet()
     val submittedIds = trip.dateAvailability.keys.intersect(memberIds)
     val hostOnly = otherParticipants.isEmpty()
@@ -103,6 +121,7 @@ fun GroupDateCoordinationScreen(
     val addableParticipants = candidates.filterNot { candidate -> candidate.id in memberIds }
     val editableMemberIds = candidates.mapTo(mutableSetOf(currentUserId)) { it.id }
 
+    Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize().background(Color(0xFFFAFAFB))) {
         GayadiTopAppBar(
             title = "가능한 날짜 정하기",
@@ -112,7 +131,9 @@ fun GroupDateCoordinationScreen(
         Column(Modifier.padding(horizontal = 20.dp)) {
             Spacer(Modifier.height(18.dp))
             Text(
-                if (allSubmitted && editingSubmittedMemberId == null) {
+                if (hostOnly) {
+                    "여행할 날짜를 선택해 주세요"
+                } else if (allSubmitted && editingSubmittedMemberId == null) {
                     "모두 가능한 날짜 중 여행 기간을 선택해 주세요"
                 } else {
                     "가능한 날짜를 모두 선택한 뒤 제출해 주세요"
@@ -168,6 +189,7 @@ fun GroupDateCoordinationScreen(
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(14.dp))
                     .background(Color.White)
+                    .onGloballyPositioned { calendarBounds = it.boundsInRoot() }
                     .padding(14.dp),
             ) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -228,6 +250,7 @@ fun GroupDateCoordinationScreen(
                                         } else if (isEditingAvailability) {
                                             selectedDates = if (selected) selectedDates - key!! else selectedDates + key!!
                                         }
+                                        if (isUsageGuideVisible && guideStep == 0) guideStep = 1
                                     },
                                 contentAlignment = Alignment.Center,
                             ) {
@@ -263,6 +286,10 @@ fun GroupDateCoordinationScreen(
             Spacer(Modifier.weight(1f))
             Button(
                 onClick = {
+                    if (isUsageGuideVisible) {
+                        isUsageGuideVisible = false
+                        onUsageGuideFinished()
+                    }
                     if (hostOnly) {
                         val sorted = selectedDates.sorted()
                         onFinalize(sorted.first(), sorted.last())
@@ -283,7 +310,10 @@ fun GroupDateCoordinationScreen(
                     isEditingAvailability -> selectedDates.isNotEmpty()
                     else -> canFinalize && finalRange.isNotEmpty()
                 },
-                modifier = Modifier.fillMaxWidth().height(52.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .onGloballyPositioned { submitButtonBounds = it.boundsInRoot() },
                 shape = RoundedCornerShape(2.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = GroupAccent,
@@ -303,6 +333,47 @@ fun GroupDateCoordinationScreen(
                 )
             }
             Spacer(Modifier.height(16.dp))
+        }
+    }
+
+        if (isUsageGuideVisible) {
+            val target = if (guideStep == 0) calendarBounds else submitButtonBounds
+            target?.let {
+                UsageGuideOverlay(
+                    callouts = listOf(
+                        UsageGuideCallout(
+                            target = it,
+                            text = buildAnnotatedString {
+                                if (guideStep == 0) {
+                                    append("여행할 수 있는 ")
+                                    withStyle(SpanStyle(color = PrimaryBlue, fontWeight = FontWeight.SemiBold)) {
+                                        append("날짜를 모두 선택")
+                                    }
+                                    append("하세요")
+                                } else {
+                                    append("날짜를 모두 골랐다면\n")
+                                    withStyle(SpanStyle(color = PrimaryBlue, fontWeight = FontWeight.SemiBold)) {
+                                        append(
+                                            if (hostOnly || allSubmitted && canFinalize) {
+                                                "확정 버튼"
+                                            } else {
+                                                "제출 버튼"
+                                            },
+                                        )
+                                    }
+                                    append("을 누르세요")
+                                }
+                            },
+                            placement = UsageGuidePlacement.ABOVE,
+                            spotlightPadding = if (guideStep == 0) 4.dp else 8.dp,
+                        ),
+                    ),
+                    onDismiss = {
+                        isUsageGuideVisible = false
+                        onUsageGuideFinished()
+                    },
+                )
+            }
         }
     }
 
