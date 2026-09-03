@@ -273,7 +273,14 @@ fun ExpenseEditorScreen(
             Spacer(Modifier.height(6.dp))
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                SectionLabel("돈 낼 사람")
+                Column {
+                    SectionLabel("함께 나눌 사람")
+                    Text(
+                        "선택한 사람끼리 동일하게 나눠요",
+                        fontSize = 11.sp,
+                        color = TextSecondary,
+                    )
+                }
                 Spacer(Modifier.weight(1f))
                 Box(
                     modifier = Modifier

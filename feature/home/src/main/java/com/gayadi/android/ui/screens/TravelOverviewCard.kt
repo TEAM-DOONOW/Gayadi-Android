@@ -26,6 +26,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -50,6 +53,8 @@ internal fun TravelOverviewCard(
     myCharacterKey: String?,
     friendCharacterKeys: List<String?>,
     onParticipants: () -> Unit,
+    modifier: Modifier = Modifier,
+    onParticipantsBoundsChanged: ((Rect) -> Unit)? = null,
 ) {
     val visibleFriendCharacterKeys = friendCharacterKeys
         .filter { it != myCharacterKey }
@@ -61,7 +66,7 @@ internal fun TravelOverviewCard(
         .coerceAtLeast(0)
 
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .height(176.dp),
     ) {
@@ -135,6 +140,13 @@ internal fun TravelOverviewCard(
                 Modifier
                     .fillMaxWidth()
                     .minimumInteractiveComponentSize()
+                    .then(
+                        if (onParticipantsBoundsChanged != null) {
+                            Modifier.onGloballyPositioned { onParticipantsBoundsChanged(it.boundsInRoot()) }
+                        } else {
+                            Modifier
+                        },
+                    )
                     .semantics {
                         role = Role.Button
                         contentDescription = "함께하는 친구 ${participantCount}명 보기"

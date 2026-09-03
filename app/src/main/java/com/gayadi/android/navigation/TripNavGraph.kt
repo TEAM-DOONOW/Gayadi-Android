@@ -2,6 +2,8 @@ package com.gayadi.android.navigation
 
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraphBuilder
@@ -134,8 +136,16 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
         )
     }
     composable(Routes.MY_TRIP) {
+        val androidContext = LocalContext.current
+        val showFirstGuide = remember(androidContext) {
+            !UsageGuidePreferences.hasCompleted(androidContext, UsageGuidePreferences.MyTrip)
+        }
         MyTripScreen(
             trips = trips,
+            showUsageGuide = showFirstGuide,
+            onUsageGuideFinished = {
+                UsageGuidePreferences.markCompleted(androidContext, UsageGuidePreferences.MyTrip)
+            },
             onAddTrip = { navController.navigate(Routes.TRIP_CREATE) },
             onJoinTrip = { navController.navigate(Routes.FRIEND_ADD) },
             onJoinTripWithCode = { inviteCode ->
@@ -208,6 +218,7 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
         arguments = listOf(navArgument("tripId") { type = NavType.StringType }),
     ) { backStackEntry ->
         val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
+        val androidContext = LocalContext.current
         val travelState = travelUiState.travelState
         val coordinatedTrip = travelState.trip(tripId)
         val canFinalize = coordinatedTrip?.ownerId.isNullOrBlank() ||
@@ -222,6 +233,12 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
             trip = coordinatedTrip,
             currentUserId = travelState.currentUserId,
             canFinalize = canFinalize,
+            showUsageGuide = remember(androidContext) {
+                !UsageGuidePreferences.hasCompleted(androidContext, UsageGuidePreferences.GroupDate)
+            },
+            onUsageGuideFinished = {
+                UsageGuidePreferences.markCompleted(androidContext, UsageGuidePreferences.GroupDate)
+            },
             participants = travelState.participantsForTrip(tripId, tripViewModel.availableParticipants),
             candidates = tripViewModel.availableParticipants,
             onBack = { navController.popBackStack() },
@@ -413,6 +430,7 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
         arguments = listOf(navArgument("tripId") { type = NavType.StringType }),
     ) { backStackEntry ->
         val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
+        val androidContext = LocalContext.current
         val travelState = travelUiState.travelState
         val trip = travelState.trip(tripId)
         val tripSummary = trips.firstOrNull { it.id == tripId }
@@ -434,6 +452,18 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
             kakaoMapJavaScriptKey = com.gayadi.android.BuildConfig.KAKAO_MAP_JAVASCRIPT_SDK,
             kakaoMapBaseUrl = com.gayadi.android.BuildConfig.API_BASE_URL,
             friendCharacterKeys = tripParticipants.map { it.characterKey },
+            showUsageGuide = remember(androidContext) {
+                !UsageGuidePreferences.hasCompleted(androidContext, UsageGuidePreferences.TripHome)
+            },
+            onUsageGuideFinished = {
+                UsageGuidePreferences.markCompleted(androidContext, UsageGuidePreferences.TripHome)
+            },
+            showScheduleActionsGuide = remember(androidContext) {
+                !UsageGuidePreferences.hasCompleted(androidContext, UsageGuidePreferences.ScheduleActions)
+            },
+            onScheduleActionsGuideFinished = {
+                UsageGuidePreferences.markCompleted(androidContext, UsageGuidePreferences.ScheduleActions)
+            },
             tripCountdownText = buildTripCountdownText(trip?.startDate),
             onNavigateMyTrip = { navController.navigate(Routes.MY_TRIP) },
             onNavigateMyPage = { navController.navigate(Routes.MY_PAGE) },
