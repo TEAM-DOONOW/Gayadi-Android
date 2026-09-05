@@ -95,7 +95,14 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
         val city = travelUiState.travelState.trip(tripId)?.cities?.firstOrNull().orEmpty()
         val placeUiState by placeViewModel.uiState.collectAsStateWithLifecycle()
         LaunchedEffect(tripId, city) { placeViewModel.setRegion(city) }
+        val androidContext = LocalContext.current
         PlaceSearchScreen(
+            showUsageGuide = remember(androidContext) {
+                !UsageGuidePreferences.hasCompleted(androidContext, UsageGuidePreferences.PlaceSearch)
+            },
+            onUsageGuideFinished = {
+                UsageGuidePreferences.markCompleted(androidContext, UsageGuidePreferences.PlaceSearch)
+            },
             uiState = placeUiState,
             onBack = { navController.popBackStack() },
             onQueryChange = placeViewModel::updateQuery,
@@ -119,7 +126,14 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
         val placeId = requireNotNull(backStackEntry.arguments?.getString("placeId"))
         val travelState = travelUiState.travelState
         val trip = travelState.trip(tripId)
+        val androidContext = LocalContext.current
         PlaceDetailScreen(
+            showUsageGuide = remember(androidContext) {
+                !UsageGuidePreferences.hasCompleted(androidContext, UsageGuidePreferences.PlaceDetail)
+            },
+            onUsageGuideFinished = {
+                UsageGuidePreferences.markCompleted(androidContext, UsageGuidePreferences.PlaceDetail)
+            },
             place = placeViewModel.findPlace(placeId),
             tripName = trip?.name.orEmpty(),
             tripDate = trip?.startDate.orEmpty(),
