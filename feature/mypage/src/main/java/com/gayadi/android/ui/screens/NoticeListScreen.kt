@@ -122,7 +122,7 @@ private fun NoticeRow(notice: Notice, onClick: () -> Unit) {
                 Text(notice.title, fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium, color = TextPrimary, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Start)
                 Spacer(Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(notice.publishedAt.replace('-', '.'), fontSize = 12.sp, color = TextTertiary)
+                    Text(notice.publishedAt.substringBefore('T').replace('-', '.'), fontSize = 12.sp, color = TextTertiary)
                     if (notice.isPinned) {
                         Spacer(Modifier.width(6.dp))
                         Box(Modifier.size(22.dp).clip(RoundedCornerShape(50)).background(Color(0xFFE5005A)), contentAlignment = Alignment.Center) {

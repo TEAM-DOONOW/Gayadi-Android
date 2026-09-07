@@ -36,4 +36,21 @@ Retrofit + Moshi로 비동기 요청을 처리하며 연결 10초, 읽기 20초,
 | 이용약관 (`terms-of-service`) | 가야디 이용약관 |
 | 개인정보처리방침 (`privacy-policy`) | 가야디 개인정보처리방침 |
 
-화면 검증은 API 36 에뮬레이터에서 시도했으나 Android System UI 응답 없음 오류로 완료하지 못했습니다. 위 결과는 실제 서버 HTTP 응답 검증이며 앱 화면 표시 성공을 의미하지 않습니다.
+API 36 에뮬레이터에서 공지 목록·상세, 이용약관, 개인정보처리방침의 실제 서버 데이터 표시와 화면 캡처를 완료했습니다. 공지 날짜에 시각 문자열이 그대로 붙던 문제는 표시 계층에서 날짜 부분만 사용하도록 수정했습니다. 원본 DTO 및 도메인 게시 시각은 보존됩니다.
+
+초기 부팅 중 System UI 및 기본 전화 앱의 ANR이 기록됐습니다. 스냅샷을 사용하지 않고 소프트웨어 렌더링(`-no-snapshot -no-window -gpu swiftshader_indirect`)으로 실행한 뒤 시스템 시작이 안정된 상태에서 화면 이동과 캡처를 확인했습니다. 앱 프로세스의 AndroidRuntime 오류는 확인되지 않았습니다.
+
+검증 APK의 기본 주소 `10.0.2.2:8080`은 로컬 TCP 전달기를 통해 실제 개발 서버의 8080 포트에 연결했습니다. 응답을 생성하거나 변경하는 mock 서버는 사용하지 않았습니다. 비밀 설정 파일도 변경하지 않았습니다.
+
+| 공지 목록 | 공지 상세 |
+| --- | --- |
+| ![공지 목록](screenshots/issue-115/notices.png) | ![공지 상세](screenshots/issue-115/notice-detail.png) |
+
+| 이용약관 | 개인정보처리방침 |
+| --- | --- |
+| ![이용약관](screenshots/issue-115/terms.png) | ![개인정보처리방침](screenshots/issue-115/privacy.png) |
+
+일반 화면(1080×2400, 420dpi)과 작은 화면(720×1280, 360dpi)에서 공지 표시도 확인했습니다.
+
+![작은 화면 공지 상세](screenshots/issue-115/notice-detail-small.png)
+
