@@ -12,8 +12,7 @@ import com.gayadi.android.data.repository.DefaultInquiryRepository
 import com.gayadi.android.data.repository.DefaultNoticeRepository
 import com.gayadi.android.data.repository.FirestoreTripInviteRepository
 import com.gayadi.android.data.datasource.FirestoreInquiryDataSource
-import com.gayadi.android.data.datasource.FirestoreLegalDocumentDataSource
-import com.gayadi.android.data.datasource.FirestoreNoticeDataSource
+import com.gayadi.android.data.datasource.RestPublicContentDataSource
 import com.gayadi.android.domain.repository.ProfileRepository
 import com.gayadi.android.domain.repository.SurveyRepository
 import com.gayadi.android.domain.usecase.CalculateSurveyResultUseCase
@@ -56,9 +55,10 @@ class AppContainer(
         InMemoryProfileRepository(FileProfileLocalDataSource(profileFile))
     private val surveyRepository: SurveyRepository =
         DefaultSurveyRepository(FirestoreSurveyDataSource(firestore))
+    private val publicContentDataSource = RestPublicContentDataSource(tourApiBaseUrl)
     private val legalDocumentRepository =
-        DefaultLegalDocumentRepository(FirestoreLegalDocumentDataSource(firestore))
-    private val noticeRepository = DefaultNoticeRepository(FirestoreNoticeDataSource(firestore))
+        DefaultLegalDocumentRepository(publicContentDataSource)
+    private val noticeRepository = DefaultNoticeRepository(publicContentDataSource)
     private val travelRepository = FileTravelRepository(travelFile)
     private val tourRepository = DefaultTourRepository(HttpTourApiDataSource(tourApiBaseUrl))
     private val installationId = loadInstallationId(File(travelFile.parentFile, "installation-id"))
@@ -110,13 +110,13 @@ class AppContainer(
     /** Use case used to retrieve one result card from Firestore. */
     val getSurveyResultUseCase = GetSurveyResultUseCase(surveyRepository)
 
-    /** Loads the published terms or privacy policy from Firestore. */
+    /** Loads the published terms or privacy policy from the backend. */
     val getLegalDocumentUseCase = GetLegalDocumentUseCase(legalDocumentRepository)
 
-    /** Loads the published update notices shown in the settings screen. */
+    /** Loads the backend update notices shown in the settings screen. */
     val getNoticesUseCase = GetNoticesUseCase(noticeRepository)
 
-    /** Loads one published update notice for its detail screen. */
+    /** Loads one backend update notice for its detail screen. */
     val getNoticeUseCase = GetNoticeUseCase(noticeRepository)
 
     /** Sends a support inquiry written by the user to Firestore. */
