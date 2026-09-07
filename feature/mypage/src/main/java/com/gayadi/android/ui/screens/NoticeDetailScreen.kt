@@ -80,7 +80,7 @@ internal fun NoticeDetailScreen(
                     Text(notice.title, fontSize = 17.sp, lineHeight = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary, textAlign = TextAlign.Start)
                     Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(notice.publishedAt.replace('-', '.'), fontSize = 12.sp, color = TextTertiary)
+                        Text(notice.publishedAt.substringBefore('T').replace('-', '.'), fontSize = 12.sp, color = TextTertiary)
                         if (notice.isPinned) {
                             Spacer(Modifier.width(6.dp))
                             Box(

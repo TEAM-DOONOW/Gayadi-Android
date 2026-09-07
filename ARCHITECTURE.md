@@ -66,3 +66,7 @@ DataSource는 원본 DTO 또는 Entity를 반환하며 Repository 구현체가 M
 - 기능 모듈은 필요한 경우에만 `domain`과 공통 UI 모듈에 의존합니다.
 - 기능 모듈끼리는 직접 의존하지 않으며 화면 연결은 `app`의 navigation에서 담당합니다.
 - `app`은 구현을 직접 생성하지 않고 `di`의 composition root를 사용합니다.
+
+## Public content API
+
+공지 및 법률 문서는 `RestPublicContentDataSource`의 Retrofit + Moshi 비동기 호출로 서버에서 가져옵니다. `AppContainer`에서 해당 DataSource를 Repository에 주입합니다. 세부 API 및 검증 범위는 [PUBLIC_CONTENT_API.md](docs/PUBLIC_CONTENT_API.md)를 참고하세요.
