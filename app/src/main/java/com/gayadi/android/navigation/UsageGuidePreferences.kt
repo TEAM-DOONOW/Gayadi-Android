@@ -4,6 +4,8 @@ import android.content.Context
 
 internal object UsageGuidePreferences {
     private const val PreferencesName = "gayadi-usage-guide"
+    const val PlaceSearch = "place-search-v1"
+    const val PlaceDetail = "place-detail-v1"
     const val MyTrip = "my-trip-v2"
     const val GroupDate = "group-date-v1"
     const val TripHome = "trip-home-v1"
