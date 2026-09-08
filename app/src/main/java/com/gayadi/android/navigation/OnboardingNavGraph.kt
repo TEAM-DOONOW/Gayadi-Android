@@ -85,6 +85,9 @@ internal fun NavGraphBuilder.onboardingGraph(context: AppNavigationContext) = wi
             onOpenPrivacyPolicy = {
                 navController.navigate(Routes.legalDocument(LegalDocumentType.PRIVACY_POLICY.documentId))
             },
+            onOpenTerms = {
+                navController.navigate(Routes.legalDocument(LegalDocumentType.TERMS_OF_SERVICE.documentId))
+            },
         )
     }
     composable(Routes.BASIC_INFO) {

@@ -118,6 +118,7 @@ fun LoginScreen(
     onGoogleLogin: () -> Unit,
     onKakaoLogin: () -> Unit,
     onOpenPrivacyPolicy: () -> Unit,
+    onOpenTerms: () -> Unit,
 ) {
     var currentRecommendation by remember { mutableIntStateOf(0) }
 
@@ -222,14 +223,6 @@ fun LoginScreen(
                         },
                     )
                 }
-                TextButton(onClick = onOpenPrivacyPolicy) {
-                    Text(
-                        text = "개인정보 처리방침",
-                        fontFamily = PretendardSemiBoldFontFamily,
-                        fontSize = 12.sp,
-                        color = PrimaryAction,
-                    )
-                }
                 Spacer(modifier = Modifier.height(10.dp))
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -332,12 +325,24 @@ fun LoginScreen(
                     )
                 }
                 Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = "로그인하고 나만의 여행을 저장해요!",
-                    fontFamily = PretendardFontFamily,
-                    fontSize = 12.sp,
-                    color = TextSecondary,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = onOpenTerms) {
+                        Text(
+                            text = "이용약관",
+                            fontFamily = PretendardSemiBoldFontFamily,
+                            fontSize = 12.sp,
+                            color = PrimaryAction,
+                        )
+                    }
+                    TextButton(onClick = onOpenPrivacyPolicy) {
+                    Text(
+                        text = "개인정보 처리방침",
+                        fontFamily = PretendardSemiBoldFontFamily,
+                        fontSize = 12.sp,
+                        color = PrimaryAction,
+                    )
+                    }
+                }
             }
         }
     }
@@ -392,6 +397,7 @@ private fun LoginPreview() {
             onGoogleLogin = {},
             onKakaoLogin = {},
             onOpenPrivacyPolicy = {},
+            onOpenTerms = {},
         )
     }
 }
