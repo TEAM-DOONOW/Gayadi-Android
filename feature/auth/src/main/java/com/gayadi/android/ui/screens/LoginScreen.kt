@@ -31,9 +31,8 @@ import androidx.compose.material.icons.filled.Circle
 import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.Restaurant
 import androidx.compose.material.icons.rounded.Weekend
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -112,7 +111,12 @@ private val recommendations = listOf(
 )
 
 @Composable
-fun LoginScreen(onStart: () -> Unit) {
+fun LoginScreen(
+    isLoginInProgress: Boolean = false,
+    loginError: String? = null,
+    onGoogleLogin: () -> Unit,
+    onKakaoLogin: () -> Unit,
+) {
     var currentRecommendation by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(currentRecommendation) {
@@ -129,7 +133,7 @@ fun LoginScreen(onStart: () -> Unit) {
             painter = painterResource(R.drawable.login_travel_background_no_plane),
             contentDescription = null,
             modifier = Modifier.fillMaxSize().offset(y = (-12).dp),
-            contentScale = ContentScale.Fit,
+            contentScale = ContentScale.Crop,
             alpha = 0.68f,
         )
 
@@ -177,14 +181,14 @@ fun LoginScreen(onStart: () -> Unit) {
                     Image(
                         painter = painterResource(R.drawable.ganadi),
                         contentDescription = "가야디",
-                        modifier = Modifier.size(274.dp).offset(y = 54.dp),
+                        modifier = Modifier.size(274.dp).offset(y = 122.dp),
                         contentScale = ContentScale.Fit,
                     )
                     Text(
                         text = "오늘은\n어디 갈까?",
                         modifier = Modifier
                             .align(Alignment.TopStart)
-                            .offset(x = 2.dp, y = 34.dp)
+                            .offset(x = 2.dp, y = 88.dp)
                             .width(128.dp)
                             .heightIn(min = 100.dp)
                             .background(Color.White, CharacterSpeechBubbleShape)
@@ -201,8 +205,7 @@ fun LoginScreen(onStart: () -> Unit) {
 
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .background(LoginPaper.copy(alpha = 0.96f)),
+                    .fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Crossfade(
@@ -232,14 +235,91 @@ fun LoginScreen(onStart: () -> Unit) {
                     }
                 }
                 Spacer(modifier = Modifier.height(34.dp))
-                Button(
-                    onClick = onStart,
-                    modifier = Modifier.fillMaxWidth().height(50.dp),
-                    shape = RoundedCornerShape(2.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryAction, contentColor = Color.White),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Text(text = "시작하기", fontSize = 15.sp, fontFamily = PretendardSemiBoldFontFamily)
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable(enabled = !isLoginInProgress, onClick = onGoogleLogin)
+                            .height(48.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(40.dp)
+                                .background(Color.White, RoundedCornerShape(2.dp))
+                                .border(1.dp, Color(0xFFDADCE0), RoundedCornerShape(2.dp))
+                                .padding(horizontal = 8.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_google),
+                                contentDescription = null,
+                                tint = Color.Unspecified,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "구글로 로그인하기",
+                                fontSize = 12.sp,
+                                color = Color(0xFF202124),
+                                fontFamily = PretendardSemiBoldFontFamily,
+                            )
+                        }
+                    }
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable(enabled = !isLoginInProgress, onClick = onKakaoLogin)
+                            .height(48.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(40.dp)
+                                .background(Color(0xFFFEE500), RoundedCornerShape(2.dp))
+                                .padding(horizontal = 8.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Image(
+                                painter = painterResource(R.drawable.kakaotalk),
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                contentScale = ContentScale.Fit,
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "카카오톡으로 로그인하기",
+                                fontSize = 12.sp,
+                                color = Color(0xFF191919),
+                                fontFamily = PretendardSemiBoldFontFamily,
+                            )
+                        }
+                    }
+                }
+                if (isLoginInProgress) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = PrimaryAction,
+                        strokeWidth = 2.dp,
+                    )
+                } else if (loginError != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = loginError,
+                        fontFamily = PretendardFontFamily,
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp,
+                        color = Color(0xFFB3261E),
+                        textAlign = TextAlign.Center,
+                    )
                 }
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
@@ -297,5 +377,10 @@ private fun WeatherCard(recommendation: Recommendation, onClick: () -> Unit) {
 @Preview(showBackground = true, heightDp = 800)
 @Composable
 private fun LoginPreview() {
-    GayadiTheme { LoginScreen(onStart = {}) }
+    GayadiTheme {
+        LoginScreen(
+            onGoogleLogin = {},
+            onKakaoLogin = {},
+        )
+    }
 }

@@ -1,0 +1,6 @@
+API_BASE_URL=https://api.example.com
+DEBUG_LOGGING=false
+KAKAO_MAP_JAVASCRIPT_SDK=your_prod_javascript_key
+KAKAO_MAP_REST_API=your_prod_rest_api_key
+KAKAO_NATIVE_SDK=your_prod_native_key
+GOOGLE_CLIENT_ID=your_prod_web_client_id.apps.googleusercontent.com

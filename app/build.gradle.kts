@@ -7,18 +7,26 @@ plugins {
     alias(libs.plugins.google.services)
 }
 
-val envProps = Properties().apply {
-    val envFile = rootProject.file(".env")
-    if (envFile.exists()) envFile.inputStream().use { load(it) }
+fun loadEnvironmentProperties(environment: String): Properties {
+    val propertiesFile = rootProject.file("config/$environment.properties")
+    check(propertiesFile.exists()) {
+        "Missing ${propertiesFile.path}. Copy config/$environment.properties.example and fill in the values."
+    }
+
+    return Properties().apply {
+        propertiesFile.inputStream().use(::load)
+    }
 }
 
-fun env(key: String, default: String = ""): String =
-    envProps.getProperty(key, default)
+fun Properties.requiredString(key: String): String =
+    getProperty(key)?.takeIf(String::isNotBlank)
+        ?: error("Missing required property: $key")
 
-fun emulatorApiBaseUrl(): String =
-    env("API_BASE_URL", "http://10.0.2.2:8080")
-        .replace("localhost", "10.0.2.2")
-        .replace("127.0.0.1", "10.0.2.2")
+fun String.asBuildConfigString(): String =
+    "\"${replace("\\", "\\\\").replace("\"", "\\\"")}\""
+
+val devProperties = loadEnvironmentProperties("dev")
+val prodProperties = loadEnvironmentProperties("prod")
 
 android {
     namespace = "com.gayadi.android"
@@ -32,11 +40,63 @@ android {
         versionCode = 1
         versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
 
-        buildConfigField("String", "API_BASE_URL", "\"${emulatorApiBaseUrl()}\"")
-        buildConfigField("boolean", "DEBUG_LOGGING", env("DEBUG_LOGGING", "true"))
-        buildConfigField("String", "KAKAO_MAP_JAVASCRIPT_SDK", "\"${env("KAKAO_MAP_JAVASCRIPT_SDK")}\"")
-        buildConfigField("String", "KAKAO_NATIVE_SDK", "\"${env("KAKAO_NATIVE_SDK")}\"")
+    flavorDimensions += "environment"
+    productFlavors {
+        create("dev") {
+            dimension = "environment"
+            versionNameSuffix = "-dev"
+            buildConfigField(
+                "String",
+                "API_BASE_URL",
+                devProperties.requiredString("API_BASE_URL")
+                    .replace("localhost", "10.0.2.2")
+                    .replace("127.0.0.1", "10.0.2.2")
+                    .asBuildConfigString(),
+            )
+            buildConfigField("boolean", "DEBUG_LOGGING", devProperties.getProperty("DEBUG_LOGGING", "true"))
+            buildConfigField(
+                "String",
+                "KAKAO_MAP_JAVASCRIPT_SDK",
+                devProperties.requiredString("KAKAO_MAP_JAVASCRIPT_SDK").asBuildConfigString(),
+            )
+            buildConfigField(
+                "String",
+                "KAKAO_NATIVE_SDK",
+                devProperties.requiredString("KAKAO_NATIVE_SDK").asBuildConfigString(),
+            )
+            buildConfigField(
+                "String",
+                "GOOGLE_WEB_CLIENT_ID",
+                devProperties.getProperty("GOOGLE_CLIENT_ID", "").trim().asBuildConfigString(),
+            )
+        }
+
+        create("prod") {
+            dimension = "environment"
+            buildConfigField(
+                "String",
+                "API_BASE_URL",
+                prodProperties.requiredString("API_BASE_URL").asBuildConfigString(),
+            )
+            buildConfigField("boolean", "DEBUG_LOGGING", prodProperties.getProperty("DEBUG_LOGGING", "false"))
+            buildConfigField(
+                "String",
+                "KAKAO_MAP_JAVASCRIPT_SDK",
+                prodProperties.requiredString("KAKAO_MAP_JAVASCRIPT_SDK").asBuildConfigString(),
+            )
+            buildConfigField(
+                "String",
+                "KAKAO_NATIVE_SDK",
+                prodProperties.requiredString("KAKAO_NATIVE_SDK").asBuildConfigString(),
+            )
+            buildConfigField(
+                "String",
+                "GOOGLE_WEB_CLIENT_ID",
+                prodProperties.getProperty("GOOGLE_CLIENT_ID", "").trim().asBuildConfigString(),
+            )
+        }
     }
 
     buildTypes {
@@ -58,6 +118,15 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+}
+
+tasks.configureEach {
+    when {
+        name.startsWith("generateDev") && name.endsWith("BuildConfig") ->
+            inputs.file(rootProject.file("config/dev.properties"))
+        name.startsWith("generateProd") && name.endsWith("BuildConfig") ->
+            inputs.file(rootProject.file("config/prod.properties"))
     }
 }
 
@@ -86,6 +155,9 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.kakao.share)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.google.identity.googleid)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.analytics)
     testImplementation(libs.junit)
