@@ -85,7 +85,7 @@ fun GayadiNavHost(appContainer: AppContainer) {
         sharedProfileUiState = sharedProfileUiState,
     )
 
-    NavHost(navController = navController, startDestination = Routes.STARTUP) {
+    NavHost(navController = navController, startDestination = Routes.LOGIN) {
         onboardingGraph(navigationContext)
         tripGraph(navigationContext)
         myPageGraph(navigationContext)
@@ -94,6 +94,12 @@ fun GayadiNavHost(appContainer: AppContainer) {
 
 internal fun resolveStartupDestination(profile: UserProfile?): String = when {
     profile?.nickname.isNullOrBlank() -> Routes.LOGIN
+    profile?.characterKey.isNullOrBlank() -> Routes.SURVEY
+    else -> Routes.MY_TRIP
+}
+
+internal fun resolveAuthenticatedDestination(profile: UserProfile?): String = when {
+    profile?.nickname.isNullOrBlank() -> Routes.BASIC_INFO
     profile?.characterKey.isNullOrBlank() -> Routes.SURVEY
     else -> Routes.MY_TRIP
 }

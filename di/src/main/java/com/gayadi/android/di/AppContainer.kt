@@ -4,12 +4,17 @@ import com.gayadi.android.data.repository.InMemoryProfileRepository
 import com.gayadi.android.data.repository.FileTravelRepository
 import com.gayadi.android.data.repository.DefaultTourRepository
 import com.gayadi.android.data.datasource.HttpTourApiDataSource
+import com.gayadi.android.data.datasource.HttpAuthApiDataSource
+import com.gayadi.android.data.datasource.HttpProfileApiDataSource
 import com.gayadi.android.data.datasource.FileProfileLocalDataSource
 import com.gayadi.android.data.datasource.FirestoreSurveyDataSource
 import com.gayadi.android.data.repository.DefaultSurveyRepository
 import com.gayadi.android.data.repository.DefaultLegalDocumentRepository
 import com.gayadi.android.data.repository.DefaultInquiryRepository
 import com.gayadi.android.data.repository.DefaultNoticeRepository
+import com.gayadi.android.data.repository.DefaultAuthRepository
+import com.gayadi.android.data.repository.AuthenticatedProfileRepository
+import com.gayadi.android.data.repository.EncryptedFileAuthSessionStore
 import com.gayadi.android.data.repository.FirestoreTripInviteRepository
 import com.gayadi.android.data.datasource.FirestoreInquiryDataSource
 import com.gayadi.android.data.datasource.RestPublicContentDataSource
@@ -35,6 +40,7 @@ import com.gayadi.android.domain.usecase.SubmitSharedTripAvailabilityUseCase
 import com.gayadi.android.domain.usecase.FinalizeSharedTripDatesUseCase
 import com.gayadi.android.domain.usecase.SaveTravelStateUseCase
 import com.gayadi.android.domain.usecase.SubmitInquiryUseCase
+import com.gayadi.android.domain.usecase.SignInWithGoogleUseCase
 import com.gayadi.android.domain.usecase.UpdateTravelStateUseCase
 import com.gayadi.android.domain.usecase.GetTourPlacesUseCase
 import com.gayadi.android.domain.usecase.GetNearbyTourPlacesUseCase
@@ -51,7 +57,7 @@ class AppContainer(
     appVersion: String = DEFAULT_APP_VERSION,
 ) {
     private val firestore = FirebaseFirestore.getInstance()
-    private val profileRepository: ProfileRepository =
+    private val localProfileRepository: ProfileRepository =
         InMemoryProfileRepository(FileProfileLocalDataSource(profileFile))
     private val surveyRepository: SurveyRepository =
         DefaultSurveyRepository(FirestoreSurveyDataSource(firestore))
@@ -61,6 +67,15 @@ class AppContainer(
     private val noticeRepository = DefaultNoticeRepository(publicContentDataSource)
     private val travelRepository = FileTravelRepository(travelFile)
     private val tourRepository = DefaultTourRepository(HttpTourApiDataSource(tourApiBaseUrl))
+    private val authRepository = DefaultAuthRepository(
+        HttpAuthApiDataSource(tourApiBaseUrl),
+        EncryptedFileAuthSessionStore(File(travelFile.parentFile, "auth-session")),
+    )
+    private val profileRepository: ProfileRepository = AuthenticatedProfileRepository(
+        localRepository = localProfileRepository,
+        apiDataSource = HttpProfileApiDataSource(tourApiBaseUrl),
+        authRepository = authRepository,
+    )
     private val installationId = loadInstallationId(File(travelFile.parentFile, "installation-id"))
     private val tripInviteRepository = FirestoreTripInviteRepository(firestore, installationId)
     private val inquiryRepository =
@@ -121,6 +136,9 @@ class AppContainer(
 
     /** Sends a support inquiry written by the user to Firestore. */
     val submitInquiryUseCase = SubmitInquiryUseCase(inquiryRepository)
+
+    /** Exchanges a Google ID Token for a Gayadi API session. */
+    val signInWithGoogleUseCase = SignInWithGoogleUseCase(authRepository)
 
     /** Loads and caches the tourism places exposed by the Gayadi backend. */
     val getTourPlacesUseCase = GetTourPlacesUseCase(tourRepository)

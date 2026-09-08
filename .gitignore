@@ -44,6 +44,8 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+config/*.properties
+!config/*.properties.example
 
 # Misc
 *.log

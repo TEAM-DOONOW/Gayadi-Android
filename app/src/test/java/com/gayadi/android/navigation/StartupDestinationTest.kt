@@ -22,4 +22,16 @@ class StartupDestinationTest {
 
         assertEquals(Routes.MY_TRIP, resolveStartupDestination(profile))
     }
+
+    @Test
+    fun authenticatedNewUserStartsBasicInfo() {
+        assertEquals(Routes.BASIC_INFO, resolveAuthenticatedDestination(null))
+    }
+
+    @Test
+    fun authenticatedCompletedUserOpensMyTrip() {
+        val profile = UserProfile("미르", "", characterKey = "character_pca")
+
+        assertEquals(Routes.MY_TRIP, resolveAuthenticatedDestination(profile))
+    }
 }

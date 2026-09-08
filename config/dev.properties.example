@@ -1,0 +1,6 @@
+API_BASE_URL=http://10.0.2.2:8080
+DEBUG_LOGGING=true
+KAKAO_MAP_JAVASCRIPT_SDK=your_dev_javascript_key
+KAKAO_MAP_REST_API=your_dev_rest_api_key
+KAKAO_NATIVE_SDK=your_dev_native_key
+GOOGLE_CLIENT_ID=your_dev_web_client_id.apps.googleusercontent.com

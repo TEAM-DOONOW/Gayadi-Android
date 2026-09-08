@@ -279,11 +279,12 @@ fun MyTripScreen(
                         EmptyTrips(
                             title = "아직 완료된 여행이 없어요",
                             message = "여행이 끝나면 이곳에 자동으로 모아둘게요.",
-                            modifier = Modifier.align(Alignment.Center).padding(top = 40.dp),
+                            modifier = Modifier.align(Alignment.Center),
                         )
                     }
                 }
 
+                Spacer(modifier = Modifier.height(40.dp))
                 Button(
                     onClick = onAddTrip,
                     modifier = Modifier
