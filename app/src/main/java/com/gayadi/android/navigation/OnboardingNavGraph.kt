@@ -1,6 +1,7 @@
 package com.gayadi.android.navigation
 
 import android.util.Log
+import com.gayadi.android.domain.model.LegalDocumentType
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -81,6 +82,9 @@ internal fun NavGraphBuilder.onboardingGraph(context: AppNavigationContext) = wi
                 }
             },
             onKakaoLogin = { navController.navigate(Routes.BASIC_INFO) },
+            onOpenPrivacyPolicy = {
+                navController.navigate(Routes.legalDocument(LegalDocumentType.PRIVACY_POLICY.documentId))
+            },
         )
     }
     composable(Routes.BASIC_INFO) {

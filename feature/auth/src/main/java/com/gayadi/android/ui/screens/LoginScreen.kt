@@ -34,6 +34,7 @@ import androidx.compose.material.icons.rounded.Weekend
 import androidx.compose.material3.Icon
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -116,6 +117,7 @@ fun LoginScreen(
     loginError: String? = null,
     onGoogleLogin: () -> Unit,
     onKakaoLogin: () -> Unit,
+    onOpenPrivacyPolicy: () -> Unit,
 ) {
     var currentRecommendation by remember { mutableIntStateOf(0) }
 
@@ -218,6 +220,14 @@ fun LoginScreen(
                         onClick = {
                             currentRecommendation = (currentRecommendation + 1) % recommendations.size
                         },
+                    )
+                }
+                TextButton(onClick = onOpenPrivacyPolicy) {
+                    Text(
+                        text = "개인정보 처리방침",
+                        fontFamily = PretendardSemiBoldFontFamily,
+                        fontSize = 12.sp,
+                        color = PrimaryAction,
                     )
                 }
                 Spacer(modifier = Modifier.height(10.dp))
@@ -381,6 +391,7 @@ private fun LoginPreview() {
         LoginScreen(
             onGoogleLogin = {},
             onKakaoLogin = {},
+            onOpenPrivacyPolicy = {},
         )
     }
 }

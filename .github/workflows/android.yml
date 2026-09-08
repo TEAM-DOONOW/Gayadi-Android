@@ -52,5 +52,10 @@ jobs:
       - name: Verify Gradle wrapper
         uses: gradle/actions/wrapper-validation@v4
 
+      - name: Prepare CI build configuration
+        run: |
+          cp config/dev.properties.example config/dev.properties
+          cp config/prod.properties.example config/prod.properties
+
       - name: Run Android quality gates
-        run: ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug
+        run: ./gradlew --no-daemon test lint :app:assembleDevDebug
