@@ -138,6 +138,11 @@ class DevTravelIntegrationTest {
                 awaitText("여행 계획")
                 SystemClock.sleep(1500)
                 awaitText("여행 계획")
+                // Exercise the scroll container and capture its rendered contents after navigation.
+                nodes().firstOrNull { it.isScrollable }?.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)
+                SystemClock.sleep(400)
+                nodes().firstOrNull { it.isScrollable }?.performAction(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD)
+                SystemClock.sleep(400)
                 screenshot("travel-detail")
                 click("함께하는 친구 2명 보기")
                 awaitText("동행테스트")
@@ -219,6 +224,8 @@ class DevTravelIntegrationTest {
     }
 
     private fun screenshot(name: String) {
+        instrumentation.waitForIdleSync()
+        SystemClock.sleep(2000)
         val suffix = InstrumentationRegistry.getArguments().getString("screenshotSuffix").orEmpty()
         val file = File(context.getExternalFilesDir(null), "api-screenshots/$name$suffix.png")
         file.parentFile?.mkdirs()
