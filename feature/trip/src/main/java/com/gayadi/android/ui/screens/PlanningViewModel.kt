@@ -16,9 +16,6 @@ data class PlanningUiState(
     val routes: List<RecommendedRoute> = emptyList(),
     val selected: RecommendedRoute? = null,
     val plan: GeneratedPlan? = null,
-    val places: List<PlanningPlace> = emptyList(),
-    val endpoint: PlanningPlace? = null,
-    val searched: Boolean = false,
 )
 
 class PlanningViewModel(private val gateway: PlanningGateway, private val tripId: String,
@@ -50,15 +47,6 @@ class PlanningViewModel(private val gateway: PlanningGateway, private val tripId
         mutable.update { it.copy(plan=generated, routes=emptyList(), selected=null) }
         val selected = gateway.selectedRoutes(tripId).firstOrNull { it.type == type }
         mutable.update { it.copy(selected=selected, routes=listOfNotNull(selected)) }
-    }
-    fun search(query: String) = execute {
-        val places = gateway.searchPlaces(query)
-        mutable.update { it.copy(places=places, searched=true) }
-    }
-    fun chooseEndpoint(place: PlanningPlace) = execute {
-        gateway.setEndpoint(tripId, type, place.id)
-        val selected = gateway.selectedRoutes(tripId).firstOrNull { it.type == type }
-        mutable.update { it.copy(endpoint=place, places=emptyList(), searched=false, routes=listOfNotNull(selected), selected=selected) }
     }
     private fun execute(block: suspend () -> Unit) {
         if (mutable.value.busy) return

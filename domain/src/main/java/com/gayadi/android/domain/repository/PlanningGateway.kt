@@ -8,7 +8,6 @@ data class RecommendedRoute(
     val summary: String, val stops: List<String>, val isEstimate: Boolean,
     val userId: String? = null,
 )
-data class PlanningPlace(val id: String, val name: String, val address: String)
 data class GeneratedPlanItem(val id: String, val title: String, val start: String, val end: String, val address: String)
 data class GeneratedPlanDay(val date: String, val title: String, val items: List<GeneratedPlanItem>)
 data class GeneratedPlan(val days: List<GeneratedPlanDay>)
@@ -20,6 +19,4 @@ interface PlanningGateway {
     suspend fun clearSelection(tripId: String, type: PlanningRouteType)
     suspend fun getPlan(tripId: String): GeneratedPlan?
     suspend fun generatePlan(tripId: String): GeneratedPlan
-    suspend fun searchPlaces(query: String): List<PlanningPlace>
-    suspend fun setEndpoint(tripId: String, type: PlanningRouteType, placeId: String)
 }

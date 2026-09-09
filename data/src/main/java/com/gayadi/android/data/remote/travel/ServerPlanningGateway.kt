@@ -5,7 +5,6 @@ import com.gayadi.android.data.datasource.GayadiApiException
 import com.gayadi.android.domain.repository.*
 import org.json.JSONArray
 import org.json.JSONObject
-import java.net.URLEncoder
 
 class ServerPlanningGateway(private val api: GayadiApiClient, private val auth: AuthRepository) : PlanningGateway {
     private fun path(tripId: String) = "/api/v1/trips/${id(tripId)}"
@@ -36,27 +35,6 @@ class ServerPlanningGateway(private val api: GayadiApiClient, private val auth: 
         if (error.statusCode == 404) null else throw error
     }
     override suspend fun generatePlan(tripId: String) = plan(JSONObject(api.request("POST", "${path(tripId)}/plans")))
-    override suspend fun searchPlaces(query: String): List<PlanningPlace> {
-        require(query.trim().length in 1..100)
-        val result = JSONObject(api.request("GET", "/api/v1/places?limit=20&query=${URLEncoder.encode(query.trim(), "UTF-8")}", authenticated=false))
-        return objects(result.getJSONArray("items")).map { PlanningPlace(it.getLong("id").toString(), it.getString("name"), it.optString("address")) }
-    }
-    override suspend fun setEndpoint(tripId: String, type: PlanningRouteType, placeId: String) {
-        require(type != PlanningRouteType.ITINERARY)
-        val participant = array(api.request("GET", "${path(tripId)}/participants"))
-            .first { it.getLong("userId") == userId() }
-        val body = JSONObject().put("departurePlaceId", participant.opt("departurePlaceId") ?: JSONObject.NULL)
-            .put("returnPlaceId", participant.opt("returnPlaceId") ?: JSONObject.NULL)
-            .put(if (type == PlanningRouteType.DEPARTURE) "departurePlaceId" else "returnPlaceId", id(placeId))
-        try {
-            api.request("PUT", "${path(tripId)}/participants/current/settings", body.toString())
-        } catch (error: GayadiApiException) {
-            if (error.statusCode == 404 || error.statusCode == 405) {
-                throw IllegalStateException("장소 설정 기능이 아직 준비되지 않았어요. 잠시 후 다시 시도해 주세요.")
-            }
-            throw error
-        }
-    }
     internal companion object {
         fun route(json: JSONObject): RecommendedRoute = RecommendedRoute(
             id=json.getLong("id").toString(), optionId=json.getString("optionId"), name=json.getString("name"),

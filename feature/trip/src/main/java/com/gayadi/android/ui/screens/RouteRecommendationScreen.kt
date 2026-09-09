@@ -30,10 +30,7 @@ fun RouteRecommendationScreen(
     onClear: () -> Unit,
     onGenerate: () -> Unit,
     onSurvey: () -> Unit,
-    onSearch: (String) -> Unit,
-    onChooseEndpoint: (PlanningPlace) -> Unit,
 ) {
-    var query by rememberSaveable(type) { mutableStateOf("") }
     var confirmGenerate by remember { mutableStateOf(false) }
     var showPlan by rememberSaveable { mutableStateOf(false) }
     Column(Modifier.fillMaxSize().background(Background).navigationBarsPadding()) {
@@ -68,19 +65,7 @@ fun RouteRecommendationScreen(
             }
             if(trip?.status!=TripStatus.PLANNING) Text("자동 일정은 여행 준비 중에 만들 수 있어요.", color=TextSecondary)
             if(type != RouteRecommendationType.ITINERARY) {
-                Text(if(type==RouteRecommendationType.DEPARTURE) "내 출발 장소" else "내 귀가 장소", style=MaterialTheme.typography.titleLarge)
-                Text(state.endpoint?.let { "저장됨 · ${it.name}" } ?: "서버에 저장된 장소를 사용해요. 변경하려면 검색해 주세요.", color=TextSecondary)
-                OutlinedTextField(value=query, onValueChange={ query=it.take(100) }, label={ Text("장소명 또는 주소") }, singleLine=true, modifier=Modifier.fillMaxWidth())
-                OutlinedButton(onClick={ onSearch(query) }, enabled=query.isNotBlank() && !state.busy) { Text("장소 검색") }
-                if(state.searched && state.places.isEmpty()) Text("검색 결과가 없어요. 다른 검색어를 입력해 주세요.")
-                state.places.forEach { place ->
-                    OutlinedButton(onClick={ onChooseEndpoint(place) }, enabled=!state.busy, modifier=Modifier.fillMaxWidth()) {
-                        Column(Modifier.fillMaxWidth()) {
-                            Text(place.name)
-                            Text(place.address, style=MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                }
+                Text("이미 등록된 개인 장소를 기준으로 추천해요. 이 화면에서는 출발·귀가 장소를 변경할 수 없어요.", color=TextSecondary)
             }
             Text("이동 경로", style=MaterialTheme.typography.titleLarge)
             Button(onClick=onRecommend, enabled=!state.busy && state.plan!=null,

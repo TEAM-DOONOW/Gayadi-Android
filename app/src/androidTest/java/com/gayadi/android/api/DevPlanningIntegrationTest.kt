@@ -79,22 +79,6 @@ class DevPlanningIntegrationTest {
             instrumentation.sendStatus(0, android.os.Bundle().apply { putString("stream", "STEP clear\n") })
             planning.clearSelection(trip.id,PlanningRouteType.ITINERARY)
             assertTrue(planning.selectedRoutes(trip.id).isEmpty())
-            // Enable after the participant-settings backend PR is deployed to dev.
-            if (InstrumentationRegistry.getArguments().getString("participantSettings") == "true") {
-            instrumentation.sendStatus(0, android.os.Bundle().apply { putString("stream", "STEP endpoint\n") })
-            val places=planning.searchPlaces("서울")
-            assertTrue(places.isNotEmpty())
-            planning.setEndpoint(trip.id,PlanningRouteType.DEPARTURE,places.first().id)
-            planning.setEndpoint(trip.id,PlanningRouteType.HOME,places.last().id)
-            instrumentation.sendStatus(0, android.os.Bundle().apply { putString("stream", "STEP personal\n") })
-            for(type in listOf(PlanningRouteType.DEPARTURE,PlanningRouteType.HOME)) {
-                val route=planning.recommend(trip.id,type).first()
-                assertEquals(type,route.type)
-                planning.select(trip.id,route)
-                assertTrue(planning.selectedRoutes(trip.id).any { it.type==type })
-                planning.clearSelection(trip.id,type)
-            }
-            }
             instrumentation.sendStatus(0, android.os.Bundle().apply { putString("stream", "STEP ui\n") })
             val activity=instrumentation.startActivitySync(Intent(context,MainActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))

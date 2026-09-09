@@ -425,7 +425,6 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
             onBack={navController.popBackStack()}, onReload=planning::reload, onRecommend=planning::recommend,
             onApply=planning::select, onClear=planning::clearSelection, onGenerate=planning::generatePlan,
             onSurvey={navController.navigate(Routes.tripSurvey(tripId))},
-            onSearch=planning::search, onChooseEndpoint=planning::chooseEndpoint,
         )
     }
     composable(

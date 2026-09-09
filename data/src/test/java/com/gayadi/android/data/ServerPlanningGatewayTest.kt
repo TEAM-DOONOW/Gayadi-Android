@@ -24,16 +24,6 @@ class ServerPlanningGatewayTest {
     @Before fun setup() { server=MockWebServer().apply{start()};gateway=ServerPlanningGateway(GayadiApiClient(server.url("/").toString(),auth),auth) }
     @After fun teardown() { server.shutdown() }
     private fun json(value:String)=MockResponse().setHeader("Content-Type","application/json").setBody(value)
-    @Test fun endpointUpdatePreservesOtherLocation() = runTest {
-        server.enqueue(json("""[{"userId":7,"departurePlaceId":10,"returnPlaceId":20}]"""))
-        server.enqueue(json("{}"))
-        gateway.setEndpoint("2",PlanningRouteType.DEPARTURE,"30")
-        assertEquals("/api/v1/trips/2/participants",server.takeRequest().path)
-        val request=server.takeRequest()
-        assertEquals("/api/v1/trips/2/participants/current/settings",request.path)
-        val body=JSONObject(request.body.readUtf8())
-        assertEquals(30,body.getInt("departurePlaceId"));assertEquals(20,body.getInt("returnPlaceId"))
-    }
     @Test fun routePrerequisiteHasActionableMessageWithoutServerDiagnostics() = runTest {
         server.enqueue(json("""{"code":"ROUTE_DEPARTURE_PLACE_REQUIRED","message":"private diagnostics"}""").setResponseCode(400))
         val error=runCatching { gateway.recommend("2",PlanningRouteType.DEPARTURE) }.exceptionOrNull() as GayadiApiException
@@ -55,13 +45,6 @@ class ServerPlanningGatewayTest {
     @Test fun missingPlanIsEmptyButForbiddenIsAnError() = runTest {
         server.enqueue(MockResponse().setResponseCode(404));assertNull(gateway.getPlan("2"))
         server.enqueue(MockResponse().setResponseCode(403));assertTrue(runCatching{gateway.getPlan("2")}.isFailure)
-    }
-    @Test fun searchEncodesUserInputAndOmitsAuthentication() = runTest {
-        server.enqueue(json("""{"items":[{"id":3,"name":"서울 & 부산","address":"주소"}]}"""))
-        assertEquals("3",gateway.searchPlaces("서울 & 부산").single().id)
-        val request=server.takeRequest()
-        assertNull(request.getHeader("Authorization"))
-        assertEquals("서울 & 부산",request.requestUrl!!.queryParameter("query"))
     }
     @Test fun allPlanDaysAreMappedWithoutDuplicatingFirstDay() {
         val item="""{"id":3,"title":"장소","planned_start":"2026-10-10T10:00:00","planned_end":"2026-10-10T11:00:00","address":"서울"}"""
