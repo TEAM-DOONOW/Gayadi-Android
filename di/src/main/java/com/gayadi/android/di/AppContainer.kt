@@ -7,7 +7,15 @@ import com.gayadi.android.data.datasource.HttpTourApiDataSource
 import com.gayadi.android.data.datasource.HttpAuthApiDataSource
 import com.gayadi.android.data.datasource.HttpProfileApiDataSource
 import com.gayadi.android.data.datasource.FileProfileLocalDataSource
-import com.gayadi.android.data.datasource.FirestoreSurveyDataSource
+import com.gayadi.android.data.datasource.RestSurveyDataSource
+import com.gayadi.android.data.datasource.RestSessionApiDataSource
+import com.gayadi.android.data.datasource.RestInquiryDataSource
+import com.gayadi.android.data.datasource.GayadiApiClient
+import com.gayadi.android.data.repository.RestSurveySubmissionRepository
+import com.gayadi.android.domain.usecase.SubmitSurveyUseCase
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.Dispatchers
 import com.gayadi.android.data.repository.DefaultSurveyRepository
 import com.gayadi.android.data.repository.DefaultLegalDocumentRepository
 import com.gayadi.android.data.repository.DefaultInquiryRepository
@@ -16,7 +24,6 @@ import com.gayadi.android.data.repository.DefaultAuthRepository
 import com.gayadi.android.data.repository.AuthenticatedProfileRepository
 import com.gayadi.android.data.repository.EncryptedFileAuthSessionStore
 import com.gayadi.android.data.repository.FirestoreTripInviteRepository
-import com.gayadi.android.data.datasource.FirestoreInquiryDataSource
 import com.gayadi.android.data.datasource.RestPublicContentDataSource
 import com.gayadi.android.domain.repository.ProfileRepository
 import com.gayadi.android.domain.repository.SurveyRepository
@@ -59,8 +66,6 @@ class AppContainer(
     private val firestore = FirebaseFirestore.getInstance()
     private val localProfileRepository: ProfileRepository =
         InMemoryProfileRepository(FileProfileLocalDataSource(profileFile))
-    private val surveyRepository: SurveyRepository =
-        DefaultSurveyRepository(FirestoreSurveyDataSource(firestore))
     private val publicContentDataSource = RestPublicContentDataSource(tourApiBaseUrl)
     private val legalDocumentRepository =
         DefaultLegalDocumentRepository(publicContentDataSource)
@@ -71,15 +76,20 @@ class AppContainer(
         HttpAuthApiDataSource(tourApiBaseUrl),
         EncryptedFileAuthSessionStore(File(travelFile.parentFile, "auth-session")),
     )
+    private val apiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val api = GayadiApiClient(tourApiBaseUrl, authRepository)
+    private val surveyRepository: SurveyRepository =
+        DefaultSurveyRepository(RestSurveyDataSource(api, apiScope))
+    val submitSurveyUseCase = SubmitSurveyUseCase(RestSurveySubmissionRepository(api))
     private val profileRepository: ProfileRepository = AuthenticatedProfileRepository(
         localRepository = localProfileRepository,
-        apiDataSource = HttpProfileApiDataSource(tourApiBaseUrl),
+        apiDataSource = HttpProfileApiDataSource(api),
         authRepository = authRepository,
     )
     private val installationId = loadInstallationId(File(travelFile.parentFile, "installation-id"))
     private val tripInviteRepository = FirestoreTripInviteRepository(firestore, installationId)
     private val inquiryRepository =
-        DefaultInquiryRepository(FirestoreInquiryDataSource(firestore, installationId, appVersion))
+        DefaultInquiryRepository(RestInquiryDataSource(api, apiScope))
 
     /** Use case used to persist onboarding profile input. */
     val saveBasicInfoUseCase = SaveBasicInfoUseCase(profileRepository)
@@ -90,7 +100,7 @@ class AppContainer(
     /** Use case used by profile-aware screens. */
     val getUserProfileUseCase = GetUserProfileUseCase(profileRepository)
 
-    /** Use case used to remove local profile data after account deletion. */
+    /** Deletes the backend account and clears its cached profile. */
     val clearUserProfileUseCase = ClearUserProfileUseCase(profileRepository)
 
     /** Use case used to attach the completed survey to the local profile. */
@@ -116,13 +126,13 @@ class AppContainer(
     val submitSharedTripAvailabilityUseCase = SubmitSharedTripAvailabilityUseCase(tripInviteRepository)
     val finalizeSharedTripDatesUseCase = FinalizeSharedTripDatesUseCase(tripInviteRepository)
 
-    /** Use case used to retrieve the Firestore-backed travel survey. */
+    /** Use case used to retrieve the backend travel survey. */
     val getSurveyUseCase = GetSurveyUseCase(surveyRepository)
 
     /** Pure use case used to calculate one of the eight survey results. */
     val calculateSurveyResultUseCase = CalculateSurveyResultUseCase()
 
-    /** Use case used to retrieve one result card from Firestore. */
+    /** Use case used to retrieve one result card from the backend. */
     val getSurveyResultUseCase = GetSurveyResultUseCase(surveyRepository)
 
     /** Loads the published terms or privacy policy from the backend. */
@@ -134,7 +144,7 @@ class AppContainer(
     /** Loads one backend update notice for its detail screen. */
     val getNoticeUseCase = GetNoticeUseCase(noticeRepository)
 
-    /** Sends a support inquiry written by the user to Firestore. */
+    /** Sends a support inquiry written by the user to the backend. */
     val submitInquiryUseCase = SubmitInquiryUseCase(inquiryRepository)
 
     /** Exchanges a Google ID Token for a Gayadi API session. */
@@ -144,6 +154,19 @@ class AppContainer(
     val getTourPlacesUseCase = GetTourPlacesUseCase(tourRepository)
     val getNearbyTourPlacesUseCase = GetNearbyTourPlacesUseCase(tourRepository)
     val searchTourPlacesUseCase = SearchTourPlacesUseCase(tourRepository)
+
+    /** Revokes the current backend session before clearing account data on this device. */
+    suspend fun logout(): Result<Unit> = try {
+        val session = requireNotNull(authRepository.currentSession()) { "로그인 세션이 없어요." }
+        RestSessionApiDataSource(api).logout(session.refreshToken)
+        authRepository.clearSession()
+        localProfileRepository.clearProfile().getOrThrow()
+        Result.success(Unit)
+    } catch (cancelled: kotlinx.coroutines.CancellationException) {
+        throw cancelled
+    } catch (error: Exception) {
+        Result.failure(error)
+    }
 
     private companion object {
         const val DEFAULT_APP_VERSION = "1.0.0"

@@ -15,9 +15,9 @@ interface ProfileRepository {
     /** Merges the completed survey result into the saved profile. */
     suspend fun saveSurveyResult(result: SurveyResult): Result<Unit>
 
-    /** Returns the complete locally persisted profile when available. */
+    /** Returns the current user profile when available. */
     suspend fun getProfile(): UserProfile?
 
-    /** Removes all locally persisted profile data. */
+    /** Deletes the authenticated account and clears its cached profile; local implementations clear their cache. */
     suspend fun clearProfile(): Result<Unit>
 }

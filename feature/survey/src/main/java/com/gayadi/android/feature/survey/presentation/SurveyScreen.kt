@@ -2,12 +2,16 @@ package com.gayadi.android.feature.survey.presentation
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -28,6 +32,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -88,6 +93,9 @@ fun SurveyRoute(
     onComplete: (String) -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    LaunchedEffect(uiState.completedResultCode) {
+        uiState.completedResultCode?.let(onComplete)
+    }
     SurveyScreen(
         uiState = uiState,
         onStart = { viewModel.onEvent(SurveyUiEvent.Start) },
@@ -130,6 +138,8 @@ internal fun SurveyScreen(
     }
 
     val question = uiState.currentQuestion ?: return
+    val questionScrollState = rememberScrollState()
+    LaunchedEffect(uiState.currentIndex) { questionScrollState.scrollTo(0) }
     val progress by animateFloatAsState(
         targetValue = uiState.progress,
         animationSpec = tween(durationMillis = 450),
@@ -157,83 +167,89 @@ internal fun SurveyScreen(
             color = SurveyBlack,
             trackColor = Color(0xFFF0F0F2),
         )
-        Spacer(modifier = Modifier.height(44.dp))
-        Text(
-            text = "${uiState.currentIndex + 1}/${uiState.questions.size}",
-            fontSize = 22.sp,
-            fontFamily = PretendardSemiBoldFontFamily,
-            color = TextSecondary,
-            modifier = Modifier.padding(horizontal = 20.dp),
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = question.title.replace("\n", " "),
-            fontSize = 20.sp,
-            lineHeight = 28.sp,
-            fontFamily = PretendardSemiBoldFontFamily,
-            color = TextPrimary,
-            modifier = Modifier.padding(horizontal = 20.dp),
-        )
-        Spacer(modifier = Modifier.height(30.dp))
-        Column(
-            modifier = Modifier.padding(horizontal = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            question.options.forEachIndexed { index, option ->
-                SurveyOptionCard(
-                    text = option.text,
-                    isSelected = uiState.selectedOption == index,
-                    onClick = { onOptionSelected(index) },
-                )
-            }
-        }
-        uiState.resultErrorMessage?.let { message ->
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = message,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(horizontal = 20.dp),
-            )
-        }
-        Spacer(modifier = Modifier.weight(1f))
-        Box(modifier = Modifier.fillMaxWidth().height(300.dp)) {
-            Image(
-                painter = painterResource(R.drawable.thinking_ganadi),
-                contentDescription = null,
-                modifier = Modifier
-                    .size(850.dp)
-                    .align(Alignment.BottomEnd)
-                    .offset(x = 60.dp),
-                contentScale = ContentScale.Fit,
-            )
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .offset(x = 100.dp, y = 84.dp)
-                    .width(200.dp)
-                    .height(100.dp)
-                    .background(Color.White, SurveySpeechBubbleShape)
-                    .border(1.dp, Color(0xFF9C9C9C), SurveySpeechBubbleShape),
+        BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            Column(
+                modifier = Modifier.fillMaxWidth().verticalScroll(questionScrollState).heightIn(min = maxHeight),
             ) {
-                Box(
-                    modifier = Modifier.fillMaxWidth().height(78.dp).padding(horizontal = 18.dp),
-                    contentAlignment = Alignment.Center,
+                Spacer(modifier = Modifier.height(44.dp))
+                Text(
+                    text = "${uiState.currentIndex + 1}/${uiState.questions.size}",
+                    fontSize = 22.sp,
+                    fontFamily = PretendardSemiBoldFontFamily,
+                    color = TextSecondary,
+                    modifier = Modifier.padding(horizontal = 20.dp),
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = question.title.replace("\n", " "),
+                    fontSize = 20.sp,
+                    lineHeight = 28.sp,
+                    fontFamily = PretendardSemiBoldFontFamily,
+                    color = TextPrimary,
+                    modifier = Modifier.padding(horizontal = 20.dp),
+                )
+                Spacer(modifier = Modifier.height(30.dp))
+                Column(
+                    modifier = Modifier.padding(horizontal = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
+                    question.options.forEachIndexed { index, option ->
+                        SurveyOptionCard(
+                            text = option.text,
+                            isSelected = uiState.selectedOption == index,
+                            onClick = { onOptionSelected(index) },
+                        )
+                    }
+                }
+                uiState.resultErrorMessage?.let { message ->
+                    Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = surveyEncouragement(uiState.currentIndex, uiState.questions.size),
-                        fontSize = 14.sp,
-                        lineHeight = 20.sp,
-                        fontFamily = PretendardSemiBoldFontFamily,
-                        color = TextPrimary,
-                        textAlign = TextAlign.Center,
+                        text = message,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(horizontal = 20.dp),
                     )
+                }
+                Spacer(modifier = Modifier.weight(1f))
+                Box(modifier = Modifier.fillMaxWidth().height(300.dp)) {
+                    Image(
+                        painter = painterResource(R.drawable.thinking_ganadi),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(850.dp)
+                            .align(Alignment.BottomEnd)
+                            .offset(x = 60.dp),
+                        contentScale = ContentScale.Fit,
+                    )
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .offset(x = 100.dp, y = 84.dp)
+                            .width(200.dp)
+                            .height(100.dp)
+                            .background(Color.White, SurveySpeechBubbleShape)
+                            .border(1.dp, Color(0xFF9C9C9C), SurveySpeechBubbleShape),
+                    ) {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().height(78.dp).padding(horizontal = 18.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = surveyEncouragement(uiState.currentIndex, uiState.questions.size),
+                                fontSize = 14.sp,
+                                lineHeight = 20.sp,
+                                fontFamily = PretendardSemiBoldFontFamily,
+                                color = TextPrimary,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
+                    }
                 }
             }
         }
         Button(
             onClick = onNext,
-            enabled = uiState.selectedOption != null,
+            enabled = uiState.selectedOption != null && !uiState.isSubmitting,
             modifier = Modifier.fillMaxWidth().height(55.dp),
             shape = RoundedCornerShape(0.dp),
             colors = ButtonDefaults.buttonColors(
@@ -245,7 +261,11 @@ internal fun SurveyScreen(
             elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
         ) {
             Text(
-                text = if (uiState.isLastQuestion) "결과 보기" else "다음",
+                text = when {
+                    uiState.isSubmitting -> "결과를 저장하고 있어요"
+                    uiState.isLastQuestion -> "결과 보기"
+                    else -> "다음"
+                },
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
             )

@@ -9,13 +9,11 @@ plugins {
 
 fun loadEnvironmentProperties(environment: String): Properties {
     val propertiesFile = rootProject.file("config/$environment.properties")
-    check(propertiesFile.exists()) {
-        "Missing ${propertiesFile.path}. Copy config/$environment.properties.example and fill in the values."
-    }
-
-    return Properties().apply {
-        propertiesFile.inputStream().use(::load)
-    }
+    // Configure other flavors without requiring their private settings. Actual builds are
+    // checked below, so a prod APK can never silently use example credentials.
+    val source = propertiesFile.takeIf { it.exists() }
+        ?: rootProject.file("config/$environment.properties.example")
+    return Properties().apply { source.inputStream().use(::load) }
 }
 
 fun Properties.requiredString(key: String): String =
@@ -122,6 +120,14 @@ android {
 }
 
 tasks.configureEach {
+    if (name.matches(Regex("generate(Dev|Prod).*BuildConfig"))) {
+        val environment = if (name.startsWith("generateDev")) "dev" else "prod"
+        doFirst {
+            check(rootProject.file("config/$environment.properties").exists()) {
+                "Missing config/$environment.properties. Copy the matching example and configure it."
+            }
+        }
+    }
     when {
         name.startsWith("generateDev") && name.endsWith("BuildConfig") ->
             inputs.file(rootProject.file("config/dev.properties"))
@@ -161,6 +167,7 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.analytics)
     testImplementation(libs.junit)
+    androidTestImplementation(project(":data"))
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.work.testing)

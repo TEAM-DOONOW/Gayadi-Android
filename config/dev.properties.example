@@ -1,4 +1,4 @@
-API_BASE_URL=http://10.0.2.2:8080
+API_BASE_URL=http://223.130.134.57:8080
 DEBUG_LOGGING=true
 KAKAO_MAP_JAVASCRIPT_SDK=your_dev_javascript_key
 KAKAO_MAP_REST_API=your_dev_rest_api_key

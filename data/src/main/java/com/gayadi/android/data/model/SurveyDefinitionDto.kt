@@ -1,6 +1,6 @@
 package com.gayadi.android.data.model
 
-/** Raw survey aggregate returned by Firestore or a local test source. */
+/** Raw survey aggregate returned by a survey data source. */
 data class SurveyDefinitionDto(
     val id: String,
     val title: String,

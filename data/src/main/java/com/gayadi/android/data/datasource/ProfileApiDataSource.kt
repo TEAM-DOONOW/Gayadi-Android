@@ -1,61 +1,40 @@
 package com.gayadi.android.data.datasource
 
 import com.gayadi.android.domain.model.BasicInfo
-import java.io.IOException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
+import com.gayadi.android.domain.model.UserProfile
 import org.json.JSONObject
 
 interface ProfileApiDataSource {
-    suspend fun updateCurrentUser(accessToken: String, basicInfo: BasicInfo)
+    suspend fun updateCurrentUser(basicInfo: BasicInfo)
+    suspend fun currentUser(): UserProfile
+    suspend fun deleteCurrentUser()
 }
 
-class HttpProfileApiDataSource(
-    baseUrl: String,
-) : ProfileApiDataSource {
-    private val normalizedBaseUrl = baseUrl.trimEnd('/')
-    private val client = OkHttpClient()
-
-    override suspend fun updateCurrentUser(accessToken: String, basicInfo: BasicInfo) =
-        withContext(Dispatchers.IO) {
-            require(accessToken.isNotBlank()) { "로그인이 필요합니다." }
-            val body = JSONObject()
-                .put("nickname", basicInfo.nickname)
-                .put("introduction", basicInfo.introduction)
-                .toString()
-                .toRequestBody(JSON_MEDIA_TYPE)
-            val request = Request.Builder()
-                .url("$normalizedBaseUrl/api/v1/users/current")
-                .header("Authorization", "Bearer $accessToken")
-                .header("Accept", "application/json")
-                .patch(body)
-                .build()
-
-            client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) {
-                    val responseBody = response.body?.string().orEmpty()
-                    throw ProfileApiException(response.code, errorMessage(response.code, responseBody))
-                }
-            }
-        }
-
-    private fun errorMessage(statusCode: Int, body: String): String {
-        val serverMessage = runCatching {
-            JSONObject(body).optString("message")
-        }.getOrDefault("")
-        return serverMessage.ifBlank { "프로필을 수정하지 못했습니다. (HTTP $statusCode)" }
+class HttpProfileApiDataSource(private val api: GayadiApiClient) : ProfileApiDataSource {
+    override suspend fun updateCurrentUser(basicInfo: BasicInfo) {
+        api.request("PATCH", PATH, JSONObject()
+            .put("nickname", basicInfo.nickname)
+            .put("introduction", basicInfo.introduction).toString())
     }
 
-    private companion object {
-        val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
+    override suspend fun currentUser(): UserProfile {
+        val json = JSONObject(api.request("GET", PATH))
+        fun optional(name: String): String? = if (json.isNull(name)) null else
+            json.optString(name).takeIf(String::isNotBlank)
+        fun strings(name: String): List<String> = json.optJSONArray(name)?.let { values ->
+            (0 until values.length()).map { values.getString(it) }
+        }.orEmpty()
+        return UserProfile(
+            nickname = json.getString("nickname"),
+            introduction = optional("introduction").orEmpty(),
+            resultCode = optional("resultCode"),
+            travelStyleName = optional("travelStyleName"),
+            characterKey = optional("characterKey"),
+            strengths = strings("strengths"),
+            weaknesses = strings("weaknesses"),
+        )
     }
+
+    override suspend fun deleteCurrentUser() { api.request("DELETE", PATH) }
+    private companion object { const val PATH = "/api/v1/users/current" }
 }
-
-class ProfileApiException(
-    val statusCode: Int,
-    message: String,
-) : IOException(message)
