@@ -7,6 +7,8 @@ import com.gayadi.android.domain.model.SurveyQuestion
 data class SurveyUiState(
     val definition: SurveyDefinition? = null,
     val isLoading: Boolean = true,
+    val isSubmitting: Boolean = false,
+    val completedResultCode: String? = null,
     val errorMessage: String? = null,
     val resultErrorMessage: String? = null,
     val hasStarted: Boolean = false,

@@ -59,8 +59,11 @@ internal fun NavGraphBuilder.onboardingGraph(context: AppNavigationContext) = wi
                             Log.i(AUTH_LOG_TAG, "Google credential received")
                             appContainer.signInWithGoogleUseCase(idToken)
                             Log.i(AUTH_LOG_TAG, "Gayadi auth session received")
+                            val profile = appContainer.getUserProfileUseCase()
+                            sharedProfileViewModel.reload()
+                            tripViewModel.retry()
                             navController.navigate(
-                                resolveAuthenticatedDestination(sharedProfileUiState.profile),
+                                resolveAuthenticatedDestination(profile),
                             ) {
                                 popUpTo(Routes.LOGIN) { inclusive = true }
                             }
@@ -81,7 +84,7 @@ internal fun NavGraphBuilder.onboardingGraph(context: AppNavigationContext) = wi
                     }
                 }
             },
-            onKakaoLogin = { navController.navigate(Routes.BASIC_INFO) },
+            onKakaoLogin = { loginError = "카카오 로그인은 준비 중이에요. Google 로그인을 이용해 주세요." },
             onOpenPrivacyPolicy = {
                 navController.navigate(Routes.legalDocument(LegalDocumentType.PRIVACY_POLICY.documentId))
             },
@@ -104,6 +107,7 @@ internal fun NavGraphBuilder.onboardingGraph(context: AppNavigationContext) = wi
             factory = SurveyViewModel.factory(
                 appContainer.getSurveyUseCase,
                 appContainer.calculateSurveyResultUseCase,
+                appContainer.submitSurveyUseCase,
             ),
         )
         SurveyRoute(

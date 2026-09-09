@@ -1,5 +1,8 @@
 package com.gayadi.android.navigation
 
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -46,6 +49,25 @@ internal fun NavGraphBuilder.myPageGraph(context: AppNavigationContext) = with(c
                 popUpTo(navController.graph.id) { inclusive = true }
             }
         }
+        var accountActionInProgress by remember { mutableStateOf(false) }
+        val performAccountAction: (suspend () -> Result<Unit>) -> Unit = { action ->
+            if (!accountActionInProgress) {
+                accountActionInProgress = true
+                appScope.launch {
+                    try {
+                        val result = withContext(Dispatchers.IO) {
+                            action().mapCatching { tripViewModel.clearAllTravelData().getOrThrow() }
+                        }
+                        result.fold(
+                            onSuccess = { sharedProfileViewModel.reload(); returnToLogin() },
+                            onFailure = { sharedProfileViewModel.showError(it.message ?: "계정 요청을 처리하지 못했어요") },
+                        )
+                    } finally {
+                        accountActionInProgress = false
+                    }
+                }
+            }
+        }
         SettingsScreen(
             uiState = sharedProfileUiState,
             onBack = { navController.popBackStack() },
@@ -58,31 +80,9 @@ internal fun NavGraphBuilder.myPageGraph(context: AppNavigationContext) = with(c
             onOpenPrivacyPolicy = {
                 navController.navigate(Routes.legalDocument(LegalDocumentType.PRIVACY_POLICY.documentId))
             },
-            onLogout = returnToLogin,
-            onDeleteAccount = {
-                appScope.launch(Dispatchers.IO) {
-                    appContainer.clearUserProfileUseCase().fold(
-                        onSuccess = {
-                            tripViewModel.clearAllTravelData().fold(
-                                onSuccess = {
-                                    withContext(Dispatchers.Main) {
-                                        sharedProfileViewModel.reload()
-                                        returnToLogin()
-                                    }
-                                },
-                                onFailure = { error ->
-                                    sharedProfileViewModel.showError(
-                                        error.message ?: "여행 데이터를 삭제하지 못했어요",
-                                    )
-                                },
-                            )
-                        },
-                        onFailure = { error ->
-                            sharedProfileViewModel.showError(error.message ?: "프로필을 삭제하지 못했어요")
-                        },
-                    )
-                }
-            },
+            isAccountActionInProgress = accountActionInProgress,
+            onLogout = { performAccountAction { appContainer.logout() } },
+            onDeleteAccount = { performAccountAction { appContainer.clearUserProfileUseCase() } },
         )
     }
     composable(Routes.MY_TRAVEL_PROFILE) {

@@ -1,5 +1,9 @@
 package com.gayadi.android.feature.survey.presentation
 
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
+import com.gayadi.android.domain.usecase.SubmitSurveyUseCase
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
@@ -10,10 +14,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
-/** Owns the Firestore-backed survey flow and result calculation. */
+/** Owns survey loading, answer selection, and backend submission. */
 class SurveyViewModel(
     private val getSurvey: GetSurveyUseCase,
     private val calculateSurveyResult: CalculateSurveyResultUseCase,
+    private val submitSurvey: SubmitSurveyUseCase? = null,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(SurveyUiState())
     private var activeRequestGeneration = 0L
@@ -26,6 +31,7 @@ class SurveyViewModel(
 
     /** Handles a survey event and returns a result code only when the final answer is submitted. */
     fun onEvent(event: SurveyUiEvent): String? {
+        if (_uiState.value.isSubmitting || _uiState.value.completedResultCode != null) return null
         when (event) {
             SurveyUiEvent.Start -> _uiState.update { it.copy(hasStarted = true) }
 
@@ -53,6 +59,21 @@ class SurveyViewModel(
         val state = _uiState.value
         if (state.selectedOption == null) return null
         val definition = state.definition ?: return null
+        if (state.isLastQuestion && submitSurvey != null) {
+            _uiState.update { it.copy(isSubmitting = true, resultErrorMessage = null) }
+            viewModelScope.launch {
+                try {
+                    val resultCode = submitSurvey.invoke(definition, state.answers)
+                    _uiState.update { it.copy(isSubmitting = false, completedResultCode = resultCode) }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (error: Exception) {
+                    _uiState.update { it.copy(isSubmitting = false,
+                        resultErrorMessage = error.message ?: "설문을 저장하지 못했어요. 다시 시도해 주세요.") }
+                }
+            }
+            return null
+        }
         if (state.isLastQuestion) {
             return runCatching { calculateSurveyResult(definition, state.answers) }
                 .onFailure { error ->
@@ -113,8 +134,9 @@ class SurveyViewModel(
         fun factory(
             getSurvey: GetSurveyUseCase,
             calculateSurveyResult: CalculateSurveyResultUseCase,
+            submitSurvey: SubmitSurveyUseCase? = null,
         ) = viewModelFactory {
-            initializer { SurveyViewModel(getSurvey, calculateSurveyResult) }
+            initializer { SurveyViewModel(getSurvey, calculateSurveyResult, submitSurvey) }
         }
     }
 }

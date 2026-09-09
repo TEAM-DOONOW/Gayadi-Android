@@ -24,6 +24,13 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -59,7 +66,20 @@ fun SettingsScreen(
     onOpenPrivacyPolicy: () -> Unit,
     onLogout: () -> Unit,
     onDeleteAccount: () -> Unit,
+    isAccountActionInProgress: Boolean = false,
 ) {
+    var confirmDeletion by remember { mutableStateOf(false) }
+    if (confirmDeletion) {
+        AlertDialog(
+            onDismissRequest = { confirmDeletion = false },
+            title = { Text("회원 탈퇴") },
+            text = { Text("계정을 삭제하고 탈퇴할까요? 이 작업은 되돌릴 수 없어요.") },
+            confirmButton = {
+                TextButton(onClick = { confirmDeletion = false; onDeleteAccount() }) { Text("탈퇴하기") }
+            },
+            dismissButton = { TextButton(onClick = { confirmDeletion = false }) { Text("취소") } },
+        )
+    }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -171,6 +191,14 @@ fun SettingsScreen(
             SettingsRow("개인정보처리방침", onClick = onOpenPrivacyPolicy, trailing = {
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = TextTertiary)
             })
+            SettingsRow("문의하기", onClick = onOpenInquiry, trailing = {
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = TextTertiary)
+            })
+            SettingsRow("로그아웃", onClick = onLogout.takeUnless { isAccountActionInProgress }, trailing = {})
+            SettingsRow("회원 탈퇴", onClick = if (isAccountActionInProgress) null else ({ confirmDeletion = true }), trailing = {})
+            if (isAccountActionInProgress) {
+                Text("계정 요청을 처리하고 있어요", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             SettingsRow("버전 정보", trailing = { Text("1.0.0", fontSize = 14.sp, color = TextSecondary) })
 
             Spacer(modifier = Modifier.height(32.dp))

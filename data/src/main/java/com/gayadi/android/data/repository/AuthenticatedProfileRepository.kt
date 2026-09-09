@@ -1,7 +1,7 @@
 package com.gayadi.android.data.repository
 
 import com.gayadi.android.data.datasource.ProfileApiDataSource
-import com.gayadi.android.data.datasource.ProfileApiException
+import com.gayadi.android.data.datasource.apiResult
 import com.gayadi.android.domain.model.BasicInfo
 import com.gayadi.android.domain.model.SurveyResult
 import com.gayadi.android.domain.model.UserProfile
@@ -14,22 +14,27 @@ class AuthenticatedProfileRepository(
     private val authRepository: AuthRepository,
 ) : ProfileRepository {
     override suspend fun saveBasicInfo(basicInfo: BasicInfo) {
-        try {
-            apiDataSource.updateCurrentUser(authRepository.validAccessToken(), basicInfo)
-        } catch (error: ProfileApiException) {
-            if (error.statusCode != 401) throw error
-            val refreshed = authRepository.refreshSession()
-            apiDataSource.updateCurrentUser(refreshed.accessToken, basicInfo)
-        }
+        apiDataSource.updateCurrentUser(basicInfo)
         localRepository.saveBasicInfo(basicInfo)
     }
 
-    override suspend fun getBasicInfo(): BasicInfo? = localRepository.getBasicInfo()
+    override suspend fun getBasicInfo(): BasicInfo? =
+        getProfile()?.let { BasicInfo(it.nickname, it.introduction) }
 
-    override suspend fun saveSurveyResult(result: SurveyResult): Result<Unit> =
-        localRepository.saveSurveyResult(result)
+    override suspend fun saveSurveyResult(result: SurveyResult): Result<Unit> = apiResult {
+        // The submission endpoint already saved the result. Cache it only after a fresh profile
+        // read so an older account's local profile cannot be reused after switching accounts.
+        val profile = requireNotNull(getProfile()) { "로그인이 필요해요." }
+        localRepository.saveBasicInfo(BasicInfo(profile.nickname, profile.introduction))
+        localRepository.saveSurveyResult(result).getOrThrow()
+    }
 
-    override suspend fun getProfile(): UserProfile? = localRepository.getProfile()
+    override suspend fun getProfile(): UserProfile? =
+        if (authRepository.currentSession() == null) null else apiDataSource.currentUser()
 
-    override suspend fun clearProfile(): Result<Unit> = localRepository.clearProfile()
+    override suspend fun clearProfile(): Result<Unit> = apiResult {
+        apiDataSource.deleteCurrentUser()
+        authRepository.clearSession()
+        localRepository.clearProfile().getOrThrow()
+    }
 }

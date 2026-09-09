@@ -124,6 +124,8 @@ class TripViewModel(
     suspend fun clearAllTravelData(): Result<Unit> = withContext(ioDispatcher) {
         persistenceMutex.withLock {
             saveTravelState(TravelState()).onSuccess {
+                inviteObserverJobs.values.forEach(Job::cancel)
+                inviteObserverJobs.clear()
                 reservedInviteCodes.clear()
                 savedStateHandle[SELECTED_TRIP_ID_KEY] = null
                 savedStateHandle[LEGACY_TRIPS_KEY] = null

@@ -85,7 +85,7 @@ fun GayadiNavHost(appContainer: AppContainer) {
         sharedProfileUiState = sharedProfileUiState,
     )
 
-    NavHost(navController = navController, startDestination = Routes.LOGIN) {
+    NavHost(navController = navController, startDestination = Routes.STARTUP) {
         onboardingGraph(navigationContext)
         tripGraph(navigationContext)
         myPageGraph(navigationContext)
