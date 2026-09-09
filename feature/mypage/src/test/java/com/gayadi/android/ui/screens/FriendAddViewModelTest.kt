@@ -57,6 +57,16 @@ class FriendAddViewModelTest {
     }
 
     @Test
+    fun `eight character invitation code is preserved`() = runTest(dispatcher) {
+        val repository = MemoryTravelRepository(TravelState(trips = listOf(trip("trip-a", "초대 여행", "I8M3K9Q2"))))
+        val vm = FriendAddViewModel(joinTripByInviteCode = JoinTripByInviteCodeUseCase(repository), ioDispatcher = dispatcher)
+        vm.updateFriendCode("i8m3k9q2")
+        assertEquals("I8M3K9Q2", vm.uiState.value.friendCode)
+        vm.addFriendByCode(); advanceUntilIdle()
+        assertEquals("trip-a", vm.uiState.value.joinedTripId)
+    }
+
+    @Test
     fun `unknown six character code does not change persisted trips`() = runTest(dispatcher) {
         val initialState = TravelState(trips = listOf(trip("trip-a", "가야 여행", "GAYADI")))
         val repository = MemoryTravelRepository(initialState)

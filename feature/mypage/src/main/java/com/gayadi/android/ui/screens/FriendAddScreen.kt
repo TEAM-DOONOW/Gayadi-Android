@@ -1,5 +1,8 @@
 package com.gayadi.android.ui.screens
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -55,22 +58,28 @@ fun FriendAddScreen(
     onAddByCode: () -> Unit = {},
     onAddFriend: (String) -> Unit,
     onRetry: () -> Unit,
+    friendshipContent: @Composable () -> Unit = {},
 ) {
-    Column(modifier = Modifier.fillMaxSize().background(Color.White)) {
+    Column(modifier = Modifier.fillMaxSize().background(Color.White).navigationBarsPadding()) {
         GayadiTopAppBar(title = "함께할 여행메이트", onBack = onBack, showDivider = true)
 
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
         FriendCodeCard(
             code = uiState.friendCode,
+            busy = uiState.isJoining,
             message = uiState.codeMessage,
             onCodeChange = onFriendCodeChange,
             onAdd = onAddByCode,
         )
+        friendshipContent()
+        }
     }
 }
 
 @Composable
 private fun FriendCodeCard(
     code: String,
+    busy: Boolean,
     message: String?,
     onCodeChange: (String) -> Unit,
     onAdd: () -> Unit,
@@ -82,7 +91,7 @@ private fun FriendCodeCard(
     ) {
             Text("여행 초대코드 입력", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
             Spacer(Modifier.height(5.dp))
-            Text("여행을 만든 사람에게 받은 6자리 코드를 입력해 주세요", fontSize = 12.sp, color = TextSecondary)
+            Text("여행을 만든 사람에게 받은 6자리 또는 8자리 코드를 입력해 주세요", fontSize = 12.sp, color = TextSecondary)
             Spacer(Modifier.height(14.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                 GayadiCompactTextField(
@@ -94,7 +103,7 @@ private fun FriendCodeCard(
                 )
                 Button(
                     onClick = onAdd,
-                    enabled = code.length == 6,
+                    enabled = !busy && code.length in listOf(6, 8),
                     modifier = Modifier.height(44.dp),
                     shape = RoundedCornerShape(0.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF343548)),

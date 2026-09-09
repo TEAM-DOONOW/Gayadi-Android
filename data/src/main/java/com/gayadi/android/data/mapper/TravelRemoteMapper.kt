@@ -40,6 +40,7 @@ object TravelRemoteMapper {
         tripId = json.getLong("tripId").toString(),
         code = json.getString("code"),
         inviteeId = json.nullableLong("inviteeId")?.toString().orEmpty(),
+        inviteeNickname = if (json.isNull("inviteeNickname")) null else json.optString("inviteeNickname"),
         status = enumValue(json, "status"),
     )
 

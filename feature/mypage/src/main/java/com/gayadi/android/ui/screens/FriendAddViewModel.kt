@@ -33,6 +33,7 @@ data class FriendAddUiState(
     val isLoading: Boolean = true,
     val errorMessage: String? = null,
     val joinedTripId: String? = null,
+    val isJoining: Boolean = false,
 ) {
     val visibleFriends: List<FriendItem>
         get() = friends.filter {
@@ -94,19 +95,21 @@ class FriendAddViewModel(
     fun updateFriendCode(code: String) {
         val normalizedCode = code.uppercase(Locale.ROOT)
             .filter { it in 'A'..'Z' || it in '0'..'9' }
-            .take(6)
+            .take(8)
         _uiState.update { it.copy(friendCode = normalizedCode, codeMessage = null) }
     }
 
     fun addFriendByCode() {
         val code = _uiState.value.friendCode
-        if (code.length != 6) return
+        if (code.length !in listOf(6, 8) || _uiState.value.isJoining) return
         val joinUseCase = joinTripByInviteCode
         if (joinUseCase == null) {
             _uiState.update { it.copy(codeMessage = "초대 코드 저장소를 사용할 수 없어요") }
             return
         }
+        _uiState.update { it.copy(isJoining = true) }
         viewModelScope.launch(ioDispatcher) {
+            try {
             joinUseCase(code, localParticipant).fold(
                 onSuccess = { trip ->
                     _uiState.update {
@@ -117,6 +120,7 @@ class FriendAddViewModel(
                     _uiState.update { it.copy(codeMessage = error.message ?: "여행에 참여하지 못했어요") }
                 },
             )
+            } finally { _uiState.update { it.copy(isJoining = false) } }
         }
     }
 

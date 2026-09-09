@@ -77,6 +77,10 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
                 }
             }
         }
+        val friendships: com.gayadi.android.ui.screens.FriendshipViewModel = viewModel(
+            factory = com.gayadi.android.ui.screens.FriendshipViewModel.factory(appContainer.friendshipGateway),
+        )
+        val friendshipState by friendships.state.collectAsStateWithLifecycle()
         FriendAddScreen(
             uiState = friendUiState,
             onBack = { navController.popBackStack() },
@@ -85,6 +89,10 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
             onAddByCode = friendViewModel::addFriendByCode,
             onAddFriend = friendViewModel::addFriend,
             onRetry = friendViewModel::retry,
+            friendshipContent = {
+                com.gayadi.android.ui.screens.FriendshipPanel(friendshipState, friendships::search,
+                    friendships::request, friendships::decide, friendships::delete, friendships::reload)
+            },
         )
     }
     composable(
@@ -226,6 +234,12 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
             onRemove = { tripViewModel.removeParticipant(tripId, it) },
             onPublishInvite = { tripViewModel.publishInvite(tripId) },
             onCoordinateDates = { navController.navigate(Routes.groupDateCoordination(tripId)) },
+            invitationContent = {
+                val invites: com.gayadi.android.ui.screens.InvitationViewModel = viewModel(
+                    factory = com.gayadi.android.ui.screens.InvitationViewModel.factory(appContainer.travelGateway, appContainer.friendshipGateway, tripId))
+                val inviteState by invites.state.collectAsStateWithLifecycle()
+                com.gayadi.android.ui.screens.InvitationPanel(inviteState, invites::search, invites::invite, invites::cancel, invites::reload)
+            },
         )
     }
     composable(

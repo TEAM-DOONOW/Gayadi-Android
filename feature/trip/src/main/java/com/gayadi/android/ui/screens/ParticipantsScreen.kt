@@ -64,6 +64,7 @@ fun ParticipantsScreen(
     onRemove: (String) -> Unit,
     onPublishInvite: suspend () -> Result<Unit> = { Result.success(Unit) },
     onCoordinateDates: () -> Unit = {},
+    invitationContent: @Composable () -> Unit = {},
 ) {
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
@@ -82,6 +83,7 @@ fun ParticipantsScreen(
             containerColor = Color(0xFFF7F7F9),
         )
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
+            if (canManageParticipants) invitationContent()
             Spacer(Modifier.height(18.dp))
             if (inviteCode.isNotBlank()) {
                 InviteCodeLetter(
