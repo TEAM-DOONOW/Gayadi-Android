@@ -32,6 +32,7 @@ data class TravelInvitation(
     val code: String,
     val inviteeId: String,
     val status: InvitationStatus = InvitationStatus.PENDING,
+    val inviteeNickname: String? = null,
 )
 
 enum class ScheduleType { MAIN, ALTERNATIVE }
