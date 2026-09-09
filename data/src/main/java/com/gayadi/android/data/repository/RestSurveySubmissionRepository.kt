@@ -5,13 +5,16 @@ import com.gayadi.android.domain.repository.SurveySubmissionRepository
 import org.json.JSONArray
 import org.json.JSONObject
 
-class RestSurveySubmissionRepository(private val api: GayadiApiClient) : SurveySubmissionRepository {
+class RestSurveySubmissionRepository(private val api: GayadiApiClient, private val tripId: String? = null) : SurveySubmissionRepository {
+    init { require(tripId == null || tripId.toLongOrNull()?.let { it > 0 } == true) }
+
     override suspend fun submit(answers: Map<String, String>): String {
         val body = JSONObject().put("answers", JSONArray(answers.map { (question, option) ->
             JSONObject().put("questionId", question).put("optionId", option)
         }))
         val response = JSONObject(api.request(
-            "POST", "/api/v1/surveys/travel-personality-v1/submissions", body.toString(),
+            "POST", tripId?.let { "/api/v1/trips/$it/survey-responses" }
+                ?: "/api/v1/surveys/travel-personality-v1/submissions", body.toString(),
         ))
         return response.getString("resultCode").also {
             require(it in setOf("PNA", "PNR", "PCA", "PCR", "SNA", "SNR", "SCA", "SCR")) {

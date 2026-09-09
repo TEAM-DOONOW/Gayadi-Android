@@ -1,44 +1,20 @@
 package com.gayadi.android.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.gayadi.android.domain.model.TravelSchedule
 import com.gayadi.android.domain.model.TravelTrip
-import com.gayadi.android.domain.model.UserProfile
-import com.gayadi.android.ui.components.UserCharacterAvatar
+import com.gayadi.android.domain.model.TripStatus
+import com.gayadi.android.domain.repository.*
 import com.gayadi.android.ui.components.GayadiTopAppBar
-import com.gayadi.android.ui.theme.PrimaryBlue
-import com.gayadi.android.ui.theme.SurfaceCard
-import com.gayadi.android.ui.theme.TextSecondary
+import com.gayadi.android.ui.theme.*
 
 enum class RouteRecommendationType { DEPARTURE, ITINERARY, HOME }
 
@@ -46,77 +22,81 @@ enum class RouteRecommendationType { DEPARTURE, ITINERARY, HOME }
 fun RouteRecommendationScreen(
     type: RouteRecommendationType,
     trip: TravelTrip?,
-    schedules: List<TravelSchedule>,
-    profile: UserProfile?,
-    appliedOptionId: String?,
+    state: PlanningUiState,
     onBack: () -> Unit,
-    onApply: (String) -> Unit,
+    onReload: () -> Unit,
+    onRecommend: () -> Unit,
+    onApply: (RecommendedRoute) -> Unit,
+    onClear: () -> Unit,
+    onGenerate: () -> Unit,
+    onSurvey: () -> Unit,
 ) {
-    val options = remember(type, schedules) { routeOptions(type, schedules) }
-    var selectedId by remember(type, appliedOptionId) { mutableStateOf(appliedOptionId ?: options.firstOrNull()?.id) }
-    Column(Modifier.fillMaxSize().background(Color.White).verticalScroll(rememberScrollState())) {
-        GayadiTopAppBar(
-            title = type.title,
-            subtitle = trip?.name ?: "선택한 여행",
-            onBack = onBack,
-        ) {
-            UserCharacterAvatar(profile?.characterKey, "맞춤 경로 캐릭터")
-        }
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("${profile?.nickname ?: "여행자"} 님의 여행 성향과 현재 일정에 맞춰 추천했어요.", color = TextSecondary, fontSize = 13.sp)
-            options.forEach { option ->
-                val selected = option.id == selectedId
-                Card(
-                    modifier = Modifier.fillMaxWidth().clickable { selectedId = option.id },
-                    colors = CardDefaults.cardColors(containerColor = if (selected) Color(0xFFEAF4FF) else SurfaceCard),
-                    shape = RoundedCornerShape(14.dp),
-                ) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(option.name, fontWeight = FontWeight.Bold)
-                            Text(option.duration, color = PrimaryBlue)
+    var confirmGenerate by remember { mutableStateOf(false) }
+    var showPlan by rememberSaveable { mutableStateOf(false) }
+    Column(Modifier.fillMaxSize().background(Background).navigationBarsPadding()) {
+        GayadiTopAppBar(title=type.title, subtitle=trip?.name.orEmpty(), onBack=onBack)
+        if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement=Arrangement.spacedBy(16.dp)) {
+            state.error?.let {
+                Text(it, color=MaterialTheme.colorScheme.error)
+                OutlinedButton(onClick=onReload, enabled=!state.busy) { Text("다시 조회") }
+            }
+            Text("자동 일정", style=MaterialTheme.typography.titleLarge)
+            Text("여행 기간과 참여자의 성향으로 일정을 만들고, 이를 기준으로 이동 경로를 추천해요.", color=TextSecondary)
+            OutlinedButton(onClick=onSurvey, enabled=!state.busy) { Text("이 여행 성향 등록") }
+            if (state.plan == null) Text("아직 생성된 자동 일정이 없어요.", color=TextSecondary)
+            else {
+                Text("${state.plan.days.size}일 · ${state.plan.days.sumOf { it.items.size }}개 장소", color=TextSecondary)
+                TextButton(onClick={showPlan=!showPlan}) { Text(if(showPlan) "자동 일정 접기" else "자동 일정 보기") }
+            }
+            if(showPlan) state.plan?.days?.forEach { day ->
+                Card(colors=CardDefaults.cardColors(containerColor=SurfaceCard), modifier=Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                        Text("${day.date} · ${day.title}", style=MaterialTheme.typography.titleMedium)
+                        day.items.forEach { item ->
+                            Text("${item.start.substringAfter('T', "").take(5)}  ${item.title}")
+                            if(item.address.isNotBlank()) Text(item.address, style=MaterialTheme.typography.bodySmall, color=TextSecondary)
                         }
-                        Text(option.summary, fontSize = 12.sp, color = TextSecondary)
-                        Text(option.steps.joinToString("  →  "), fontSize = 12.sp)
                     }
                 }
             }
-            Button(
-                onClick = { selectedId?.let(onApply) },
-                enabled = selectedId != null,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(if (appliedOptionId == selectedId) "경로 적용됨" else "선택한 경로 사용")
+            OutlinedButton(onClick={ confirmGenerate=true }, enabled=!state.busy && trip?.status==TripStatus.PLANNING) {
+                Text(if(state.plan==null) "자동 일정 만들기" else "자동 일정 다시 만들기")
             }
-            appliedOptionId?.let { Text("추천 경로를 이번 여행에 적용했어요", color = PrimaryBlue, fontSize = 12.sp) }
-            Spacer(Modifier.height(24.dp))
+            if(trip?.status!=TripStatus.PLANNING) Text("자동 일정은 여행 준비 중에 만들 수 있어요.", color=TextSecondary)
+            if(type != RouteRecommendationType.ITINERARY) {
+                Text("이미 등록된 개인 장소를 기준으로 추천해요. 이 화면에서는 출발·귀가 장소를 변경할 수 없어요.", color=TextSecondary)
+            }
+            Text("이동 경로", style=MaterialTheme.typography.titleLarge)
+            Button(onClick=onRecommend, enabled=!state.busy && state.plan!=null,
+                modifier=Modifier.fillMaxWidth().heightIn(min=55.dp), shape=RoundedCornerShape(0.dp),
+                colors=ButtonDefaults.buttonColors(containerColor=PrimaryAction)) { Text("경로 추천받기") }
+            if(state.routes.isEmpty() && !state.busy) Text("추천받기를 눌러 실제 이동 경로를 확인해 주세요.", color=TextSecondary)
+            state.routes.forEach { route ->
+                val selected = state.selected?.id==route.id && state.selected.optionId==route.optionId
+                Card(colors=CardDefaults.cardColors(containerColor=SurfaceCard), modifier=Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                        Text(route.name, style=MaterialTheme.typography.titleMedium)
+                        val metrics=listOfNotNull(route.durationMinutes?.let { "${it}분" },
+                            route.distanceMeters?.let { "${it / 1000.0}km" }, route.fare?.let { "${it}원" })
+                        Text(metrics.joinToString(" · ").ifBlank { "이동 정보가 제공되지 않았어요" })
+                        Text(route.summary, color=TextSecondary)
+                        if(route.isEstimate) Text("예상 경로예요. 실제 교통 상황과 다를 수 있어요.", color=TextSecondary)
+                        Text(route.stops.joinToString(" → "))
+                        Button(onClick={onApply(route)}, enabled=!state.busy && !selected) { Text(if(selected) "선택한 경로" else "이 경로 사용") }
+                    }
+                }
+            }
+            if(state.selected!=null) OutlinedButton(onClick=onClear, enabled=!state.busy) { Text("경로 선택 해제") }
         }
     }
+    if(confirmGenerate) AlertDialog(onDismissRequest={confirmGenerate=false}, title={Text("자동 일정을 만들까요?")},
+        text={Text("기존 자동 일정과 항목이 새 추천으로 바뀌어요. 여행 기간과 참여자의 성향을 확인해 주세요.")},
+        confirmButton={TextButton(onClick={confirmGenerate=false;onGenerate()}){Text("만들기")}},
+        dismissButton={TextButton(onClick={confirmGenerate=false}){Text("취소")}})
 }
-
-private data class RouteOption(val id: String, val name: String, val duration: String, val summary: String, val steps: List<String>)
-
-private fun routeOptions(type: RouteRecommendationType, schedules: List<TravelSchedule>): List<RouteOption> = when (type) {
-    RouteRecommendationType.DEPARTURE -> listOf(
-        RouteOption("fast", "가장 빠른 출발", "1시간 25분", "환승 1회 · 예상 혼잡 보통", listOf("현재 위치", "공항", "여행지")),
-        RouteOption("easy", "편안한 출발", "1시간 40분", "걷기 최소 · 짐이 있을 때 추천", listOf("현재 위치", "직행 버스", "여행지")),
-    )
-    RouteRecommendationType.ITINERARY -> {
-        val steps = schedules.sortedBy { it.order }.map(TravelSchedule::title).ifEmpty { listOf("첫 장소", "추천 맛집", "숙소") }
-        listOf(
-            RouteOption("balanced", "균형 동선", "이동 48분", "거리와 혼잡도를 함께 줄였어요", steps),
-            RouteOption("crowd", "한적한 동선", "이동 56분", "혼잡 시간대를 피해 순서를 조정했어요", steps.reversed()),
-        )
-    }
-    RouteRecommendationType.HOME -> listOf(
-        RouteOption("home-fast", "빠른 귀가", "1시간 30분", "현재 일정 종료 후 바로 출발", listOf("마지막 장소", "공항", "집")),
-        RouteOption("home-rest", "여유로운 귀가", "1시간 55분", "휴식 시간을 포함한 경로", listOf("마지막 장소", "카페", "공항", "집")),
-    )
+private val RouteRecommendationType.title: String get() = when(this) {
+    RouteRecommendationType.DEPARTURE -> "출발 경로 추천"
+    RouteRecommendationType.ITINERARY -> "여행 동선 추천"
+    RouteRecommendationType.HOME -> "귀가 경로 추천"
 }
-
-private val RouteRecommendationType.title: String
-    get() = when (this) {
-        RouteRecommendationType.DEPARTURE -> "출발 경로 추천"
-        RouteRecommendationType.ITINERARY -> "여행 동선 추천"
-        RouteRecommendationType.HOME -> "귀가 경로 추천"
-    }
