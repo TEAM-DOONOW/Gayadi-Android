@@ -516,6 +516,40 @@ class TripViewModelTest {
         assertEquals("legacy-1", repository.state.trips.single().id)
     }
 
+    @Test fun remoteFailureDoesNotPersistDraftAndServerIdentityReplacesLocalCache() = runTest(dispatcher) {
+        val repository = MemoryTravelRepository(TravelState(
+            trips = listOf(sampleTrip().toExistingDomain()), currentUserId = "previous-account",
+        ))
+        val gateway = java.lang.reflect.Proxy.newProxyInstance(
+            com.gayadi.android.domain.repository.TravelGateway::class.java.classLoader,
+            arrayOf(com.gayadi.android.domain.repository.TravelGateway::class.java),
+        ) { _, method, _ ->
+            when (method.name) {
+                "listTrips" -> emptyList<TravelTrip>()
+                "listFavoritePlaceIds" -> emptySet<String>()
+                "createTrip" -> throw IllegalStateException("서버 저장 실패")
+                else -> error("Unexpected gateway call: ${method.name}")
+            }
+        } as com.gayadi.android.domain.repository.TravelGateway
+        val session = com.gayadi.android.domain.model.AuthSession("test", "Bearer", 3600, "refresh", 3600, 0,
+            com.gayadi.android.domain.model.AuthUser(42, "테스트", "test@example.invalid"))
+        val auth = object : com.gayadi.android.domain.repository.AuthRepository {
+            override fun currentSession() = session
+            override fun clearSession() {}
+            override suspend fun validAccessToken() = session.accessToken
+            override suspend fun refreshSession() = session
+            override suspend fun signInWithGoogle(idToken: String) = session
+        }
+        val vm = TripViewModel(SavedStateHandle(), GetTravelStateUseCase(repository),
+            SaveTravelStateUseCase(repository), dispatcher, travelGateway = gateway, authRepository = auth)
+        advanceUntilIdle()
+        assertEquals("42", vm.uiState.value.travelState.currentUserId)
+        assertTrue(vm.uiState.value.travelState.trips.isEmpty())
+        assertTrue(vm.addTrip(sampleTrip()).isFailure)
+        advanceUntilIdle()
+        assertTrue(repository.state.trips.isEmpty())
+    }
+
     private fun viewModel(
         repository: MemoryTravelRepository,
         savedStateHandle: SavedStateHandle = SavedStateHandle(),

@@ -150,6 +150,7 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
         )
     }
     composable(Routes.MY_TRIP) {
+        LaunchedEffect(Unit) { tripViewModel.retry() }
         val androidContext = LocalContext.current
         val showFirstGuide = remember(androidContext) {
             !UsageGuidePreferences.hasCompleted(androidContext, UsageGuidePreferences.MyTrip)
@@ -203,9 +204,7 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
             initialTrip = tripViewModel.tripById(tripId),
             onBack = { navController.popBackStack() },
             onCreate = { trip ->
-                tripViewModel.updateTrip(trip)
-                navController.popBackStack()
-                Result.success(trip)
+                tripViewModel.updateTrip(trip).onSuccess { navController.popBackStack() }
             },
         )
     }
@@ -214,6 +213,7 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
         arguments = listOf(navArgument("tripId") { type = NavType.StringType }),
     ) { backStackEntry ->
         val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
+        LaunchedEffect(tripId) { tripViewModel.retry() }
         val travelState = travelUiState.travelState
         ParticipantsScreen(
             tripName = travelState.trip(tripId)?.name.orEmpty(),
@@ -225,6 +225,7 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
             onBack = { navController.popBackStack() },
             onRemove = { tripViewModel.removeParticipant(tripId, it) },
             onPublishInvite = { tripViewModel.publishInvite(tripId) },
+            onCoordinateDates = { navController.navigate(Routes.groupDateCoordination(tripId)) },
         )
     }
     composable(
@@ -232,6 +233,9 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
         arguments = listOf(navArgument("tripId") { type = NavType.StringType }),
     ) { backStackEntry ->
         val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
+        LaunchedEffect(tripId) {
+            while (true) { tripViewModel.retry(); kotlinx.coroutines.delay(15000) }
+        }
         val androidContext = LocalContext.current
         val travelState = travelUiState.travelState
         val coordinatedTrip = travelState.trip(tripId)
@@ -263,10 +267,9 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
                 tripViewModel.submitDateAvailability(tripId, participantId, dates)
             },
             onFinalize = { startDate, endDate ->
-                tripViewModel.finalizeGroupTripDates(tripId, startDate, endDate)
-                tripViewModel.selectTrip(tripId)
-                navController.navigate(Routes.realtimeHome(tripId)) {
-                    popUpTo(Routes.MY_TRIP)
+                tripViewModel.finalizeGroupTripDates(tripId, startDate, endDate) {
+                    tripViewModel.selectTrip(tripId)
+                    navController.navigate(Routes.realtimeHome(tripId)) { popUpTo(Routes.MY_TRIP) }
                 }
             },
         )
@@ -276,7 +279,11 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
         arguments = listOf(navArgument("tripId") { type = NavType.StringType }),
     ) { backStackEntry ->
         val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
+        LaunchedEffect(tripId) { tripViewModel.retry() }
         val travelState = travelUiState.travelState
+        LaunchedEffect(tripId, travelState.expenses, travelState.sharedFundAmounts) {
+            tripViewModel.refreshSettlement(tripId)
+        }
         val settlementResult = tripViewModel.settlementForTrip(tripId)
         val settlementErrorMessage = settlementResult.exceptionOrNull()?.let { error ->
             error.message ?: "비용 정산 정보를 계산하지 못했어요"
@@ -444,6 +451,7 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
         arguments = listOf(navArgument("tripId") { type = NavType.StringType }),
     ) { backStackEntry ->
         val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
+        LaunchedEffect(tripId) { tripViewModel.retry() }
         val androidContext = LocalContext.current
         val travelState = travelUiState.travelState
         val trip = travelState.trip(tripId)
