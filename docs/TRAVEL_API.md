@@ -41,3 +41,5 @@ adb shell am instrument -w -e liveApi true \
 ## 별도 작업
 
 실제 Google OAuth 설정과 영수증 파일 업로드 API는 별도 준비가 필요하다. 영수증 URI 필드는 파일 업로드가 아니다. AI 추천 경로 생성·지도 외부 SDK·배포·Discord 웹훅은 이번 여행 CRUD 연동의 검증 범위에 포함하지 않는다.
+
+자동 일정과 경로 연동은 [PLANNING_API.md](PLANNING_API.md)를 참고하세요.

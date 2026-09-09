@@ -19,6 +19,8 @@ object Routes {
     const val SETTLEMENT_DETAILS = "settlement_details/{tripId}/{participantId}/{detailType}"
     const val TRIP_EXPENSE = "trip_expense/{tripId}/{scheduleId}?expenseId={expenseId}"
     const val UNLINKED_SCHEDULE_ID = "unlinked"
+    const val TRIP_SURVEY = "trip_survey/{tripId}"
+    fun tripSurvey(tripId: String) = "trip_survey/$tripId"
     const val ROUTE_HUB = "route_hub/{tripId}"
     const val ROUTE_RECOMMENDATION = "route_recommendation/{tripId}/{routeType}"
     const val NEARBY_PLACES = "nearby_places/{tripId}?placeId={placeId}"

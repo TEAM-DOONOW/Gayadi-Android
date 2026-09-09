@@ -379,6 +379,18 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
             isLoadingTravelState = travelUiState.isLoading,
         )
     }
+    composable(Routes.TRIP_SURVEY, arguments=listOf(navArgument("tripId") { type=NavType.StringType })) { entry ->
+        val tripId=requireNotNull(entry.arguments?.getString("tripId"))
+        val survey: com.gayadi.android.feature.survey.presentation.SurveyViewModel = viewModel(
+            factory=com.gayadi.android.feature.survey.presentation.SurveyViewModel.factory(
+                appContainer.getSurveyUseCase, appContainer.calculateSurveyResultUseCase,
+                appContainer.submitTripSurveyUseCase(tripId)),
+        )
+        com.gayadi.android.feature.survey.presentation.SurveyRoute(viewModel=survey, onComplete={
+            sharedProfileViewModel.reload()
+            navController.popBackStack()
+        })
+    }
     composable(
         route = Routes.ROUTE_HUB,
         arguments = listOf(navArgument("tripId") { type = NavType.StringType }),
@@ -402,14 +414,18 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
             ?.let { runCatching { RouteRecommendationType.valueOf(it) }.getOrNull() }
             ?: RouteRecommendationType.ITINERARY
         val travelState = travelUiState.travelState
+        val planning: com.gayadi.android.ui.screens.PlanningViewModel = viewModel(
+            key = "$tripId:${type.name}",
+            factory = com.gayadi.android.ui.screens.PlanningViewModel.factory(appContainer.planningGateway, tripId,
+                com.gayadi.android.domain.repository.PlanningRouteType.valueOf(type.name)),
+        )
+        val planningState by planning.state.collectAsStateWithLifecycle()
         RouteRecommendationScreen(
-            type = type,
-            trip = travelState.trip(tripId),
-            schedules = travelState.schedulesForTrip(tripId),
-            profile = sharedProfileUiState.profile,
-            appliedOptionId = travelState.appliedRouteIds["$tripId:${type.name}"],
-            onBack = { navController.popBackStack() },
-            onApply = { tripViewModel.applyRoute(tripId, type.name, it) },
+            type=type, trip=travelState.trip(tripId), state=planningState,
+            onBack={navController.popBackStack()}, onReload=planning::reload, onRecommend=planning::recommend,
+            onApply=planning::select, onClear=planning::clearSelection, onGenerate=planning::generatePlan,
+            onSurvey={navController.navigate(Routes.tripSurvey(tripId))},
+            onSearch=planning::search, onChooseEndpoint=planning::chooseEndpoint,
         )
     }
     composable(

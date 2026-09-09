@@ -79,8 +79,10 @@ class AppContainer(
     private val apiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val api = GayadiApiClient(tourApiBaseUrl, authRepository)
     val travelGateway: com.gayadi.android.domain.repository.TravelGateway = com.gayadi.android.data.remote.travel.ServerTravelGateway(api)
+    val planningGateway: com.gayadi.android.domain.repository.PlanningGateway = com.gayadi.android.data.remote.travel.ServerPlanningGateway(api, authRepository)
     private val surveyRepository: SurveyRepository =
         DefaultSurveyRepository(RestSurveyDataSource(api, apiScope))
+    fun submitTripSurveyUseCase(tripId: String) = SubmitSurveyUseCase(RestSurveySubmissionRepository(api, tripId))
     val submitSurveyUseCase = SubmitSurveyUseCase(RestSurveySubmissionRepository(api))
     private val profileRepository: ProfileRepository = AuthenticatedProfileRepository(
         localRepository = localProfileRepository,
