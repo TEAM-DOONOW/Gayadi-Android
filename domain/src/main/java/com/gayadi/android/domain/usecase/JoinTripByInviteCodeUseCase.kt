@@ -4,13 +4,34 @@ import com.gayadi.android.domain.model.TravelParticipant
 import com.gayadi.android.domain.model.TravelTrip
 import com.gayadi.android.domain.repository.TripInviteRepository
 import com.gayadi.android.domain.repository.TravelRepository
+import com.gayadi.android.domain.repository.TravelGateway
 
 class JoinTripByInviteCodeUseCase(
     private val repository: TravelRepository,
     private val remoteInvites: TripInviteRepository? = null,
+    private val travelGateway: TravelGateway? = null,
 ) {
     suspend operator fun invoke(code: String, participant: TravelParticipant): Result<TravelTrip> {
         val normalizedCode = code.trim()
+        if (travelGateway != null) {
+            return try {
+                val membership = travelGateway.joinTrip(normalizedCode)
+                val joinedTrip = membership.trip
+                repository.updateTravelState { state ->
+                    state.copy(
+                        trips = state.trips.filterNot { it.id == joinedTrip.id } + joinedTrip,
+                        participants = (state.participants + membership.participant)
+                            .distinctBy(TravelParticipant::id),
+                        selectedTripId = joinedTrip.id,
+                    )
+                }.getOrThrow()
+                Result.success(joinedTrip)
+            } catch (cancellation: kotlinx.coroutines.CancellationException) {
+                throw cancellation
+            } catch (error: Throwable) {
+                Result.failure(error)
+            }
+        }
         if (remoteInvites != null) {
             return remoteInvites.join(normalizedCode, participant).mapCatching { shared ->
                 val joinedTrip = shared.trip.copy(

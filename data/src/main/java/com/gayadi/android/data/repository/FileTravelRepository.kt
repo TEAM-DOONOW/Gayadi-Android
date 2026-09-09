@@ -103,6 +103,7 @@ class FileTravelRepository(
                         }
                     })
                     put("ownerId", trip.ownerId)
+                    put("version", trip.version)
                 })
             }
         })
@@ -188,6 +189,7 @@ class FileTravelRepository(
                     }
                 }.orEmpty(),
                 ownerId = trip.optString("ownerId"),
+                version = trip.optInt("version", 0),
             )
         },
         participants = root.optJSONArray("participants").objects().map { participant ->

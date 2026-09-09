@@ -15,6 +15,7 @@ data class TravelTrip(
     val isGroupTrip: Boolean = false,
     val dateAvailability: Map<String, List<String>> = emptyMap(),
     val ownerId: String = "",
+    val version: Int = 0,
 )
 
 data class TravelParticipant(

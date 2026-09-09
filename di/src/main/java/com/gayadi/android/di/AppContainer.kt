@@ -71,13 +71,14 @@ class AppContainer(
         DefaultLegalDocumentRepository(publicContentDataSource)
     private val noticeRepository = DefaultNoticeRepository(publicContentDataSource)
     private val travelRepository = FileTravelRepository(travelFile)
-    private val tourRepository = DefaultTourRepository(HttpTourApiDataSource(tourApiBaseUrl))
-    private val authRepository = DefaultAuthRepository(
+    private val tourRepository = DefaultTourRepository(com.gayadi.android.data.datasource.ServerPlaceApiDataSource(GayadiApiClient(tourApiBaseUrl)))
+    val authRepository: com.gayadi.android.domain.repository.AuthRepository = DefaultAuthRepository(
         HttpAuthApiDataSource(tourApiBaseUrl),
         EncryptedFileAuthSessionStore(File(travelFile.parentFile, "auth-session")),
     )
     private val apiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val api = GayadiApiClient(tourApiBaseUrl, authRepository)
+    val travelGateway: com.gayadi.android.domain.repository.TravelGateway = com.gayadi.android.data.remote.travel.ServerTravelGateway(api)
     private val surveyRepository: SurveyRepository =
         DefaultSurveyRepository(RestSurveyDataSource(api, apiScope))
     val submitSurveyUseCase = SubmitSurveyUseCase(RestSurveySubmissionRepository(api))
@@ -116,7 +117,7 @@ class AppContainer(
     val updateTravelStateUseCase = UpdateTravelStateUseCase(travelRepository)
 
     /** Resolves a persisted trip invite code and joins the local user to that trip. */
-    val joinTripByInviteCodeUseCase = JoinTripByInviteCodeUseCase(travelRepository, tripInviteRepository)
+    val joinTripByInviteCodeUseCase = JoinTripByInviteCodeUseCase(travelRepository, travelGateway = travelGateway)
 
     /** Publishes one local trip so another installation can resolve and join its invite code. */
     val publishTripInviteUseCase = PublishTripInviteUseCase(tripInviteRepository)

@@ -63,6 +63,7 @@ fun ParticipantsScreen(
     onBack: () -> Unit,
     onRemove: (String) -> Unit,
     onPublishInvite: suspend () -> Result<Unit> = { Result.success(Unit) },
+    onCoordinateDates: () -> Unit = {},
 ) {
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
@@ -137,6 +138,14 @@ fun ParticipantsScreen(
                     Text("아직 초대된 여행 메이트가 없어요", color = TextSecondary, fontSize = 14.sp)
                 }
             }
+            Spacer(Modifier.height(16.dp))
+            OutlinedButton(
+                onClick = onCoordinateDates,
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                shape = RoundedCornerShape(4.dp),
+            ) {
+                Text("가능한 날짜 조율")
+            }
             Spacer(Modifier.height(24.dp))
         }
     }
@@ -206,7 +215,7 @@ private fun InviteCodeLetter(
                     modifier = Modifier.size(18.dp),
                 )
                 Spacer(Modifier.width(6.dp))
-                Text("카카오톡 공유하기", fontSize = 12.sp)
+                Text("카카오 공유", fontSize = 12.sp, maxLines = 1)
             }
         }
         inviteMessage?.let {

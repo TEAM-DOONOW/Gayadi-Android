@@ -1,5 +1,8 @@
 package com.gayadi.android.navigation
 
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -34,6 +37,8 @@ fun GayadiNavHost(appContainer: AppContainer) {
             appContainer.removeSharedTripParticipantUseCase,
             appContainer.submitSharedTripAvailabilityUseCase,
             appContainer.finalizeSharedTripDatesUseCase,
+            travelGateway = appContainer.travelGateway,
+            authRepository = appContainer.authRepository,
         ),
     )
     val placeViewModel: PlaceViewModel = viewModel(
@@ -85,6 +90,15 @@ fun GayadiNavHost(appContainer: AppContainer) {
         sharedProfileUiState = sharedProfileUiState,
     )
 
+    travelUiState.errorMessage?.let { message ->
+        AlertDialog(
+            onDismissRequest = tripViewModel::dismissError,
+            title = { Text("여행 정보를 확인해 주세요") },
+            text = { Text(message) },
+            confirmButton = { TextButton(onClick = tripViewModel::retry) { Text("다시 시도") } },
+            dismissButton = { TextButton(onClick = tripViewModel::dismissError) { Text("닫기") } },
+        )
+    }
     NavHost(navController = navController, startDestination = Routes.STARTUP) {
         onboardingGraph(navigationContext)
         tripGraph(navigationContext)
