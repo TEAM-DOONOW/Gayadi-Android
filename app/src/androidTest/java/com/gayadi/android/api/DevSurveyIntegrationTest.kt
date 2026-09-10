@@ -11,6 +11,10 @@ import com.gayadi.android.MainActivity
 import com.gayadi.android.data.datasource.GayadiApiClient
 import com.gayadi.android.data.datasource.HttpAuthApiDataSource
 import com.gayadi.android.data.datasource.HttpProfileApiDataSource
+import com.gayadi.android.data.datasource.RestInquiryDataSource
+import com.gayadi.android.data.datasource.RestPublicContentDataSource
+import com.gayadi.android.data.datasource.RestSessionApiDataSource
+import com.gayadi.android.data.model.InquiryDto
 import com.gayadi.android.data.repository.DefaultAuthRepository
 import com.gayadi.android.data.repository.EncryptedFileAuthSessionStore
 import com.gayadi.android.domain.model.AuthSession
@@ -18,6 +22,7 @@ import com.gayadi.android.domain.model.AuthUser
 import com.gayadi.android.domain.model.BasicInfo
 import java.io.File
 import java.util.UUID
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import org.junit.Assert.*
@@ -34,7 +39,7 @@ class DevSurveyIntegrationTest {
 
     @Test fun surveyAnswersAreSavedAndRendered() = runBlocking {
         assumeTrue(InstrumentationRegistry.getArguments().getString("liveApi") == "true")
-        check(BuildConfig.FLAVOR == "dev" && BuildConfig.API_BASE_URL == "http://223.130.134.57:8080")
+        check(BuildConfig.FLAVOR == "dev")
         val store = EncryptedFileAuthSessionStore(File(context.filesDir, "auth-session"))
         check(store.load() == null) { "Use a fresh emulator without an existing account session." }
         val publicApi = GayadiApiClient(BuildConfig.API_BASE_URL)
@@ -52,6 +57,32 @@ class DevSurveyIntegrationTest {
         val api = GayadiApiClient(BuildConfig.API_BASE_URL, auth)
         try {
             HttpProfileApiDataSource(api).updateCurrentUser(BasicInfo("연동테스트", "개발 서버 연동 확인"))
+            val refreshedSession = auth.refreshSession()
+            assertNotEquals(session.refreshToken, refreshedSession.refreshToken)
+
+            val publicContent = RestPublicContentDataSource(BuildConfig.API_BASE_URL)
+            val notices = awaitResult(publicContent::loadNotices)
+            assertTrue(notices.isNotEmpty())
+            assertEquals(notices.first().id, awaitResult {
+                publicContent.loadNotice(notices.first().id, it)
+            }.id)
+            listOf("terms-of-service", "privacy-policy").forEach { documentId ->
+                assertEquals(documentId, awaitResult {
+                    publicContent.loadDocument(documentId, it)
+                }.id)
+            }
+            awaitResult { callback ->
+                RestInquiryDataSource(api, this).submit(
+                    InquiryDto(
+                        category = "ETC",
+                        title = "Android 연동 테스트",
+                        message = "에뮬레이터 API 왕복 검증",
+                        contactEmail = "android-api@example.invalid",
+                    ),
+                    callback,
+                )
+            }
+
             val survey = JSONObject(publicApi.request("GET", "/api/v1/surveys/travel-personality-v1",
                 authenticated = false)).getJSONArray("questions")
             val activity = instrumentation.startActivitySync(Intent(context, MainActivity::class.java)
@@ -94,6 +125,7 @@ class DevSurveyIntegrationTest {
             } finally {
                 instrumentation.runOnMainSync { activity.finish() }
             }
+            RestSessionApiDataSource(api).logout(requireNotNull(auth.currentSession()).refreshToken)
         } finally {
             // Delete only the account created in this test. Never print tokens or passwords.
             try { HttpProfileApiDataSource(api).deleteCurrentUser() } finally {
@@ -101,6 +133,12 @@ class DevSurveyIntegrationTest {
                 File(context.filesDir, "user-profile.xml").delete()
             }
         }
+    }
+
+    private suspend fun <T> awaitResult(start: ((Result<T>) -> Unit) -> Unit): T {
+        val result = CompletableDeferred<Result<T>>()
+        start { result.complete(it) }
+        return result.await().getOrThrow()
     }
 
     private fun awaitText(text: String): AccessibilityNodeInfo {
