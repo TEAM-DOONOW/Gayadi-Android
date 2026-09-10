@@ -80,6 +80,8 @@ class AppContainer(
     private val api = GayadiApiClient(tourApiBaseUrl, authRepository)
     val friendshipGateway: com.gayadi.android.domain.repository.FriendshipGateway = com.gayadi.android.data.remote.travel.ServerFriendshipGateway(api)
     val travelGateway: com.gayadi.android.domain.repository.TravelGateway = com.gayadi.android.data.remote.travel.ServerTravelGateway(api)
+    val tripSupportGateway: com.gayadi.android.domain.repository.TripSupportGateway =
+        com.gayadi.android.data.remote.travel.ServerTripSupportGateway(api)
     private val surveyRepository: SurveyRepository =
         DefaultSurveyRepository(RestSurveyDataSource(api, apiScope))
     val submitSurveyUseCase = SubmitSurveyUseCase(RestSurveySubmissionRepository(api))

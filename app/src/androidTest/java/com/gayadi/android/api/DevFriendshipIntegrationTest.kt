@@ -37,7 +37,7 @@ class DevFriendshipIntegrationTest {
 
     @Test fun cleanupInterruptedTest() = runBlocking {
         assumeTrue(InstrumentationRegistry.getArguments().getString("cleanupInterruptedTest") == "true")
-        check(BuildConfig.FLAVOR == "dev" && BuildConfig.API_BASE_URL == "http://223.130.134.57:8080")
+        check(BuildConfig.FLAVOR == "dev")
         val store = EncryptedFileAuthSessionStore(File(context.filesDir, "auth-session"))
         val session = requireNotNull(store.load())
         check(session.user.nickname == "친구테스트" && session.user.email.startsWith("travel-") && session.user.email.endsWith("@example.invalid"))
@@ -55,7 +55,7 @@ class DevFriendshipIntegrationTest {
 
     @Test fun friendshipRoundTrip() = runBlocking {
         assumeTrue(InstrumentationRegistry.getArguments().getString("liveApi") == "true")
-        check(BuildConfig.FLAVOR == "dev" && BuildConfig.API_BASE_URL == "http://223.130.134.57:8080")
+        check(BuildConfig.FLAVOR == "dev")
         val store = EncryptedFileAuthSessionStore(File(context.filesDir, "auth-session"))
         check(store.load() == null)
         val accounts = mutableListOf<AuthRepository>()

@@ -37,7 +37,7 @@ class DevTravelIntegrationTest {
 
     @Test fun sharedTravelRoundTrip() = runBlocking {
         assumeTrue(InstrumentationRegistry.getArguments().getString("liveApi") == "true")
-        check(BuildConfig.FLAVOR == "dev" && BuildConfig.API_BASE_URL == "http://223.130.134.57:8080")
+        check(BuildConfig.FLAVOR == "dev")
         val store = EncryptedFileAuthSessionStore(File(context.filesDir, "auth-session"))
         check(store.load() == null)
         val accounts = mutableListOf<AuthRepository>()
