@@ -69,7 +69,10 @@ internal fun NavGraphBuilder.onboardingGraph(context: AppNavigationContext) = wi
                             }
                             Log.i(AUTH_LOG_TAG, "Post-login navigation requested")
                         } catch (exception: GetCredentialCancellationException) {
-                            Log.i(AUTH_LOG_TAG, "Google credential flow cancelled")
+                            Log.i(
+                                AUTH_LOG_TAG,
+                                "Google credential flow cancelled: ${exception.message}",
+                            )
                             loginError = "Google 로그인이 취소되었습니다. 다시 시도해 주세요."
                         } catch (exception: Exception) {
                             Log.e(

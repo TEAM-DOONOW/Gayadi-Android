@@ -13,6 +13,7 @@ class ServerPlaceApiDataSource(private val client: GayadiApiClient) : TourApiDat
         lclsSystm2: String?,
         lclsSystm3: String?,
         maxPages: Int?,
+        regionName: String?,
     ): List<TourPlaceDto> {
         require(pageSize > 0) { "장소 페이지 크기는 1 이상이어야 합니다." }
         require(maxPages == null || maxPages > 0) { "장소 페이지 수는 1 이상이어야 합니다." }

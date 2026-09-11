@@ -94,6 +94,7 @@ class TourApiTest {
             lclsSystm1 = "FD",
             lclsSystm2 = "FD05",
             lclsSystm3 = "FD050100",
+            regionName = "서울",
         )
 
         val requests = requestedUrls.map { parseQuery(it.query) }
@@ -105,6 +106,7 @@ class TourApiTest {
             assertEquals("FD", query["lclsSystm1"])
             assertEquals("FD05", query["lclsSystm2"])
             assertEquals("FD050100", query["lclsSystm3"])
+            assertEquals("서울", query["regionName"])
             assertFalse(query.containsKey("pageNo"))
             assertFalse(query.containsKey("numOfRows"))
         }
@@ -113,18 +115,18 @@ class TourApiTest {
     }
 
     @Test
-    fun requestsStaysFromStayEndpointWithTitleOrdering() = runTest {
+    fun requestsStaysThroughAreasWithRegion() = runTest {
         val requestedUrls = mutableListOf<URL>()
         val dataSource = stubbedDataSource(
             requestedUrls = requestedUrls,
             responses = ArrayDeque(listOf(tourPage("stay-1", "제주 스테이", null))),
         )
 
-        dataSource.getPlaces(pageSize = 100, contentTypeId = 32)
+        dataSource.getPlaces(pageSize = 100, contentTypeId = 32, regionName = "서울")
 
-        assertEquals("/api/v1/tour/stays", requestedUrls.single().path)
+        assertEquals("/api/v1/tour/areas", requestedUrls.single().path)
         assertEquals(
-            mapOf("pageSize" to "100", "arrange" to "A"),
+            mapOf("pageSize" to "20", "contentTypeId" to "32", "regionName" to "서울"),
             parseQuery(requestedUrls.single().query),
         )
     }
@@ -156,7 +158,7 @@ class TourApiTest {
         )
 
         val result = runCatching {
-            dataSource.getPlaces(pageSize = 1, contentTypeId = 12)
+            dataSource.getPlaces(pageSize = 1, contentTypeId = 12, regionName = "서울")
         }
 
         assertTrue(result.isFailure)
@@ -226,16 +228,18 @@ class TourApiTest {
             lclsSystm2 = "FD05",
             lclsSystm3 = "FD050100",
             maxPages = 2,
+            regionName = "서울",
         )
 
         assertEquals(listOf("cafe-1", "cafe-2"), places.map(TourPlaceDto::contentId))
         assertEquals(2, requestedUrls.size)
         requestedUrls.map { parseQuery(it.query) }.forEach { query ->
-            assertEquals("100", query["pageSize"])
+            assertEquals("20", query["pageSize"])
             assertEquals("39", query["contentTypeId"])
             assertEquals("FD", query["lclsSystm1"])
             assertEquals("FD05", query["lclsSystm2"])
             assertEquals("FD050100", query["lclsSystm3"])
+            assertEquals("서울", query["regionName"])
         }
     }
 
@@ -252,7 +256,7 @@ class TourApiTest {
             ),
         )
 
-        val places = dataSource.getPlaces(pageSize = 1, contentTypeId = 12)
+        val places = dataSource.getPlaces(pageSize = 1, contentTypeId = 12, regionName = "서울")
 
         assertEquals(listOf("first", "second"), places.map(TourPlaceDto::contentId))
         assertEquals(listOf(null, "next"), requestedUrls.map { parseQuery(it.query)["cursor"] })
@@ -297,6 +301,7 @@ private data class RecordedTourQuery(
     val lclsSystm2: String?,
     val lclsSystm3: String?,
     val maxPages: Int?,
+    val regionName: String? = null,
 )
 
 private class CountingTourApiDataSource : TourApiDataSource {
@@ -309,6 +314,7 @@ private class CountingTourApiDataSource : TourApiDataSource {
         lclsSystm2: String?,
         lclsSystm3: String?,
         maxPages: Int?,
+        regionName: String?,
     ): List<TourPlaceDto> {
         requestCount += 1
         return tourPlace(contentTypeId)
@@ -327,6 +333,7 @@ private class RecordingTourApiDataSource(
         lclsSystm2: String?,
         lclsSystm3: String?,
         maxPages: Int?,
+        regionName: String?,
     ): List<TourPlaceDto> {
         requests += RecordedTourQuery(
             pageSize = pageSize,
@@ -335,6 +342,7 @@ private class RecordingTourApiDataSource(
             lclsSystm2 = lclsSystm2,
             lclsSystm3 = lclsSystm3,
             maxPages = maxPages,
+            regionName = regionName,
         )
         failure?.let { throw it }
         return tourPlace(contentTypeId)
@@ -362,6 +370,7 @@ private suspend fun GetTourPlacesUseCase.load(query: RecordedTourQuery) {
         lclsSystm2 = query.lclsSystm2,
         lclsSystm3 = query.lclsSystm3,
         maxPages = query.maxPages,
+        regionName = query.regionName,
     ).getOrThrow()
 }
 

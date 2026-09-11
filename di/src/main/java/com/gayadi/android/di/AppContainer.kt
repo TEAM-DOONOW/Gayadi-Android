@@ -71,7 +71,7 @@ class AppContainer(
         DefaultLegalDocumentRepository(publicContentDataSource)
     private val noticeRepository = DefaultNoticeRepository(publicContentDataSource)
     private val travelRepository = FileTravelRepository(travelFile)
-    private val tourRepository = DefaultTourRepository(com.gayadi.android.data.datasource.ServerPlaceApiDataSource(GayadiApiClient(tourApiBaseUrl)))
+    private val tourRepository = DefaultTourRepository(HttpTourApiDataSource(tourApiBaseUrl))
     val authRepository: com.gayadi.android.domain.repository.AuthRepository = DefaultAuthRepository(
         HttpAuthApiDataSource(tourApiBaseUrl),
         EncryptedFileAuthSessionStore(File(travelFile.parentFile, "auth-session")),

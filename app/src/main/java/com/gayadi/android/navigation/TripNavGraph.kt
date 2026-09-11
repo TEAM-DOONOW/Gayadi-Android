@@ -486,7 +486,7 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
             tripEndDate = trip?.endDate.orEmpty(),
             tripCoverImageResList = tripSummary?.coverImageResList.orEmpty(),
             kakaoMapJavaScriptKey = com.gayadi.android.BuildConfig.KAKAO_MAP_JAVASCRIPT_SDK,
-            kakaoMapBaseUrl = com.gayadi.android.BuildConfig.API_BASE_URL,
+            kakaoMapBaseUrl = "https://localhost",
             friendCharacterKeys = tripParticipants.map { it.characterKey },
             showUsageGuide = remember(androidContext) {
                 !UsageGuidePreferences.hasCompleted(androidContext, UsageGuidePreferences.TripHome)

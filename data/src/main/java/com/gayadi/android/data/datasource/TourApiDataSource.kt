@@ -19,6 +19,7 @@ interface TourApiDataSource {
         lclsSystm2: String? = null,
         lclsSystm3: String? = null,
         maxPages: Int? = null,
+        regionName: String? = null,
     ): List<TourPlaceDto>
 
     suspend fun getNearbyPlaces(
@@ -59,6 +60,7 @@ class HttpTourApiDataSource(
         lclsSystm2: String?,
         lclsSystm3: String?,
         maxPages: Int?,
+        regionName: String?,
     ): List<TourPlaceDto> =
         withContext(Dispatchers.IO) {
             require(normalizedBaseUrl.isNotBlank()) { "관광 API 서버 주소가 설정되지 않았습니다." }
@@ -82,6 +84,7 @@ class HttpTourApiDataSource(
                     lclsSystm1 = lclsSystm1,
                     lclsSystm2 = lclsSystm2,
                     lclsSystm3 = lclsSystm3,
+                    regionName = regionName,
                 )
                 pagesLoaded += 1
                 places += page.items
@@ -196,21 +199,16 @@ class HttpTourApiDataSource(
         lclsSystm1: String?,
         lclsSystm2: String?,
         lclsSystm3: String?,
+        regionName: String?,
     ): TourPage {
-        val isStayRequest = contentTypeId == STAY_CONTENT_TYPE_ID
+        require(!regionName.isNullOrBlank()) { "관광 API 지역명이 필요합니다." }
+        val requestPageSize = pageSize.coerceAtMost(AREAS_MAX_PAGE_SIZE)
         val requestUrl = URL(buildString {
-            append(
-                if (isStayRequest) {
-                    "$normalizedBaseUrl/api/v1/tour/stays?pageSize=$pageSize&arrange=A"
-                } else {
-                    "$normalizedBaseUrl/api/v1/tour/areas?pageSize=$pageSize&contentTypeId=$contentTypeId"
-                },
-            )
-            if (!isStayRequest) {
-                appendQueryParameter("lclsSystm1", lclsSystm1)
-                appendQueryParameter("lclsSystm2", lclsSystm2)
-                appendQueryParameter("lclsSystm3", lclsSystm3)
-            }
+            append("$normalizedBaseUrl/api/v1/tour/areas?pageSize=$requestPageSize&contentTypeId=$contentTypeId")
+            appendQueryParameter("regionName", regionName)
+            appendQueryParameter("lclsSystm1", lclsSystm1)
+            appendQueryParameter("lclsSystm2", lclsSystm2)
+            appendQueryParameter("lclsSystm3", lclsSystm3)
             cursor?.let { append("&cursor=${it.urlEncoded()}") }
         })
         val connection = connectionFactory(requestUrl).apply {
@@ -384,6 +382,7 @@ class HttpTourApiDataSource(
     private companion object {
         const val STAY_CONTENT_TYPE_ID = 32
         const val MAX_PAGE_SIZE = 100
+        const val AREAS_MAX_PAGE_SIZE = 20
         const val MAX_RADIUS_METERS = 20_000
         const val CONNECT_TIMEOUT_MILLIS = 10_000
         const val READ_TIMEOUT_MILLIS = 15_000
