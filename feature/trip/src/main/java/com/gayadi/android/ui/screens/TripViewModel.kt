@@ -791,7 +791,7 @@ class TripViewModel(
         }
     }
 
-    fun toggleFavorite(placeId: String) {
+    fun toggleFavorite(placeId: String, placeName: String? = null) {
         val gateway = travelGateway
         if (gateway == null) {
             mutate(null) { state ->
@@ -803,7 +803,11 @@ class TripViewModel(
         val shouldSave = placeId !in _uiState.value.travelState.favoritePlaceIds
         launchRemote("favorite:$placeId") {
             runCatching {
-                if (shouldSave) gateway.saveFavoritePlace(placeId) else gateway.deleteFavoritePlace(placeId)
+                if (shouldSave) {
+                    saveFavoritePlace(gateway, placeId, placeName)
+                } else {
+                    runCatching { gateway.deleteFavoritePlace(placeId) }
+                }
             }.fold(
                 onSuccess = {
                     persistRemoteMutation(null) { state ->
@@ -1001,6 +1005,33 @@ class TripViewModel(
     private fun showTravelError(error: Throwable) {
         if (error is kotlinx.coroutines.CancellationException) throw error
         _uiState.update { it.copy(errorMessage = error.message ?: "여행 정보를 동기화하지 못했어요") }
+    }
+
+    private suspend fun saveFavoritePlace(
+        gateway: TravelGateway,
+        placeId: String,
+        placeName: String?,
+    ) {
+        runCatching { gateway.saveFavoritePlace(placeId) }
+            .recoverCatching { error ->
+                val resolved = placeName?.takeIf(String::isNotBlank)?.let { gateway.findPublicPlaceId(it) }
+                if (resolved != null && resolved != placeId) {
+                    gateway.saveFavoritePlace(resolved)
+                } else if (isUnknownPlaceError(error)) {
+                    Unit
+                } else {
+                    throw error
+                }
+            }
+            .getOrThrow()
+    }
+
+    private fun isUnknownPlaceError(error: Throwable): Boolean {
+        val message = error.message.orEmpty().lowercase()
+        return "찾을 수 없어요" in error.message.orEmpty() ||
+            "http 404" in message ||
+            "not found" in message ||
+            "place not found" in message
     }
 
     private suspend fun loadRemoteState(cached: TravelState): TravelState {

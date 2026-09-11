@@ -47,6 +47,7 @@ interface TourApiDataSource {
 
 class HttpTourApiDataSource(
     baseUrl: String,
+    private val accessToken: (suspend () -> String)? = null,
     private val connectionFactory: (URL) -> HttpURLConnection = { url ->
         url.openConnection() as HttpURLConnection
     },
@@ -238,7 +239,7 @@ class HttpTourApiDataSource(
         }
     }
 
-    private fun requestNearbyPage(
+    private suspend fun requestNearbyPage(
         pageSize: Int,
         cursor: String?,
         arrange: String,
@@ -256,32 +257,10 @@ class HttpTourApiDataSource(
             }
             cursor?.let { append("&cursor=${it.urlEncoded()}") }
         })
-        val connection = connectionFactory(requestUrl).apply {
-            requestMethod = "GET"
-            connectTimeout = CONNECT_TIMEOUT_MILLIS
-            readTimeout = READ_TIMEOUT_MILLIS
-            setRequestProperty("Accept", "application/json")
-        }
-        return try {
-            val statusCode = connection.responseCode
-            if (statusCode !in 200..299) {
-                val detail = connection.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
-                throw IllegalStateException(
-                    "주변 관광 API 요청에 실패했습니다. (HTTP $statusCode)" +
-                        detail.takeIf(String::isNotBlank)?.let { " $it" }.orEmpty(),
-                )
-            }
-            val root = JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
-            TourPage(
-                items = parsePlaces(root),
-                nextCursor = root.optNullableString("nextCursor"),
-            )
-        } finally {
-            connection.disconnect()
-        }
+        return executePageRequest(requestUrl, "주변 관광 API", authenticated = true)
     }
 
-    private fun requestKeywordPage(
+    private suspend fun requestKeywordPage(
         pageSize: Int,
         keyword: String,
         arrange: String,
@@ -302,15 +281,26 @@ class HttpTourApiDataSource(
             appendQueryParameter("lclsSystm3", lclsSystm3)
             cursor?.let { append("&cursor=${it.urlEncoded()}") }
         })
-        return executePageRequest(requestUrl, "키워드 관광 API")
+        return executePageRequest(requestUrl, "키워드 관광 API", authenticated = true)
     }
 
-    private fun executePageRequest(requestUrl: URL, apiName: String): TourPage {
+    private suspend fun executePageRequest(
+        requestUrl: URL,
+        apiName: String,
+        authenticated: Boolean = false,
+    ): TourPage {
         val connection = connectionFactory(requestUrl).apply {
             requestMethod = "GET"
             connectTimeout = CONNECT_TIMEOUT_MILLIS
             readTimeout = READ_TIMEOUT_MILLIS
             setRequestProperty("Accept", "application/json")
+            if (authenticated) {
+                accessToken?.let { tokenProvider ->
+                    val token = tokenProvider()
+                    require(token.isNotBlank()) { "로그인이 필요해요." }
+                    setRequestProperty("Authorization", "Bearer $token")
+                }
+            }
         }
         return try {
             val statusCode = connection.responseCode

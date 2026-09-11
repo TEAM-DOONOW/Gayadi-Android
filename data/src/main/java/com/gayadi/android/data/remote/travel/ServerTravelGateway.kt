@@ -240,12 +240,28 @@ class ServerTravelGateway(
     override suspend fun deleteFavoritePlace(placeId: String) =
         http.delete("$FAVORITES/${placeId.serverId("placeId")}")
 
+    override suspend fun findPublicPlaceId(name: String): String? {
+        val query = name.trim()
+        if (query.isEmpty()) return null
+        val page = http.getObject(
+            PLACES,
+            mapOf("query" to query, "limit" to "20"),
+        )
+        val items = page.optJSONArray("items") ?: return null
+        return (0 until items.length()).firstNotNullOfOrNull { index ->
+            val item = items.getJSONObject(index)
+            val title = item.optString("name").ifBlank { item.optString("title") }
+            if (title == query) item.getLong("id").toString() else null
+        }
+    }
+
     private fun tripPath(tripId: String) = "$TRIPS/${tripId.serverId("tripId")}"
 
     private fun dateCoordinationPath(tripId: String) = "${tripPath(tripId)}/date-coordination"
 
     private companion object {
         const val TRIPS = "/api/v1/trips"
+        const val PLACES = "/api/v1/places"
         const val FAVORITES = "/api/v1/users/current/favorite-places"
         const val MAX_EXPENSE_AMOUNT = 1_000_000_000_000L
     }

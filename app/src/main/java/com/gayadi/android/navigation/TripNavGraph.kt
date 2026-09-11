@@ -118,7 +118,9 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
             onPlaceClick = { id -> navController.navigate(Routes.placeDetail(tripId, id)) },
             onRetry = placeViewModel::retry,
             favoritePlaceIds = travelUiState.travelState.favoritePlaceIds,
-            onToggleFavorite = tripViewModel::toggleFavorite,
+            onToggleFavorite = { id ->
+                tripViewModel.toggleFavorite(id, placeViewModel.findPlace(id)?.name)
+            },
             onNearby = { navController.navigate(Routes.nearbyPlaces(tripId)) },
             onFavorites = { navController.navigate(Routes.favoritePlaces(tripId)) },
         )
@@ -153,7 +155,9 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
                 }
             },
             isFavorite = placeId in travelState.favoritePlaceIds,
-            onToggleFavorite = { tripViewModel.toggleFavorite(placeId) },
+            onToggleFavorite = {
+                tripViewModel.toggleFavorite(placeId, placeViewModel.findPlace(placeId)?.name)
+            },
             onNearby = { navController.navigate(Routes.nearbyPlaces(tripId, placeId)) },
         )
     }
@@ -295,8 +299,15 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
         val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
         LaunchedEffect(tripId) { tripViewModel.retry() }
         val travelState = travelUiState.travelState
-        LaunchedEffect(tripId, travelState.expenses, travelState.sharedFundAmounts) {
-            tripViewModel.refreshSettlement(tripId)
+        LaunchedEffect(
+            tripId,
+            travelUiState.hasLoadedTravelState,
+            travelState.expenses,
+            travelState.sharedFundAmounts,
+        ) {
+            if (travelUiState.hasLoadedTravelState) {
+                tripViewModel.refreshSettlement(tripId)
+            }
         }
         val settlementResult = tripViewModel.settlementForTrip(tripId)
         val settlementErrorMessage = settlementResult.exceptionOrNull()?.let { error ->
@@ -385,6 +396,8 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
             schedule = travelState.schedules.find { it.id == resolvedScheduleId && it.tripId == tripId },
             participants = travelState.participantsForTrip(tripId, tripViewModel.availableParticipants),
             initialPayerId = travelState.currentUserId,
+            tripStartDate = travelState.trip(tripId)?.startDate,
+            tripEndDate = travelState.trip(tripId)?.endDate,
             onBack = { navController.popBackStack() },
             onSave = tripViewModel::saveExpense,
             isSaving = travelUiState.isSavingExpense,
@@ -442,7 +455,9 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
             favoriteIds = travelUiState.travelState.favoritePlaceIds,
             onBack = { navController.popBackStack() },
             onPlaceClick = { navController.navigate(Routes.placeDetail(tripId, it)) },
-            onToggleFavorite = tripViewModel::toggleFavorite,
+            onToggleFavorite = { id ->
+                tripViewModel.toggleFavorite(id, placeViewModel.findPlace(id)?.name)
+            },
             isLoading = nearbyUiState.isLoading,
             errorMessage = nearbyUiState.errorMessage,
             onRetry = { placeViewModel.loadNearbyPlaces(placeId) },
@@ -457,7 +472,9 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
             places = travelUiState.travelState.favoritePlaceIds.mapNotNull(placeViewModel::findPlace),
             onBack = { navController.popBackStack() },
             onPlaceClick = { navController.navigate(Routes.placeDetail(tripId, it)) },
-            onToggleFavorite = tripViewModel::toggleFavorite,
+            onToggleFavorite = { id ->
+                tripViewModel.toggleFavorite(id, placeViewModel.findPlace(id)?.name)
+            },
         )
     }
     composable(
