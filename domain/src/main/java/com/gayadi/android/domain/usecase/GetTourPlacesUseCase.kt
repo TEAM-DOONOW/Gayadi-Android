@@ -7,12 +7,13 @@ class GetTourPlacesUseCase(
     private val repository: TourRepository,
 ) {
     suspend operator fun invoke(
-        pageSize: Int = 100,
+        pageSize: Int = 20,
         contentTypeId: Int = 12,
         lclsSystm1: String? = null,
         lclsSystm2: String? = null,
         lclsSystm3: String? = null,
         maxPages: Int? = null,
+        regionName: String? = null,
     ): Result<List<TourPlace>> = repository.getPlaces(
         pageSize = pageSize,
         contentTypeId = contentTypeId,
@@ -20,5 +21,6 @@ class GetTourPlacesUseCase(
         lclsSystm2 = lclsSystm2,
         lclsSystm3 = lclsSystm3,
         maxPages = maxPages,
+        regionName = regionName,
     )
 }

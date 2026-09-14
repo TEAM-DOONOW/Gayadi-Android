@@ -10,5 +10,6 @@ interface TourRepository {
         lclsSystm2: String? = null,
         lclsSystm3: String? = null,
         maxPages: Int? = null,
+        regionName: String? = null,
     ): Result<List<TourPlace>>
 }

@@ -69,6 +69,7 @@ interface TravelGateway {
     suspend fun listFavoritePlaceIds(limit: Int = 100, offset: Int = 0): Set<String>
     suspend fun saveFavoritePlace(placeId: String)
     suspend fun deleteFavoritePlace(placeId: String)
+    suspend fun findPublicPlaceId(name: String): String? = null
 }
 
 data class CreateTripCommand(

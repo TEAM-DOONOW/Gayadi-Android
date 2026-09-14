@@ -7,6 +7,8 @@ import android.webkit.ConsoleMessage
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.CookieManager
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.background
@@ -67,9 +69,7 @@ internal fun TravelRoutePreview(
         .replace(">", "\\u003e")
         .replace("\u2028", "\\u2028")
         .replace("\u2029", "\\u2029")
-    val secureBaseUrl = runCatching {
-        Uri.parse(baseUrl).buildUpon().scheme("https").build().toString()
-    }.getOrDefault(baseUrl)
+    val secureBaseUrl = kakaoWebViewOrigin(baseUrl)
     val allowedBaseHost = Uri.parse(secureBaseUrl).host
     val html = """
         <!doctype html>
@@ -82,17 +82,17 @@ internal fun TravelRoutePreview(
           #error{display:none;position:absolute;inset:0;align-items:center;justify-content:center;
             padding:24px;box-sizing:border-box;text-align:center;color:#666;font:13px sans-serif;background:#e9e9ed}
         </style>
-        <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=$javaScriptKey&libraries=services&autoload=false"
-          onerror="showError()"></script>
         </head><body><div id="map"></div><div id="error">카카오맵을 불러오지 못했어요.<br>JavaScript SDK 허용 도메인을 확인해 주세요.</div><script>
         function showError() {
           document.getElementById('error').style.display = 'flex';
         }
+        function initMap() {
         console.log('Gayadi Kakao map page started');
         if (!window.kakao || !window.kakao.maps) {
           console.error('Gayadi Kakao SDK unavailable after script load');
           showError();
-        } else {
+          return;
+        }
         kakao.maps.load(function() {
         console.log('Gayadi Kakao SDK initialized');
           var container = document.getElementById('map');
@@ -136,7 +136,10 @@ internal fun TravelRoutePreview(
           });
         });
         }
-        </script></body></html>
+        </script>
+        <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=$javaScriptKey&libraries=services&autoload=false"
+          onload="initMap()" onerror="showError()"></script>
+        </body></html>
     """.trimIndent()
 
     Box(
@@ -181,6 +184,9 @@ internal fun TravelRoutePreview(
                     }
                     settings.javaScriptEnabled = true
                     settings.domStorageEnabled = true
+                    settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                    CookieManager.getInstance().setAcceptCookie(true)
+                    CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
                     tag = html
                     loadDataWithBaseURL(secureBaseUrl, html, "text/html", "UTF-8", null)
                 }
@@ -214,3 +220,6 @@ internal fun TravelRoutePreview(
         }
     }
 }
+
+internal fun kakaoWebViewOrigin(@Suppress("UNUSED_PARAMETER") baseUrl: String): String =
+    "https://localhost"

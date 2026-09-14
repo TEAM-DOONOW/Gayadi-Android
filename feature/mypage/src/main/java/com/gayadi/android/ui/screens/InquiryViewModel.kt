@@ -27,8 +27,9 @@ data class InquiryUiState(
 
 class InquiryViewModel(
     private val submitInquiry: SubmitInquiryUseCase,
+    initialEmail: String = "",
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow(InquiryUiState())
+    private val _uiState = MutableStateFlow(InquiryUiState(contactEmail = initialEmail))
     val uiState: StateFlow<InquiryUiState> = _uiState.asStateFlow()
 
     fun updateCategory(category: InquiryCategory) {
@@ -83,8 +84,11 @@ class InquiryViewModel(
         const val TITLE_MAX_LENGTH = 50
         const val MESSAGE_MAX_LENGTH = 1000
 
-        fun factory(submitInquiry: SubmitInquiryUseCase) = viewModelFactory {
-            initializer { InquiryViewModel(submitInquiry) }
+        fun factory(
+            submitInquiry: SubmitInquiryUseCase,
+            initialEmail: String = "",
+        ) = viewModelFactory {
+            initializer { InquiryViewModel(submitInquiry, initialEmail) }
         }
     }
 }

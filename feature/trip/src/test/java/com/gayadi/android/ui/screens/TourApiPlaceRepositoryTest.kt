@@ -162,20 +162,20 @@ class TourApiPlaceRepositoryTest {
     }
 
     @Test
-    fun stopsAtFirstFailureAndReturnsTheOriginalError() = runTest {
-        val expectedError = IllegalStateException("음식점 조회 실패")
+    fun skipsFailedCategoryAndContinues() = runTest {
         val source = RecordingTourRepository { query ->
-            if (query.contentTypeId == 39) Result.failure(expectedError) else Result.success(emptyList())
+            if (query.contentTypeId == 39) {
+                Result.failure(IllegalStateException("음식점 조회 실패"))
+            } else {
+                Result.success(listOf(tourPlace("attraction", "성산일출봉", "")))
+            }
         }
         val repository = TourApiPlaceRepository(GetTourPlacesUseCase(source))
 
-        val result = repository.getPlaces()
+        val places = repository.getPlaces().getOrThrow()
 
-        assertSame(expectedError, result.exceptionOrNull())
-        assertEquals(
-            listOf(RecordedTourQuery(contentTypeId = 12), RecordedTourQuery(contentTypeId = 39)),
-            source.requests,
-        )
+        assertEquals(listOf("attraction"), places.map { it.id }.distinct())
+        assertEquals(5, source.requests.size)
     }
 
     @Test
@@ -203,7 +203,7 @@ class TourApiPlaceRepositoryTest {
 
 private data class RecordedTourQuery(
     val contentTypeId: Int,
-    val pageSize: Int = 100,
+    val pageSize: Int = 20,
     val lclsSystm1: String? = null,
     val lclsSystm2: String? = null,
     val lclsSystm3: String? = null,
@@ -222,6 +222,7 @@ private class RecordingTourRepository(
         lclsSystm2: String?,
         lclsSystm3: String?,
         maxPages: Int?,
+        regionName: String?,
     ): Result<List<TourPlace>> {
         val query = RecordedTourQuery(
             contentTypeId = contentTypeId,

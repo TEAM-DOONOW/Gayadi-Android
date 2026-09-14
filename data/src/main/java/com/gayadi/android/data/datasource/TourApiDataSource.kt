@@ -19,6 +19,7 @@ interface TourApiDataSource {
         lclsSystm2: String? = null,
         lclsSystm3: String? = null,
         maxPages: Int? = null,
+        regionName: String? = null,
     ): List<TourPlaceDto>
 
     suspend fun getNearbyPlaces(
@@ -46,6 +47,7 @@ interface TourApiDataSource {
 
 class HttpTourApiDataSource(
     baseUrl: String,
+    private val accessToken: (suspend () -> String)? = null,
     private val connectionFactory: (URL) -> HttpURLConnection = { url ->
         url.openConnection() as HttpURLConnection
     },
@@ -59,6 +61,7 @@ class HttpTourApiDataSource(
         lclsSystm2: String?,
         lclsSystm3: String?,
         maxPages: Int?,
+        regionName: String?,
     ): List<TourPlaceDto> =
         withContext(Dispatchers.IO) {
             require(normalizedBaseUrl.isNotBlank()) { "관광 API 서버 주소가 설정되지 않았습니다." }
@@ -82,6 +85,7 @@ class HttpTourApiDataSource(
                     lclsSystm1 = lclsSystm1,
                     lclsSystm2 = lclsSystm2,
                     lclsSystm3 = lclsSystm3,
+                    regionName = regionName,
                 )
                 pagesLoaded += 1
                 places += page.items
@@ -196,21 +200,16 @@ class HttpTourApiDataSource(
         lclsSystm1: String?,
         lclsSystm2: String?,
         lclsSystm3: String?,
+        regionName: String?,
     ): TourPage {
-        val isStayRequest = contentTypeId == STAY_CONTENT_TYPE_ID
+        require(!regionName.isNullOrBlank()) { "관광 API 지역명이 필요합니다." }
+        val requestPageSize = pageSize.coerceAtMost(AREAS_MAX_PAGE_SIZE)
         val requestUrl = URL(buildString {
-            append(
-                if (isStayRequest) {
-                    "$normalizedBaseUrl/api/v1/tour/stays?pageSize=$pageSize&arrange=A"
-                } else {
-                    "$normalizedBaseUrl/api/v1/tour/areas?pageSize=$pageSize&contentTypeId=$contentTypeId"
-                },
-            )
-            if (!isStayRequest) {
-                appendQueryParameter("lclsSystm1", lclsSystm1)
-                appendQueryParameter("lclsSystm2", lclsSystm2)
-                appendQueryParameter("lclsSystm3", lclsSystm3)
-            }
+            append("$normalizedBaseUrl/api/v1/tour/areas?pageSize=$requestPageSize&contentTypeId=$contentTypeId")
+            appendQueryParameter("regionName", regionName)
+            appendQueryParameter("lclsSystm1", lclsSystm1)
+            appendQueryParameter("lclsSystm2", lclsSystm2)
+            appendQueryParameter("lclsSystm3", lclsSystm3)
             cursor?.let { append("&cursor=${it.urlEncoded()}") }
         })
         val connection = connectionFactory(requestUrl).apply {
@@ -240,7 +239,7 @@ class HttpTourApiDataSource(
         }
     }
 
-    private fun requestNearbyPage(
+    private suspend fun requestNearbyPage(
         pageSize: Int,
         cursor: String?,
         arrange: String,
@@ -258,32 +257,10 @@ class HttpTourApiDataSource(
             }
             cursor?.let { append("&cursor=${it.urlEncoded()}") }
         })
-        val connection = connectionFactory(requestUrl).apply {
-            requestMethod = "GET"
-            connectTimeout = CONNECT_TIMEOUT_MILLIS
-            readTimeout = READ_TIMEOUT_MILLIS
-            setRequestProperty("Accept", "application/json")
-        }
-        return try {
-            val statusCode = connection.responseCode
-            if (statusCode !in 200..299) {
-                val detail = connection.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
-                throw IllegalStateException(
-                    "주변 관광 API 요청에 실패했습니다. (HTTP $statusCode)" +
-                        detail.takeIf(String::isNotBlank)?.let { " $it" }.orEmpty(),
-                )
-            }
-            val root = JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
-            TourPage(
-                items = parsePlaces(root),
-                nextCursor = root.optNullableString("nextCursor"),
-            )
-        } finally {
-            connection.disconnect()
-        }
+        return executePageRequest(requestUrl, "주변 관광 API", authenticated = true)
     }
 
-    private fun requestKeywordPage(
+    private suspend fun requestKeywordPage(
         pageSize: Int,
         keyword: String,
         arrange: String,
@@ -304,15 +281,26 @@ class HttpTourApiDataSource(
             appendQueryParameter("lclsSystm3", lclsSystm3)
             cursor?.let { append("&cursor=${it.urlEncoded()}") }
         })
-        return executePageRequest(requestUrl, "키워드 관광 API")
+        return executePageRequest(requestUrl, "키워드 관광 API", authenticated = true)
     }
 
-    private fun executePageRequest(requestUrl: URL, apiName: String): TourPage {
+    private suspend fun executePageRequest(
+        requestUrl: URL,
+        apiName: String,
+        authenticated: Boolean = false,
+    ): TourPage {
         val connection = connectionFactory(requestUrl).apply {
             requestMethod = "GET"
             connectTimeout = CONNECT_TIMEOUT_MILLIS
             readTimeout = READ_TIMEOUT_MILLIS
             setRequestProperty("Accept", "application/json")
+            if (authenticated) {
+                accessToken?.let { tokenProvider ->
+                    val token = tokenProvider()
+                    require(token.isNotBlank()) { "로그인이 필요해요." }
+                    setRequestProperty("Authorization", "Bearer $token")
+                }
+            }
         }
         return try {
             val statusCode = connection.responseCode
@@ -384,6 +372,7 @@ class HttpTourApiDataSource(
     private companion object {
         const val STAY_CONTENT_TYPE_ID = 32
         const val MAX_PAGE_SIZE = 100
+        const val AREAS_MAX_PAGE_SIZE = 20
         const val MAX_RADIUS_METERS = 20_000
         const val CONNECT_TIMEOUT_MILLIS = 10_000
         const val READ_TIMEOUT_MILLIS = 15_000

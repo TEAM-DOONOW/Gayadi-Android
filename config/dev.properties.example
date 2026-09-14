@@ -3,4 +3,5 @@ DEBUG_LOGGING=true
 KAKAO_MAP_JAVASCRIPT_SDK=your_dev_javascript_key
 KAKAO_MAP_REST_API=your_dev_rest_api_key
 KAKAO_NATIVE_SDK=your_dev_native_key
+# Credential Manager serverClientId. Placeholder falls back to the shared web client ID.
 GOOGLE_CLIENT_ID=your_dev_web_client_id.apps.googleusercontent.com

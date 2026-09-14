@@ -88,11 +88,17 @@ class HttpAuthApiDataSource(
     }
 
     private fun errorMessage(statusCode: Int, body: String): String {
-        val serverMessage = runCatching {
+        val parsed = runCatching {
             val root = JSONObject(body)
-            root.optString("message").ifBlank { root.optString("error") }
+            val code = root.optString("code")
+            val message = root.optString("message").ifBlank { root.optString("error") }
+            if (code.isNotBlank() && message.isNotBlank()) {
+                "$code: $message"
+            } else {
+                message.ifBlank { code }
+            }
         }.getOrDefault("")
-        return serverMessage.ifBlank { "Google 로그인에 실패했습니다. (HTTP $statusCode)" }
+        return parsed.ifBlank { "Google 로그인에 실패했습니다. (HTTP $statusCode)" }
     }
 
     private companion object {
