@@ -2,14 +2,15 @@ package com.gayadi.android.navigation
 
 import android.util.Log
 import com.gayadi.android.domain.model.LegalDocumentType
+import com.gayadi.android.domain.error.rethrowCancellation
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.GetCredentialInterruptedException
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavType
@@ -24,6 +25,7 @@ import com.gayadi.android.feature.surveyresult.presentation.SurveyResultViewMode
 import com.gayadi.android.ui.components.GayadiLoadingScreen
 import com.gayadi.android.ui.screens.LoginScreen
 import com.gayadi.android.BuildConfig
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 internal fun NavGraphBuilder.onboardingGraph(context: AppNavigationContext) = with(context) {
@@ -39,7 +41,6 @@ internal fun NavGraphBuilder.onboardingGraph(context: AppNavigationContext) = wi
     }
     composable(Routes.LOGIN) {
         val androidContext = LocalContext.current
-        val coroutineScope = rememberCoroutineScope()
         var isLoginInProgress by remember { mutableStateOf(false) }
         var loginError by remember { mutableStateOf<String?>(null) }
 
@@ -48,7 +49,7 @@ internal fun NavGraphBuilder.onboardingGraph(context: AppNavigationContext) = wi
             loginError = loginError,
             onGoogleLogin = {
                 if (!isLoginInProgress) {
-                    coroutineScope.launch {
+                    appScope.launch {
                         isLoginInProgress = true
                         loginError = null
                         try {
@@ -61,7 +62,6 @@ internal fun NavGraphBuilder.onboardingGraph(context: AppNavigationContext) = wi
                             Log.i(AUTH_LOG_TAG, "Gayadi auth session received")
                             val profile = appContainer.getUserProfileUseCase()
                             sharedProfileViewModel.reload()
-                            tripViewModel.retry()
                             navController.navigate(
                                 resolveAuthenticatedDestination(profile),
                             ) {
@@ -73,14 +73,23 @@ internal fun NavGraphBuilder.onboardingGraph(context: AppNavigationContext) = wi
                                 AUTH_LOG_TAG,
                                 "Google credential flow cancelled: ${exception.message}",
                             )
-                            loginError = "Google 로그인이 취소되었습니다. 다시 시도해 주세요."
+                            loginError = GOOGLE_LOGIN_CANCELLED_MESSAGE
+                        } catch (exception: GetCredentialInterruptedException) {
+                            Log.i(
+                                AUTH_LOG_TAG,
+                                "Google credential flow interrupted: ${exception.message}",
+                            )
+                            loginError = GOOGLE_LOGIN_CANCELLED_MESSAGE
+                        } catch (cancelled: CancellationException) {
+                            throw cancelled
                         } catch (exception: Exception) {
+                            exception.rethrowCancellation()
                             Log.e(
                                 AUTH_LOG_TAG,
                                 "Google login failed: ${exception::class.java.simpleName}",
                                 exception,
                             )
-                            loginError = exception.message ?: "Google 로그인에 실패했습니다."
+                            loginError = googleLoginUserMessage(exception)
                         } finally {
                             isLoginInProgress = false
                         }

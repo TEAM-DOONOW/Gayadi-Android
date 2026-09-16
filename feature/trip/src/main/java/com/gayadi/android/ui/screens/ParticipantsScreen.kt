@@ -50,6 +50,7 @@ import com.gayadi.android.ui.components.GayadiTopAppBar
 import com.gayadi.android.ui.components.UserCharacterAvatar
 import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary
+import com.gayadi.android.domain.error.rethrowCancellation
 import kotlinx.coroutines.launch
 
 @Composable
@@ -97,7 +98,10 @@ fun ParticipantsScreen(
                                     clipboard.setText(AnnotatedString(inviteCode))
                                     inviteMessage = "초대 코드를 복사했어요"
                                 },
-                                onFailure = { inviteMessage = it.message ?: "초대 코드를 등록하지 못했어요" },
+                                onFailure = {
+                                    it.rethrowCancellation()
+                                    inviteMessage = it.message ?: "초대 코드를 등록하지 못했어요"
+                                },
                             )
                         }
                     },
@@ -108,7 +112,10 @@ fun ParticipantsScreen(
                                     inviteMessage = null
                                     shareTripInviteToKakao(context, tripName, cities, inviteCode)
                                 },
-                                onFailure = { inviteMessage = it.message ?: "초대 코드를 등록하지 못했어요" },
+                                onFailure = {
+                                    it.rethrowCancellation()
+                                    inviteMessage = it.message ?: "초대 코드를 등록하지 못했어요"
+                                },
                             )
                         }
                     },

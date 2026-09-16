@@ -11,6 +11,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.gayadi.android.domain.model.LegalDocumentType
+import com.gayadi.android.domain.error.rethrowCancellation
 import com.gayadi.android.ui.screens.InquiryRoute
 import com.gayadi.android.ui.screens.InquiryViewModel
 import com.gayadi.android.ui.screens.LegalDocumentRoute
@@ -56,7 +57,9 @@ internal fun NavGraphBuilder.myPageGraph(context: AppNavigationContext) = with(c
                 appScope.launch {
                     try {
                         val result = withContext(Dispatchers.IO) {
-                            action().mapCatching { tripViewModel.clearAllTravelData().getOrThrow() }
+                            action().also { it.exceptionOrNull()?.rethrowCancellation() }
+                                .mapCatching { tripViewModel.clearAllTravelData().getOrThrow() }
+                                .also { it.exceptionOrNull()?.rethrowCancellation() }
                         }
                         result.fold(
                             onSuccess = { sharedProfileViewModel.reload(); returnToLogin() },
@@ -70,6 +73,7 @@ internal fun NavGraphBuilder.myPageGraph(context: AppNavigationContext) = with(c
         }
         SettingsScreen(
             uiState = sharedProfileUiState,
+            appVersion = appContainer.appVersion,
             onBack = { navController.popBackStack() },
             onOpenTravelProfile = { navController.navigate(Routes.MY_TRAVEL_PROFILE) },
             onOpenNotices = { navController.navigate(Routes.NOTICES) },

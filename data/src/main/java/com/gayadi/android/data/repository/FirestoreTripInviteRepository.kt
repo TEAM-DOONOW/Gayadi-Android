@@ -6,6 +6,7 @@ import com.gayadi.android.domain.model.TravelParticipant
 import com.gayadi.android.domain.model.TravelTrip
 import com.gayadi.android.domain.model.TripStatus
 import com.gayadi.android.domain.repository.TripInviteRepository
+import com.gayadi.android.domain.error.rethrowCancellation
 import com.google.android.gms.tasks.Task
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -235,6 +236,13 @@ class FirestoreTripInviteRepository(
 
     private fun String.toTripStatus(): TripStatus =
         TripStatus.entries.firstOrNull { it.name == this } ?: TripStatus.PLANNING
+
+    private inline fun <T> runCatching(block: () -> T): Result<T> = try {
+        Result.success(block())
+    } catch (error: Exception) {
+        error.rethrowCancellation()
+        Result.failure(error)
+    }
 
     private suspend fun <T> Task<T>.awaitResult(): T = suspendCancellableCoroutine { continuation ->
         addOnSuccessListener { value -> if (continuation.isActive) continuation.resume(value) }

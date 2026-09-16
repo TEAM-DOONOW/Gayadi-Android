@@ -19,4 +19,15 @@ class GoogleOauthClientIdTest {
         googleOauthServerClientId("your_dev_web_client_id.apps.googleusercontent.com")
     }
 
+    @Test
+    fun hidesStandaloneCoroutineCancellationFromLoginUi() {
+        assertEquals(
+            GOOGLE_LOGIN_CANCELLED_MESSAGE,
+            googleLoginUserMessage(IllegalStateException("StandaloneCoroutine was cancelled")),
+        )
+        assertEquals(
+            GOOGLE_LOGIN_FAILED_MESSAGE,
+            googleLoginUserMessage(IllegalStateException("invalid audience")),
+        )
+    }
 }

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.gayadi.android.domain.model.SurveyResult
 import com.gayadi.android.domain.usecase.GetSurveyResultUseCase
+import com.gayadi.android.domain.error.isCoroutineCancellation
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -46,10 +47,12 @@ class TravelProfileResultViewModel(
                     _uiState.value = TravelProfileResultUiState(result = surveyResult, isLoading = false)
                 },
                 onFailure = { error ->
-                    _uiState.value = TravelProfileResultUiState(
-                        isLoading = false,
-                        errorMessage = error.message ?: "여행 유형 결과를 불러오지 못했습니다.",
-                    )
+                    if (!error.isCoroutineCancellation()) {
+                        _uiState.value = TravelProfileResultUiState(
+                            isLoading = false,
+                            errorMessage = error.message ?: "여행 유형 결과를 불러오지 못했습니다.",
+                        )
+                    }
                 },
             )
         }

@@ -12,6 +12,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
 import com.gayadi.android.domain.model.ExpenseSettlementSummary
+import com.gayadi.android.domain.error.isCoroutineCancellation
 import com.gayadi.android.domain.model.TravelParticipant
 import com.gayadi.android.ui.screens.ExpenseEditorScreen
 import com.gayadi.android.ui.screens.FavoritePlacesScreen
@@ -310,7 +311,9 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
             }
         }
         val settlementResult = tripViewModel.settlementForTrip(tripId)
-        val settlementErrorMessage = settlementResult.exceptionOrNull()?.let { error ->
+        val settlementErrorMessage = settlementResult.exceptionOrNull()
+            ?.takeUnless { it.isCoroutineCancellation() }
+            ?.let { error ->
             error.message ?: "비용 정산 정보를 계산하지 못했어요"
         }
         TravelLedgerScreen(
@@ -503,7 +506,7 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
             tripEndDate = trip?.endDate.orEmpty(),
             tripCoverImageResList = tripSummary?.coverImageResList.orEmpty(),
             kakaoMapJavaScriptKey = com.gayadi.android.BuildConfig.KAKAO_MAP_JAVASCRIPT_SDK,
-            kakaoMapBaseUrl = "https://localhost",
+            kakaoMapBaseUrl = com.gayadi.android.BuildConfig.KAKAO_MAP_BASE_URL,
             friendCharacterKeys = tripParticipants.map { it.characterKey },
             showUsageGuide = remember(androidContext) {
                 !UsageGuidePreferences.hasCompleted(androidContext, UsageGuidePreferences.TripHome)

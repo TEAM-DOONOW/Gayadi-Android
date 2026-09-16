@@ -7,6 +7,8 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.gayadi.android.domain.usecase.GetBasicInfoUseCase
 import com.gayadi.android.domain.usecase.GetSurveyResultUseCase
 import com.gayadi.android.domain.usecase.SaveSurveyResultToProfileUseCase
+import com.gayadi.android.domain.error.isCoroutineCancellation
+import com.gayadi.android.domain.error.rethrowCancellation
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -56,6 +58,7 @@ class SurveyResultViewModel(
                                     )
                                 },
                                 onFailure = { error ->
+                                    error.rethrowCancellation()
                                     _uiState.value = SurveyResultUiState(
                                         isLoading = false,
                                         nickname = nickname,
@@ -67,12 +70,14 @@ class SurveyResultViewModel(
                         }
                     },
                     onFailure = { error ->
-                        _uiState.value = SurveyResultUiState(
-                        isLoading = false,
-                        nickname = nickname,
-                        introduction = introduction,
-                            errorMessage = error.message ?: "결과를 불러오지 못했습니다.",
-                        )
+                        if (!error.isCoroutineCancellation()) {
+                            _uiState.value = SurveyResultUiState(
+                                isLoading = false,
+                                nickname = nickname,
+                                introduction = introduction,
+                                errorMessage = error.message ?: "결과를 불러오지 못했습니다.",
+                            )
+                        }
                     },
                 )
             }

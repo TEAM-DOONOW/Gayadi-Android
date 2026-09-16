@@ -17,6 +17,8 @@ import com.gayadi.android.domain.model.TravelSchedule
 import com.gayadi.android.domain.model.TravelState
 import com.gayadi.android.domain.model.TravelTrip
 import com.gayadi.android.domain.model.TripStatus
+import com.gayadi.android.domain.error.rethrowCancellation
+import com.gayadi.android.domain.error.userFacingMessage
 import com.gayadi.android.domain.usecase.GetTravelStateUseCase
 import com.gayadi.android.domain.usecase.SaveTravelStateUseCase
 import com.gayadi.android.domain.usecase.CalculateExpenseSettlementUseCase
@@ -40,7 +42,6 @@ import java.util.Base64
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -53,6 +54,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 
@@ -623,6 +625,7 @@ class TripViewModel(
             _uiState.update { it.copy(isSavingExpense = false) }
             throw cancellation
         } catch (error: Throwable) {
+            error.rethrowCancellation()
             Result.failure(error)
         }
         persistedResult.fold(
@@ -639,10 +642,11 @@ class TripViewModel(
                 }
             },
             onFailure = { error ->
+                error.rethrowCancellation()
                 _uiState.update {
                     it.copy(
                         isSavingExpense = false,
-                        expenseErrorMessage = error.message ?: "비용 정보를 저장하지 못했어요",
+                        expenseErrorMessage = error.userFacingMessage("비용 정보를 저장하지 못했어요"),
                     )
                 }
             },
@@ -900,6 +904,7 @@ class TripViewModel(
             _uiState.update { it.copy(isSavingExpense = false) }
             throw cancellation
         } catch (error: Throwable) {
+            error.rethrowCancellation()
             Result.failure(error)
         }
         result.fold(
@@ -913,10 +918,11 @@ class TripViewModel(
                 }
             },
             onFailure = { error ->
+                error.rethrowCancellation()
                 _uiState.update {
                     it.copy(
                         isSavingExpense = false,
-                        expenseErrorMessage = error.message ?: "비용 정보를 저장하지 못했어요",
+                        expenseErrorMessage = error.userFacingMessage("비용 정보를 저장하지 못했어요"),
                     )
                 }
             },
@@ -1003,8 +1009,10 @@ class TripViewModel(
     }
 
     private fun showTravelError(error: Throwable) {
-        if (error is kotlinx.coroutines.CancellationException) throw error
-        _uiState.update { it.copy(errorMessage = error.message ?: "여행 정보를 동기화하지 못했어요") }
+        error.rethrowCancellation()
+        _uiState.update {
+            it.copy(errorMessage = error.userFacingMessage("여행 정보를 동기화하지 못했어요"))
+        }
     }
 
     private suspend fun saveFavoritePlace(
@@ -1047,35 +1055,40 @@ class TripViewModel(
                 offset += page.size
             } while (page.size == REMOTE_PAGE_SIZE)
         }
-        val bundles = coroutineScope {
+        val bundleResults = supervisorScope {
             trips.map { remoteTrip ->
                 async {
-                    val participants = gateway.listParticipants(remoteTrip.id)
-                    val coordination = runCatching { gateway.getDateCoordination(remoteTrip.id) }.getOrNull()
-                    val cachedTrip = accountCache.trips.find { it.id == remoteTrip.id }
-                    val trip = remoteTrip.copy(
-                        coverImageResList = cachedTrip?.coverImageResList
-                            ?: cityCoverImageResources(remoteTrip.cities),
-                        isGroupTrip = cachedTrip?.isGroupTrip == true || participants.size > 1,
-                        dateAvailability = coordination?.participants
-                            ?.filter { it.submitted }
-                            ?.associate { it.participant.id to it.dates }
-                            .orEmpty(),
-                        version = coordination?.tripVersion ?: remoteTrip.version,
-                    )
-                    RemoteTripBundle(
-                        trip = trip,
-                        participants = participants,
-                        invitations = runCatching { gateway.listInvitations(remoteTrip.id, limit = 100) }
-                            .getOrDefault(emptyList()),
-                        schedules = gateway.listSchedules(remoteTrip.id),
-                        expenses = gateway.listExpenses(remoteTrip.id),
-                        contributedAmount = runCatching { gateway.getSharedFund(remoteTrip.id).contributedAmount }
-                            .getOrDefault(0L),
-                    )
+                    runCatching {
+                        val participants = gateway.listParticipants(remoteTrip.id)
+                        val coordination = runCatching { gateway.getDateCoordination(remoteTrip.id) }.getOrNull()
+                        val cachedTrip = accountCache.trips.find { it.id == remoteTrip.id }
+                        val trip = remoteTrip.copy(
+                            coverImageResList = cachedTrip?.coverImageResList
+                                ?: cityCoverImageResources(remoteTrip.cities),
+                            isGroupTrip = cachedTrip?.isGroupTrip == true || participants.size > 1,
+                            dateAvailability = coordination?.participants
+                                ?.filter { it.submitted }
+                                ?.associate { it.participant.id to it.dates }
+                                .orEmpty(),
+                            version = coordination?.tripVersion ?: remoteTrip.version,
+                        )
+                        RemoteTripBundle(
+                            trip = trip,
+                            participants = participants,
+                            invitations = runCatching { gateway.listInvitations(remoteTrip.id, limit = 100) }
+                                .getOrDefault(emptyList()),
+                            schedules = gateway.listSchedules(remoteTrip.id),
+                            expenses = gateway.listExpenses(remoteTrip.id),
+                            contributedAmount = runCatching { gateway.getSharedFund(remoteTrip.id).contributedAmount }
+                                .getOrDefault(0L),
+                        )
+                    }
                 }
             }.awaitAll()
         }
+        // Keep sibling requests alive long enough to retain the originating server error.
+        // Without this, awaitAll can replace it with a sibling's cancellation exception.
+        val bundles = bundleResults.map { it.getOrThrow() }
         val tripIds = bundles.map { it.trip.id }.toSet()
         return TravelState(
             trips = bundles.map { it.trip },
@@ -1110,7 +1123,7 @@ class TripViewModel(
     private var loadJob: Job? = null
 
     private fun loadState() {
-        loadJob?.cancel()
+        if (loadJob?.isActive == true) return
         if (travelGateway != null && authRepository?.currentSession() == null) {
             _uiState.value = TravelUiState(isLoading = false)
             return
@@ -1150,21 +1163,9 @@ class TripViewModel(
                     }
                     restartInviteObservers(restored)
                     if (restored !== state) saveTravelState(restored).getOrThrow()
-                    }, onFailure = { error ->
-                        _uiState.update {
-                            it.copy(
-                                isLoading = false,
-                                hasLoadedTravelState = false,
-                                errorMessage = error.message ?: "여행 정보를 불러오지 못했어요",
-                            )
-                        }
-                    })
+                    }, onFailure = ::showInitialTravelError)
                 },
-                onFailure = { error ->
-                    _uiState.update {
-                        it.copy(isLoading = false, errorMessage = error.message ?: "여행 정보를 불러오지 못했어요")
-                    }
-                },
+                onFailure = ::showInitialTravelError,
             )
         }
     }
@@ -1187,20 +1188,25 @@ class TripViewModel(
                             it.copy(travelState = candidate, message = message, errorMessage = null)
                         }
                     },
-                    onFailure = { error ->
-                        _uiState.update {
-                            it.copy(errorMessage = error.message ?: "여행 정보를 저장하지 못했어요")
-                        }
-                    },
+                    onFailure = ::showTravelError,
                 )
             }
         }
     }
 
-    private suspend fun persistLatest() = persistenceMutex.withLock {
-        saveTravelState(_uiState.value.travelState).onFailure { error ->
-            _uiState.update { it.copy(errorMessage = error.message ?: "여행 정보를 저장하지 못했어요") }
+    private fun showInitialTravelError(error: Throwable) {
+        error.rethrowCancellation()
+        _uiState.update {
+            it.copy(
+                isLoading = false,
+                hasLoadedTravelState = false,
+                errorMessage = error.userFacingMessage("여행 정보를 불러오지 못했어요"),
+            )
         }
+    }
+
+    private suspend fun persistLatest() = persistenceMutex.withLock {
+        saveTravelState(_uiState.value.travelState).onFailure(::showTravelError)
     }
 
     private fun restartInviteObservers(state: TravelState) {
@@ -1249,7 +1255,10 @@ class TripViewModel(
     }
 
     private fun showInviteError(error: Throwable) {
-        _uiState.update { it.copy(errorMessage = error.message ?: "여행 초대 동기화에 실패했어요") }
+        error.rethrowCancellation()
+        _uiState.update {
+            it.copy(errorMessage = error.userFacingMessage("여행 초대 동기화에 실패했어요"))
+        }
     }
 
     private data class RemoteTripBundle(
@@ -1431,5 +1440,6 @@ private inline fun <T> runCatching(block: () -> T): Result<T> = try {
 } catch (cancelled: kotlinx.coroutines.CancellationException) {
     throw cancelled
 } catch (error: Exception) {
+    error.rethrowCancellation()
     Result.failure(error)
 }

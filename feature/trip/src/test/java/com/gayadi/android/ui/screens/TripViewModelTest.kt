@@ -15,6 +15,7 @@ import com.gayadi.android.domain.usecase.SaveTravelStateUseCase
 import com.gayadi.android.domain.usecase.UpdateTravelStateUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -485,6 +486,54 @@ class TripViewModelTest {
     }
 
     @Test
+    fun wrappedCoroutineCancellationIsNotShownAsRawMessage() = runTest(dispatcher) {
+        val repository = object : TravelRepository {
+            override suspend fun getTravelState(): Result<TravelState> =
+                Result.failure(IllegalStateException("StandaloneCoroutine was cancelled"))
+
+            override suspend fun saveTravelState(state: TravelState): Result<Unit> =
+                Result.success(Unit)
+        }
+        val viewModel = TripViewModel(
+            SavedStateHandle(),
+            GetTravelStateUseCase(repository),
+            SaveTravelStateUseCase(repository),
+            dispatcher,
+            updateTravelState = UpdateTravelStateUseCase(repository),
+        )
+
+        advanceUntilIdle()
+
+        assertEquals("여행 정보를 불러오지 못했어요", viewModel.uiState.value.errorMessage)
+        assertFalse(viewModel.uiState.value.hasLoadedTravelState)
+    }
+
+    @Test
+    fun retryWhileInitialLoadIsRunningReusesTheActiveRequest() = runTest(dispatcher) {
+        val repository = BlockingTravelRepository()
+        val viewModel = TripViewModel(
+            SavedStateHandle(),
+            GetTravelStateUseCase(repository),
+            SaveTravelStateUseCase(repository),
+            dispatcher,
+            updateTravelState = UpdateTravelStateUseCase(repository),
+        )
+        runCurrent()
+
+        viewModel.retry()
+        runCurrent()
+
+        assertEquals(1, repository.loadCount)
+        assertFalse(repository.firstLoadCancelled)
+
+        repository.releaseLoad.complete(Unit)
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.hasLoadedTravelState)
+        assertNull(viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
     fun inviteCodeGenerationStopsAfterMaximumAttempts() = runTest(dispatcher) {
         val existingTrip = TravelTrip(
             id = "existing",
@@ -637,4 +686,23 @@ private class FailingTravelRepository : TravelRepository {
     override suspend fun getTravelState(): Result<TravelState> = Result.failure(error)
 
     override suspend fun saveTravelState(state: TravelState): Result<Unit> = Result.failure(error)
+}
+
+private class BlockingTravelRepository : TravelRepository {
+    val releaseLoad = CompletableDeferred<Unit>()
+    var loadCount = 0
+    var firstLoadCancelled = false
+
+    override suspend fun getTravelState(): Result<TravelState> {
+        loadCount += 1
+        return try {
+            releaseLoad.await()
+            Result.success(TravelState())
+        } catch (cancelled: CancellationException) {
+            firstLoadCancelled = true
+            throw cancelled
+        }
+    }
+
+    override suspend fun saveTravelState(state: TravelState): Result<Unit> = Result.success(Unit)
 }

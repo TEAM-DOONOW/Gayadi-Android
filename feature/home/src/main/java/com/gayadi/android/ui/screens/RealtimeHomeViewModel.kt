@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.CancellationException
+import com.gayadi.android.domain.error.rethrowCancellation
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -33,7 +35,7 @@ class RealtimeHomeViewModel(
 
     init {
         viewModelScope.launch(ioDispatcher) {
-            runCatching { getUserProfile() }.fold(
+            runCatchingPreservingCancellation { getUserProfile() }.fold(
                 onSuccess = { profile -> _uiState.update { it.copy(profile = profile, isProfileLoading = false) } },
                 onFailure = { error ->
                     _uiState.update {
@@ -85,4 +87,13 @@ class RealtimeHomeViewModel(
             initializer { RealtimeHomeViewModel(getUserProfile) }
         }
     }
+}
+
+private inline fun <T> runCatchingPreservingCancellation(block: () -> T): Result<T> = try {
+    Result.success(block())
+} catch (cancelled: CancellationException) {
+    throw cancelled
+} catch (error: Exception) {
+    error.rethrowCancellation()
+    Result.failure(error)
 }

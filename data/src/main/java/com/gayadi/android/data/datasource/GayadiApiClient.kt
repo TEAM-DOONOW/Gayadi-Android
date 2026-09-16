@@ -1,6 +1,7 @@
 package com.gayadi.android.data.datasource
 
 import com.gayadi.android.domain.repository.AuthRepository
+import com.gayadi.android.domain.error.rethrowCancellation
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
@@ -109,5 +110,6 @@ internal suspend fun <T> apiResult(block: suspend () -> T): Result<T> = try {
 } catch (cancelled: CancellationException) {
     throw cancelled
 } catch (error: Exception) {
+    error.rethrowCancellation()
     Result.failure(error)
 }

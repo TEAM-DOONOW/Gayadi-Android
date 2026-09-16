@@ -14,6 +14,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.rememberNavController
 import com.gayadi.android.di.AppContainer
+import com.gayadi.android.domain.error.isCoroutineCancellationMessage
 import com.gayadi.android.domain.model.UserProfile
 import com.gayadi.android.notification.ExpenseReminderScheduler
 import com.gayadi.android.notification.syncExpenseRemindersWithRetry
@@ -90,15 +91,17 @@ fun GayadiNavHost(appContainer: AppContainer) {
         sharedProfileUiState = sharedProfileUiState,
     )
 
-    travelUiState.errorMessage?.let { message ->
-        AlertDialog(
-            onDismissRequest = tripViewModel::dismissError,
-            title = { Text("여행 정보를 확인해 주세요") },
-            text = { Text(message) },
-            confirmButton = { TextButton(onClick = tripViewModel::retry) { Text("다시 시도") } },
-            dismissButton = { TextButton(onClick = tripViewModel::dismissError) { Text("닫기") } },
-        )
-    }
+    travelUiState.errorMessage
+        ?.takeUnless { it.isCoroutineCancellationMessage() }
+        ?.let { message ->
+            AlertDialog(
+                onDismissRequest = tripViewModel::dismissError,
+                title = { Text("여행 정보를 확인해 주세요") },
+                text = { Text(message) },
+                confirmButton = { TextButton(onClick = tripViewModel::retry) { Text("다시 시도") } },
+                dismissButton = { TextButton(onClick = tripViewModel::dismissError) { Text("닫기") } },
+            )
+        }
     NavHost(navController = navController, startDestination = Routes.STARTUP) {
         onboardingGraph(navigationContext)
         tripGraph(navigationContext)

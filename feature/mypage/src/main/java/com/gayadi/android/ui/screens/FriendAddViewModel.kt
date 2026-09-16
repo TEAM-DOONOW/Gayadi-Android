@@ -5,6 +5,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.lifecycle.viewModelScope
 import com.gayadi.android.domain.model.TravelParticipant
+import com.gayadi.android.domain.error.rethrowCancellation
 import com.gayadi.android.domain.usecase.JoinTripByInviteCodeUseCase
 import java.util.Locale
 import kotlinx.coroutines.CoroutineDispatcher
@@ -117,6 +118,7 @@ class FriendAddViewModel(
                     }
                 },
                 onFailure = { error ->
+                    error.rethrowCancellation()
                     _uiState.update { it.copy(codeMessage = error.message ?: "여행에 참여하지 못했어요") }
                 },
             )

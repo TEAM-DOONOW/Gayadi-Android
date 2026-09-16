@@ -3,7 +3,7 @@ package com.gayadi.android.di
 import com.gayadi.android.data.repository.InMemoryProfileRepository
 import com.gayadi.android.data.repository.FileTravelRepository
 import com.gayadi.android.data.repository.DefaultTourRepository
-import com.gayadi.android.data.datasource.HttpTourApiDataSource
+import com.gayadi.android.data.datasource.ServerPlaceApiDataSource
 import com.gayadi.android.data.datasource.HttpAuthApiDataSource
 import com.gayadi.android.data.datasource.HttpProfileApiDataSource
 import com.gayadi.android.data.datasource.FileProfileLocalDataSource
@@ -61,7 +61,7 @@ class AppContainer(
     profileFile: File,
     travelFile: File,
     tourApiBaseUrl: String,
-    appVersion: String = DEFAULT_APP_VERSION,
+    val appVersion: String,
 ) {
     private val firestore = FirebaseFirestore.getInstance()
     private val localProfileRepository: ProfileRepository =
@@ -78,10 +78,7 @@ class AppContainer(
     private val apiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val api = GayadiApiClient(tourApiBaseUrl, authRepository)
     private val tourRepository = DefaultTourRepository(
-        HttpTourApiDataSource(
-            tourApiBaseUrl,
-            accessToken = { authRepository.validAccessToken() },
-        ),
+        ServerPlaceApiDataSource(api),
     )
     val friendshipGateway: com.gayadi.android.domain.repository.FriendshipGateway = com.gayadi.android.data.remote.travel.ServerFriendshipGateway(api)
     val travelGateway: com.gayadi.android.domain.repository.TravelGateway = com.gayadi.android.data.remote.travel.ServerTravelGateway(api)
@@ -176,8 +173,6 @@ class AppContainer(
     }
 
     private companion object {
-        const val DEFAULT_APP_VERSION = "1.0.0"
-
         fun loadInstallationId(file: File): String {
             val existing = file.takeIf(File::exists)?.readText()?.trim().orEmpty()
             if (existing.isNotBlank()) return existing

@@ -3,6 +3,7 @@ package com.gayadi.android.ui.screens
 import androidx.lifecycle.*
 import com.gayadi.android.domain.repository.*
 import com.gayadi.android.domain.model.*
+import com.gayadi.android.domain.error.rethrowCancellation
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -37,7 +38,10 @@ class InvitationViewModel(private val travel: TravelGateway, private val friends
         viewModelScope.launch {
             try { action() }
             catch(e: CancellationException) { throw e }
-            catch(e: Exception) { mutable.update { it.copy(error = e.message ?: "초대를 처리하지 못했어요") } }
+            catch(e: Exception) {
+                e.rethrowCancellation()
+                mutable.update { it.copy(error = e.message ?: "초대를 처리하지 못했어요") }
+            }
             finally { mutable.update { it.copy(busy = false) } }
         }
     }

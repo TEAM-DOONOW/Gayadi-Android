@@ -25,10 +25,15 @@ fun String.asBuildConfigString(): String =
 
 val googleWebClientId =
     "6035741280-j8ed9ka462jcvhoc14q7hb8vl26iqk0f.apps.googleusercontent.com"
-val googleDebugAndroidClientId =
+val defaultGoogleDebugAndroidClientId =
     "6035741280-g9agek5bfnkprhp9ubqklb2ustbjd8ld.apps.googleusercontent.com"
-val googleReleaseAndroidClientId =
+val defaultGoogleReleaseAndroidClientId =
     "6035741280-jedtnq850vigud4osf3ce6223i4abbe4.apps.googleusercontent.com"
+
+fun configuredString(value: String?): String? =
+    value?.trim()?.takeIf {
+        it.isNotBlank() && !it.startsWith("your_")
+    }
 
 fun resolvedGoogleWebClientId(raw: String): String {
     val value = raw.trim()
@@ -43,8 +48,41 @@ fun resolvedGoogleWebClientId(raw: String): String {
     }
 }
 
+fun resolvedAndroidClientId(value: String?, key: String, fallback: String): String =
+    configuredString(value)?.also { configuredValue ->
+        check(configuredValue.endsWith(".apps.googleusercontent.com")) {
+            "$key must be a Google Android OAuth client ID."
+        }
+    } ?: fallback
+
+fun validateProductionApiBaseUrl(value: String) {
+    val normalized = value.trim()
+    val domain = Regex("^https://([^/:?#]+)(?::[0-9]+)?(?:/[^?#]*)?/?$")
+        .matchEntire(normalized)
+        ?.groupValues
+        ?.get(1)
+    check(!domain.isNullOrBlank() && !domain.matches(Regex("[0-9.]+"))) {
+        "Production API_BASE_URL must use HTTPS with a domain name."
+    }
+}
+
 val devProperties = loadEnvironmentProperties("dev")
 val prodProperties = loadEnvironmentProperties("prod")
+val prodApiBaseUrl = configuredString(providers.gradleProperty("API_BASE_URL").orNull)
+    ?: prodProperties.requiredString("API_BASE_URL")
+val googleDebugAndroidClientId = resolvedAndroidClientId(
+    providers.gradleProperty("GOOGLE_DEBUG_CLIENT_ID").orNull,
+    "GOOGLE_DEBUG_CLIENT_ID",
+    defaultGoogleDebugAndroidClientId,
+)
+val googleReleaseAndroidClientId = resolvedAndroidClientId(
+    providers.gradleProperty("GOOGLE_CLIENT_ID").orNull,
+    "GOOGLE_CLIENT_ID",
+    defaultGoogleReleaseAndroidClientId,
+)
+check(googleDebugAndroidClientId != googleReleaseAndroidClientId) {
+    "Debug and release Google Android OAuth client IDs must be different."
+}
 val keystorePropertiesFile = rootProject.file("keystore.properties")
 val keystoreProperties = Properties().apply {
     if (keystorePropertiesFile.exists()) {
@@ -60,9 +98,14 @@ android {
         applicationId = "com.doonow.gayadi"
         minSdk = 26
         targetSdk = 36
-        versionCode = 11
-        versionName = "0.0.11"
+        versionCode = 14
+        versionName = "0.0.14"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField(
+            "String",
+            "KAKAO_MAP_BASE_URL",
+            "https://doonow-dev.gayadi.site".asBuildConfigString(),
+        )
     }
 
     flavorDimensions += "environment"
@@ -103,7 +146,7 @@ android {
             buildConfigField(
                 "String",
                 "API_BASE_URL",
-                prodProperties.requiredString("API_BASE_URL").asBuildConfigString(),
+                prodApiBaseUrl.trimEnd('/').asBuildConfigString(),
             )
             buildConfigField("boolean", "DEBUG_LOGGING", prodProperties.getProperty("DEBUG_LOGGING", "false"))
             buildConfigField(
@@ -180,6 +223,9 @@ tasks.configureEach {
         doFirst {
             check(rootProject.file("config/$environment.properties").exists()) {
                 "Missing config/$environment.properties. Copy the matching example and configure it."
+            }
+            if (environment == "prod") {
+                validateProductionApiBaseUrl(prodApiBaseUrl)
             }
         }
     }
