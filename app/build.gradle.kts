@@ -57,12 +57,8 @@ fun resolvedAndroidClientId(value: String?, key: String, fallback: String): Stri
 
 fun validateProductionApiBaseUrl(value: String) {
     val normalized = value.trim()
-    val domain = Regex("^https://([^/:?#]+)(?::[0-9]+)?(?:/[^?#]*)?/?$")
-        .matchEntire(normalized)
-        ?.groupValues
-        ?.get(1)
-    check(!domain.isNullOrBlank() && !domain.matches(Regex("[0-9.]+"))) {
-        "Production API_BASE_URL must use HTTPS with a domain name."
+    check(normalized.startsWith("http://") || normalized.startsWith("https://")) {
+        "Production API_BASE_URL must be an absolute HTTP or HTTPS URL."
     }
 }
 
