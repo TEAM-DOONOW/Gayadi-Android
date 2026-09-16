@@ -44,6 +44,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.isActive
+import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
@@ -1052,6 +1054,36 @@ class TripViewModel(
             "place not found" in message
     }
 
+    private suspend fun loadRemoteTripBundle(
+        gateway: TravelGateway,
+        remoteTrip: TravelTrip,
+        accountCache: TravelState,
+    ): RemoteTripBundle {
+        val participants = gateway.listParticipants(remoteTrip.id)
+        val coordination = runCatching { gateway.getDateCoordination(remoteTrip.id) }.getOrNull()
+        val cachedTrip = accountCache.trips.find { it.id == remoteTrip.id }
+        val trip = remoteTrip.copy(
+            coverImageResList = cachedTrip?.coverImageResList
+                ?: cityCoverImageResources(remoteTrip.cities),
+            isGroupTrip = cachedTrip?.isGroupTrip == true || participants.size > 1,
+            dateAvailability = coordination?.participants
+                ?.filter { it.submitted }
+                ?.associate { it.participant.id to it.dates }
+                .orEmpty(),
+            version = coordination?.tripVersion ?: remoteTrip.version,
+        )
+        return RemoteTripBundle(
+            trip = trip,
+            participants = participants,
+            invitations = runCatching { gateway.listInvitations(remoteTrip.id, limit = 100) }
+                .getOrDefault(emptyList()),
+            schedules = gateway.listSchedules(remoteTrip.id),
+            expenses = gateway.listExpenses(remoteTrip.id),
+            contributedAmount = runCatching { gateway.getSharedFund(remoteTrip.id).contributedAmount }
+                .getOrDefault(0L),
+        )
+    }
+
     private suspend fun loadRemoteState(cached: TravelState): TravelState {
         val gateway = requireNotNull(travelGateway)
         val currentUserId = authRepository?.currentSession()?.user?.id?.toString()
@@ -1068,37 +1100,29 @@ class TripViewModel(
         val bundleResults = supervisorScope {
             trips.map { remoteTrip ->
                 async {
-                    runCatching {
-                        val participants = gateway.listParticipants(remoteTrip.id)
-                        val coordination = runCatching { gateway.getDateCoordination(remoteTrip.id) }.getOrNull()
-                        val cachedTrip = accountCache.trips.find { it.id == remoteTrip.id }
-                        val trip = remoteTrip.copy(
-                            coverImageResList = cachedTrip?.coverImageResList
-                                ?: cityCoverImageResources(remoteTrip.cities),
-                            isGroupTrip = cachedTrip?.isGroupTrip == true || participants.size > 1,
-                            dateAvailability = coordination?.participants
-                                ?.filter { it.submitted }
-                                ?.associate { it.participant.id to it.dates }
-                                .orEmpty(),
-                            version = coordination?.tripVersion ?: remoteTrip.version,
-                        )
-                        RemoteTripBundle(
-                            trip = trip,
-                            participants = participants,
-                            invitations = runCatching { gateway.listInvitations(remoteTrip.id, limit = 100) }
-                                .getOrDefault(emptyList()),
-                            schedules = gateway.listSchedules(remoteTrip.id),
-                            expenses = gateway.listExpenses(remoteTrip.id),
-                            contributedAmount = runCatching { gateway.getSharedFund(remoteTrip.id).contributedAmount }
-                                .getOrDefault(0L),
-                        )
+                    try {
+                        Result.success(loadRemoteTripBundle(gateway, remoteTrip, accountCache))
+                    } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                        throw cancelled
+                    } catch (error: Exception) {
+                        Result.failure(error)
                     }
                 }
-            }.awaitAll()
+            }.map { deferred ->
+                try {
+                    deferred.await()
+                } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                    if (!coroutineContext.isActive) throw cancelled
+                    Result.failure(cancelled)
+                }
+            }
         }
-        // Keep sibling requests alive long enough to retain the originating server error.
-        // Without this, awaitAll can replace it with a sibling's cancellation exception.
-        val bundles = bundleResults.map { it.getOrThrow() }
+        val bundles = bundleResults.mapNotNull { it.getOrNull() }
+        val firstError = bundleResults.firstOrNull { it.isFailure }?.exceptionOrNull()
+        if (bundles.isEmpty() && firstError != null) {
+            firstError.rethrowCancellation()
+            throw firstError
+        }
         val tripIds = bundles.map { it.trip.id }.toSet()
         return TravelState(
             trips = bundles.map { it.trip },

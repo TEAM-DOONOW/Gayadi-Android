@@ -6,6 +6,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.gayadi.android.domain.model.TourPlace
 import com.gayadi.android.domain.error.rethrowCancellation
+import com.gayadi.android.domain.error.userFacingMessage
 import com.gayadi.android.domain.usecase.GetNearbyTourPlacesUseCase
 import com.gayadi.android.domain.usecase.GetTourPlacesUseCase
 import com.gayadi.android.domain.usecase.SearchTourPlacesUseCase
@@ -291,7 +292,10 @@ class PlaceViewModel(
                 onFailure = { error ->
                     error.rethrowCancellation()
                     _uiState.update {
-                        it.copy(isLoading = false, errorMessage = error.message ?: "장소를 검색하지 못했습니다.")
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = error.userFacingMessage("장소를 검색하지 못했습니다."),
+                        )
                     }
                 },
             )
@@ -348,7 +352,7 @@ class PlaceViewModel(
                 onFailure = { error ->
                     error.rethrowCancellation()
                     _nearbyUiState.value = NearbyPlacesUiState(
-                        errorMessage = error.message ?: "주변 장소를 불러오지 못했습니다.",
+                        errorMessage = error.userFacingMessage("주변 장소를 불러오지 못했습니다."),
                     )
                 },
             )
@@ -368,7 +372,10 @@ class PlaceViewModel(
                 onFailure = { error ->
                     error.rethrowCancellation()
                     _uiState.update {
-                        it.copy(isLoading = false, errorMessage = error.message ?: "장소를 불러오지 못했습니다.")
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = error.userFacingMessage("장소를 불러오지 못했습니다."),
+                        )
                     }
                 },
             )
