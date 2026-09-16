@@ -3,8 +3,12 @@ package com.gayadi.android.domain.error
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlin.coroutines.coroutineContext
+import kotlinx.coroutines.isActive
+
+const val TRANSIENT_REQUEST_ATTEMPTS = 6
+const val TRANSIENT_RETRY_INITIAL_DELAY_MS = 400L
+const val TRANSIENT_RETRY_MAX_DELAY_MS = 8_000L
 
 fun Throwable.isTransientApiFailure(): Boolean {
     if (isCoroutineCancellation()) return true
@@ -20,11 +24,11 @@ fun Throwable.isTransientApiFailure(): Boolean {
 }
 
 suspend fun <T> retryTransientRequest(
-    times: Int = 4,
-    initialDelayMs: Long = 400,
+    times: Int = TRANSIENT_REQUEST_ATTEMPTS,
+    initialDelayMs: Long = TRANSIENT_RETRY_INITIAL_DELAY_MS,
     block: suspend () -> T,
 ): T {
-    require(times > 0)
+    require(times >= 5) { "일시적 요청은 5회 이상 시도해야 합니다." }
     var lastError: Throwable? = null
     var delayMs = initialDelayMs
     repeat(times) { attempt ->
@@ -40,10 +44,26 @@ suspend fun <T> retryTransientRequest(
         }
         if (attempt < times - 1) {
             delay(delayMs)
-            delayMs = (delayMs * 2).coerceAtMost(8_000)
+            delayMs = (delayMs * 2).coerceAtMost(TRANSIENT_RETRY_MAX_DELAY_MS)
         }
     }
     throw lastError ?: IllegalStateException("요청을 다시 시도하지 못했어요")
+}
+
+suspend fun <T> retryTransientResult(block: suspend () -> Result<T>): Result<T> = try {
+    Result.success(
+        retryTransientRequest {
+            block().getOrElse { error ->
+                error.rethrowCancellation()
+                throw error
+            }
+        },
+    )
+} catch (cancelled: CancellationException) {
+    if (!coroutineContext.isActive) throw cancelled
+    Result.failure(cancelled)
+} catch (error: Exception) {
+    Result.failure(error)
 }
 
 private val HTTP_CLIENT_ERROR = Regex("HTTP 4\\d\\d")

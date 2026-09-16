@@ -17,6 +17,9 @@ import com.gayadi.android.domain.model.TravelSchedule
 import com.gayadi.android.domain.model.TravelState
 import com.gayadi.android.domain.model.TravelTrip
 import com.gayadi.android.domain.model.TripStatus
+import com.gayadi.android.domain.error.TRANSIENT_REQUEST_ATTEMPTS
+import com.gayadi.android.domain.error.TRANSIENT_RETRY_INITIAL_DELAY_MS
+import com.gayadi.android.domain.error.TRANSIENT_RETRY_MAX_DELAY_MS
 import com.gayadi.android.domain.error.isTransientApiFailure
 import com.gayadi.android.domain.error.retryTransientRequest
 import com.gayadi.android.domain.error.rethrowCancellation
@@ -1175,8 +1178,8 @@ class TripViewModel(
         }
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
         loadJob = viewModelScope.launch(ioDispatcher) {
-            var delayMs = INITIAL_RETRY_DELAY_MS
-            repeat(MAX_LOAD_ATTEMPTS) { attempt ->
+            var delayMs = TRANSIENT_RETRY_INITIAL_DELAY_MS
+            repeat(TRANSIENT_REQUEST_ATTEMPTS) { attempt ->
                 if (!isActive) return@launch
                 _uiState.update { it.copy(isLoading = true, errorMessage = null) }
                 val restoredResult = try {
@@ -1190,7 +1193,7 @@ class TripViewModel(
                                         } else state,
                                     )
                                 } else {
-                                    runCatching { retryTransientRequest { loadRemoteState(state) } }
+                                    runCatching { loadRemoteState(state) }
                                 }.onSuccess { restored ->
                                     savedStateHandle[SELECTED_TRIP_ID_KEY] = restored.selectedTripId
                                     _uiState.value = TravelUiState(
@@ -1226,7 +1229,7 @@ class TripViewModel(
                 }
                 if (restoredResult.isSuccess) return@launch
                 val error = restoredResult.exceptionOrNull() ?: return@launch
-                val canRetry = error.isTransientApiFailure() && attempt < MAX_LOAD_ATTEMPTS - 1
+                val canRetry = error.isTransientApiFailure() && attempt < TRANSIENT_REQUEST_ATTEMPTS - 1
                 if (!canRetry) {
                     if (error is kotlinx.coroutines.CancellationException && !isActive) throw error
                     if (error is kotlinx.coroutines.CancellationException) {
@@ -1243,7 +1246,7 @@ class TripViewModel(
                     return@launch
                 }
                 delay(delayMs)
-                delayMs = (delayMs * 2).coerceAtMost(MAX_RETRY_DELAY_MS)
+                delayMs = (delayMs * 2).coerceAtMost(TRANSIENT_RETRY_MAX_DELAY_MS)
             }
         }
     }
@@ -1407,9 +1410,6 @@ class TripViewModel(
         private const val SELECTED_TRIP_ID_KEY = "selected_trip_id"
         private const val LEGACY_TRIPS_KEY = "saved_trips"
         private const val REMOTE_PAGE_SIZE = 100
-        private const val MAX_LOAD_ATTEMPTS = 8
-        private const val INITIAL_RETRY_DELAY_MS = 400L
-        private const val MAX_RETRY_DELAY_MS = 8_000L
 
         fun factory(
             getTravelState: GetTravelStateUseCase,

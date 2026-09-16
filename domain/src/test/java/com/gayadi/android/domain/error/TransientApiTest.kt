@@ -11,20 +11,20 @@ class TransientApiTest {
     @Test
     fun retriesCancellationAndThenSucceeds() = runTest {
         var attempts = 0
-        val value = retryTransientRequest(times = 3, initialDelayMs = 1) {
+        val value = retryTransientRequest(times = 6, initialDelayMs = 1) {
             attempts += 1
-            if (attempts < 3) error("StandaloneCoroutine was cancelled")
+            if (attempts < 6) error("StandaloneCoroutine was cancelled")
             "ok"
         }
         assertEquals("ok", value)
-        assertEquals(3, attempts)
+        assertEquals(6, attempts)
     }
 
     @Test
     fun doesNotRetryClientErrors() = runTest {
         var attempts = 0
         val thrown = runCatching {
-            retryTransientRequest(times = 4, initialDelayMs = 1) {
+            retryTransientRequest(times = 6, initialDelayMs = 1) {
                 attempts += 1
                 error("요청한 정보를 찾을 수 없어요.")
             }
@@ -38,5 +38,10 @@ class TransientApiTest {
         assertTrue(IOException("서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.").isTransientApiFailure())
         assertTrue(IllegalStateException("요청을 처리하지 못했어요. 잠시 후 다시 시도해 주세요. (HTTP 503)").isTransientApiFailure())
         assertFalse(IllegalStateException("로그인이 만료되었어요. 다시 로그인해 주세요.").isTransientApiFailure())
+    }
+
+    @Test
+    fun defaultAttemptCountIsAtLeastFive() {
+        assertTrue(TRANSIENT_REQUEST_ATTEMPTS >= 5)
     }
 }
