@@ -32,6 +32,26 @@ class ServerPlaceApiDataSourceTest {
     }
 
     @Test
+    fun fallsBackToAllPlacesWhenRegionHasNoMatches() = runTest {
+        MockWebServer().use { server ->
+            server.enqueue(page())
+            server.enqueue(page(place(101, "서울 명소", "ATTRACTION", 37.5, 127.0)))
+            val source: TourApiDataSource =
+                ServerPlaceApiDataSource(GayadiApiClient(server.url("/").toString()))
+
+            val places = source.getPlaces(
+                pageSize = 20,
+                contentTypeId = 12,
+                regionName = "제주 성산",
+            )
+
+            assertEquals("101", places.single().contentId)
+            assertEquals("제주 성산", server.takeRequest().requestUrl!!.queryParameter("region"))
+            assertEquals(null, server.takeRequest().requestUrl!!.queryParameter("region"))
+        }
+    }
+
+    @Test
     fun searchesCanonicalPlacesByKeyword() = runTest {
         MockWebServer().use { server ->
             server.enqueue(page(place(202, "검색 장소", "CAFE", 37.5, 127.0)))

@@ -295,7 +295,10 @@ class PlaceViewModel(
 
     fun selectCategory(category: String) = _uiState.update { it.copy(selectedCategory = category) }
 
-    fun retry() = loadPlaces()
+    fun retry() {
+        loadJob?.cancel()
+        loadPlaces()
+    }
 
     fun setRegion(regionName: String) {
         val resolvedRegion = regionName.ifBlank { "제주 성산" }

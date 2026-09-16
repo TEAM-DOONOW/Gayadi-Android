@@ -24,8 +24,9 @@ class ServerPlaceApiDataSource(private val client: GayadiApiClient) : TourApiDat
         require(maxPages == null || maxPages > 0) { "장소 페이지 수는 1 이상이어야 합니다." }
         val categories = categoriesFor(contentTypeId, lclsSystm2)
         return categories.flatMap { category ->
-            loadPlaces(
-                filters = mapOf("category" to category, "region" to regionName?.trim()),
+            loadPlacesPreferringRegion(
+                category = category,
+                regionName = regionName,
                 limit = pageSize.coerceAtMost(MAX_SERVER_PAGE_SIZE),
                 maxPages = maxPages,
             )
@@ -99,6 +100,26 @@ class ServerPlaceApiDataSource(private val client: GayadiApiClient) : TourApiDat
         }
         val resultLimit = maxPages?.let { pages -> pageSize * pages } ?: Int.MAX_VALUE
         return sorted.take(resultLimit)
+    }
+
+    private suspend fun loadPlacesPreferringRegion(
+        category: String?,
+        regionName: String?,
+        limit: Int,
+        maxPages: Int?,
+    ): List<TourPlaceDto> {
+        val region = regionName?.trim()?.takeIf { it.isNotEmpty() }
+        val filtered = loadPlaces(
+            filters = mapOf("category" to category, "region" to region),
+            limit = limit,
+            maxPages = maxPages,
+        )
+        if (filtered.isNotEmpty() || region == null) return filtered
+        return loadPlaces(
+            filters = mapOf("category" to category),
+            limit = limit,
+            maxPages = maxPages,
+        )
     }
 
     private suspend fun loadPlaces(
