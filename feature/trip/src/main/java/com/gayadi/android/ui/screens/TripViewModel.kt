@@ -1130,45 +1130,53 @@ class TripViewModel(
         }
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
         loadJob = viewModelScope.launch(ioDispatcher) {
-            persistenceMutex.withLock {
-            getTravelState().fold(
-                onSuccess = { state ->
-                    val restoredResult = if (travelGateway == null) {
-                        Result.success(
-                            if (state.trips.isEmpty() && legacyTrips.isNotEmpty()) {
-                                state.copy(trips = legacyTrips.map(TripSummary::toDomain))
-                            } else state,
-                        )
-                    } else {
-                        runCatching { loadRemoteState(state) }
-                    }
-                    restoredResult.fold(onSuccess = { restored ->
-                    savedStateHandle[SELECTED_TRIP_ID_KEY] = restored.selectedTripId
-                    _uiState.value = TravelUiState(
-                        travelState = restored,
-                        isLoading = false,
-                        hasLoadedTravelState = true,
-                        settlements = _uiState.value.settlements.takeIf {
-                            _uiState.value.travelState.currentUserId == restored.currentUserId
-                        }.orEmpty(),
+            try {
+                persistenceMutex.withLock {
+                    getTravelState().fold(
+                        onSuccess = { state ->
+                            val restoredResult = if (travelGateway == null) {
+                                Result.success(
+                                    if (state.trips.isEmpty() && legacyTrips.isNotEmpty()) {
+                                        state.copy(trips = legacyTrips.map(TripSummary::toDomain))
+                                    } else state,
+                                )
+                            } else {
+                                runCatching { loadRemoteState(state) }
+                            }
+                            restoredResult.fold(
+                                onSuccess = { restored ->
+                                    savedStateHandle[SELECTED_TRIP_ID_KEY] = restored.selectedTripId
+                                    _uiState.value = TravelUiState(
+                                        travelState = restored,
+                                        isLoading = false,
+                                        hasLoadedTravelState = true,
+                                        settlements = _uiState.value.settlements.takeIf {
+                                            _uiState.value.travelState.currentUserId == restored.currentUserId
+                                        }.orEmpty(),
+                                    )
+                                    if (travelGateway == null) publishTripInvite?.let { publisher ->
+                                        val owner = restored.localCurrentUser()
+                                        restored.trips.filter {
+                                            it.inviteCode.length == INVITE_CODE_LENGTH &&
+                                                (it.ownerId.isBlank() || it.ownerId == restored.currentUserId)
+                                        }.forEach { trip ->
+                                            publisher(trip, owner)
+                                        }
+                                    }
+                                    restartInviteObservers(restored)
+                                    if (restored !== state) saveTravelState(restored).getOrThrow()
+                                },
+                                onFailure = ::showInitialTravelError,
+                            )
+                        },
+                        onFailure = ::showInitialTravelError,
                     )
-                    if (travelGateway == null) publishTripInvite?.let { publisher ->
-                        val owner = restored.localCurrentUser()
-                        restored.trips.filter {
-                            it.inviteCode.length == INVITE_CODE_LENGTH &&
-                                (it.ownerId.isBlank() || it.ownerId == restored.currentUserId)
-                        }.forEach { trip ->
-                            publisher(trip, owner)
-                        }
-                    }
-                    restartInviteObservers(restored)
-                    if (restored !== state) saveTravelState(restored).getOrThrow()
-                    }, onFailure = ::showInitialTravelError)
-                },
-                onFailure = ::showInitialTravelError,
-            )
+                }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                _uiState.update { it.copy(isLoading = false) }
+                throw cancelled
+            }
         }
-    }
     }
 
     private fun mutate(message: String?, transform: (TravelState) -> TravelState) {

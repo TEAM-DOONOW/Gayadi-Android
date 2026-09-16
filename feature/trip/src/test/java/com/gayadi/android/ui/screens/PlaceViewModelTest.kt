@@ -72,4 +72,39 @@ class PlaceViewModelTest {
         assertEquals("광장시장", viewModel.findPlace("seoul-place-1")?.name)
         assertTrue(viewModel.uiState.value.places.all { it.description.contains("부산") })
     }
+
+    @Test
+    fun sameRegionReloadsWhenPreviousLoadWasEmpty() {
+        val repository = object : PlaceRepository {
+            var loads = 0
+            override suspend fun getPlaces(regionName: String): Result<List<PlaceItem>> {
+                loads += 1
+                return if (loads == 1) {
+                    Result.success(emptyList())
+                } else {
+                    Result.success(
+                        listOf(
+                            PlaceItem(
+                                id = "place-reload",
+                                name = "재조회 장소",
+                                category = "관광명소",
+                                rating = 4.0,
+                                reviews = 1,
+                                crowdLevel = CrowdLevel.RELAXED,
+                                emoji = "🏞️",
+                                description = "로그인 후 다시 불러온 장소",
+                            ),
+                        ),
+                    )
+                }
+            }
+        }
+        val viewModel = PlaceViewModel(repository)
+        assertTrue(viewModel.uiState.value.places.isEmpty())
+
+        viewModel.setRegion("제주 성산")
+
+        assertEquals(2, repository.loads)
+        assertEquals(listOf("재조회 장소"), viewModel.uiState.value.places.map(PlaceItem::name))
+    }
 }

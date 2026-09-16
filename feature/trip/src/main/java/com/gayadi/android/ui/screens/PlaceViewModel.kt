@@ -101,6 +101,7 @@ class TourApiPlaceRepository(
 ) : PlaceRepository {
     override suspend fun getPlaces(regionName: String): Result<List<PlaceItem>> {
         val placesByContentId = linkedMapOf<String, PrioritizedPlaceItem>()
+        var lastError: Throwable? = null
         TOUR_PLACE_REQUESTS.forEach { request ->
             val categoryPlaces = getTourPlaces(
                 contentTypeId = request.contentTypeId,
@@ -110,6 +111,7 @@ class TourApiPlaceRepository(
                 regionName = tourRegionName(regionName),
             ).getOrElse { error ->
                 if (error is CancellationException) throw error
+                lastError = error
                 emptyList()
             }
             categoryPlaces.forEach { place ->
@@ -124,6 +126,9 @@ class TourApiPlaceRepository(
                     )
                 }
             }
+        }
+        if (placesByContentId.isEmpty() && lastError != null) {
+            return Result.failure(lastError)
         }
         return Result.success(placesByContentId.values.map(PrioritizedPlaceItem::item))
     }
@@ -299,7 +304,14 @@ class PlaceViewModel(
 
     fun setRegion(regionName: String) {
         val resolvedRegion = regionName.ifBlank { "제주 성산" }
-        if (resolvedRegion == _uiState.value.regionName) return
+        val current = _uiState.value
+        if (
+            resolvedRegion == current.regionName &&
+            current.places.isNotEmpty() &&
+            current.errorMessage == null
+        ) {
+            return
+        }
         _uiState.update {
             it.copy(regionName = resolvedRegion, query = "", selectedCategory = "전체")
         }

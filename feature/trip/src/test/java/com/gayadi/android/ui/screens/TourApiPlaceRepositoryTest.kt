@@ -199,6 +199,18 @@ class TourApiPlaceRepositoryTest {
             source.requests,
         )
     }
+
+    @Test
+    fun allCategoryFailuresSurfaceAsFailure() = runTest {
+        val source = RecordingTourRepository {
+            Result.failure(IllegalStateException("로그인이 필요해요."))
+        }
+        val repository = TourApiPlaceRepository(GetTourPlacesUseCase(source))
+
+        val result = repository.getPlaces()
+
+        assertEquals("로그인이 필요해요.", result.exceptionOrNull()?.message)
+    }
 }
 
 private data class RecordedTourQuery(

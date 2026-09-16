@@ -62,6 +62,8 @@ internal fun NavGraphBuilder.onboardingGraph(context: AppNavigationContext) = wi
                             Log.i(AUTH_LOG_TAG, "Gayadi auth session received")
                             val profile = appContainer.getUserProfileUseCase()
                             sharedProfileViewModel.reload()
+                            tripViewModel.retry()
+                            placeViewModel.retry()
                             navController.navigate(
                                 resolveAuthenticatedDestination(profile),
                             ) {
