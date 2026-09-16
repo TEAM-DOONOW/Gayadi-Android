@@ -9,6 +9,7 @@ import com.gayadi.android.domain.usecase.GetSurveyResultUseCase
 import com.gayadi.android.domain.usecase.SaveSurveyResultToProfileUseCase
 import com.gayadi.android.domain.error.isCoroutineCancellation
 import com.gayadi.android.domain.error.rethrowCancellation
+import com.gayadi.android.domain.error.userFacingMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -63,7 +64,7 @@ class SurveyResultViewModel(
                                         isLoading = false,
                                         nickname = nickname,
                                         introduction = introduction,
-                                        errorMessage = error.message ?: "결과를 저장하지 못했습니다.",
+                                        errorMessage = error.userFacingMessage("결과를 저장하지 못했습니다."),
                                     )
                                 },
                             )
@@ -75,7 +76,7 @@ class SurveyResultViewModel(
                                 isLoading = false,
                                 nickname = nickname,
                                 introduction = introduction,
-                                errorMessage = error.message ?: "결과를 불러오지 못했습니다.",
+                                errorMessage = error.userFacingMessage("결과를 불러오지 못했습니다."),
                             )
                         }
                     },

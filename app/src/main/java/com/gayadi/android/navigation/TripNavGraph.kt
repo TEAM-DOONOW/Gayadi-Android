@@ -13,6 +13,7 @@ import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
 import com.gayadi.android.domain.model.ExpenseSettlementSummary
 import com.gayadi.android.domain.error.isCoroutineCancellation
+import com.gayadi.android.domain.error.userFacingMessage
 import com.gayadi.android.domain.model.TravelParticipant
 import com.gayadi.android.ui.screens.ExpenseEditorScreen
 import com.gayadi.android.ui.screens.FavoritePlacesScreen
@@ -314,7 +315,7 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
         val settlementErrorMessage = settlementResult.exceptionOrNull()
             ?.takeUnless { it.isCoroutineCancellation() }
             ?.let { error ->
-            error.message ?: "비용 정산 정보를 계산하지 못했어요"
+            error.userFacingMessage("비용 정산 정보를 계산하지 못했어요")
         }
         TravelLedgerScreen(
             tripName = travelState.trip(tripId)?.name.orEmpty(),

@@ -7,6 +7,7 @@ import com.gayadi.android.domain.model.LegalDocument
 import com.gayadi.android.domain.model.LegalDocumentType
 import com.gayadi.android.domain.usecase.GetLegalDocumentUseCase
 import com.gayadi.android.domain.error.isCoroutineCancellation
+import com.gayadi.android.domain.error.userFacingMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -43,7 +44,7 @@ class LegalDocumentViewModel(
                         _uiState.update {
                             it.copy(
                                 isLoading = false,
-                                errorMessage = error.message ?: "문서를 불러오지 못했습니다.",
+                                errorMessage = error.userFacingMessage("문서를 불러오지 못했습니다."),
                             )
                         }
                     }

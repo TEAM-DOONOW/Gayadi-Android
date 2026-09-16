@@ -6,6 +6,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.gayadi.android.domain.model.Notice
 import com.gayadi.android.domain.usecase.GetNoticesUseCase
 import com.gayadi.android.domain.error.isCoroutineCancellation
+import com.gayadi.android.domain.error.userFacingMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -43,7 +44,7 @@ class NoticeListViewModel(
                         _uiState.update {
                             it.copy(
                                 isLoading = false,
-                                errorMessage = error.message ?: "업데이트 소식을 불러오지 못했습니다.",
+                                errorMessage = error.userFacingMessage("업데이트 소식을 불러오지 못했습니다."),
                             )
                         }
                     }

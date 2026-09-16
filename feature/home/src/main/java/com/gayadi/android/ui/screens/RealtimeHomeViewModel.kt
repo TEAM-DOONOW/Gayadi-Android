@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.CancellationException
 import com.gayadi.android.domain.error.rethrowCancellation
+import com.gayadi.android.domain.error.userFacingMessage
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -39,7 +40,10 @@ class RealtimeHomeViewModel(
                 onSuccess = { profile -> _uiState.update { it.copy(profile = profile, isProfileLoading = false) } },
                 onFailure = { error ->
                     _uiState.update {
-                        it.copy(isProfileLoading = false, profileErrorMessage = error.message ?: "프로필을 불러오지 못했습니다.")
+                        it.copy(
+                            isProfileLoading = false,
+                            profileErrorMessage = error.userFacingMessage("프로필을 불러오지 못했습니다."),
+                        )
                     }
                 },
             )

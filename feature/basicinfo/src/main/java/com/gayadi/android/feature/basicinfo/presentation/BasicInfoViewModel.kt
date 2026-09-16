@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.CancellationException
 import com.gayadi.android.domain.error.rethrowCancellation
+import com.gayadi.android.domain.error.userFacingMessage
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -50,7 +51,7 @@ class BasicInfoViewModel(
                             _uiState.update {
                                 it.copy(
                                     isSaving = false,
-                                    errorMessage = error.message ?: "기본 정보를 저장하지 못했습니다.",
+                                    errorMessage = error.userFacingMessage("기본 정보를 저장하지 못했습니다."),
                                 )
                             }
                         }

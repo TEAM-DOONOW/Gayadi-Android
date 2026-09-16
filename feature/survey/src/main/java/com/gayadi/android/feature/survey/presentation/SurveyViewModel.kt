@@ -11,6 +11,7 @@ import com.gayadi.android.domain.usecase.CalculateSurveyResultUseCase
 import com.gayadi.android.domain.usecase.GetSurveyUseCase
 import com.gayadi.android.domain.error.isCoroutineCancellation
 import com.gayadi.android.domain.error.rethrowCancellation
+import com.gayadi.android.domain.error.userFacingMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -71,8 +72,12 @@ class SurveyViewModel(
                     throw cancelled
                 } catch (error: Exception) {
                     error.rethrowCancellation()
-                    _uiState.update { it.copy(isSubmitting = false,
-                        resultErrorMessage = error.message ?: "설문을 저장하지 못했어요. 다시 시도해 주세요.") }
+                    _uiState.update {
+                        it.copy(
+                            isSubmitting = false,
+                            resultErrorMessage = error.userFacingMessage("설문을 저장하지 못했어요. 다시 시도해 주세요."),
+                        )
+                    }
                 }
             }
             return null
@@ -82,7 +87,7 @@ class SurveyViewModel(
                 .onFailure { error ->
                     _uiState.update {
                         it.copy(
-                            resultErrorMessage = error.message ?: "결과를 계산하지 못했습니다.",
+                            resultErrorMessage = error.userFacingMessage("결과를 계산하지 못했습니다."),
                         )
                     }
                 }
@@ -120,7 +125,7 @@ class SurveyViewModel(
                     if (!error.isCoroutineCancellation()) {
                         _uiState.value = SurveyUiState(
                             isLoading = false,
-                            errorMessage = error.message ?: "설문을 불러오지 못했습니다.",
+                            errorMessage = error.userFacingMessage("설문을 불러오지 못했습니다."),
                             hasStarted = _uiState.value.hasStarted,
                         )
                     }

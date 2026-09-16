@@ -28,8 +28,8 @@ class GayadiApiClient internal constructor(
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
         .callTimeout(30, TimeUnit.SECONDS)
-        .retryOnConnectionFailure(false)
-        .followRedirects(false)
+        .retryOnConnectionFailure(true)
+        .followRedirects(true)
         .build(),
     )
     private val baseUrl = baseUrl.trimEnd('/')

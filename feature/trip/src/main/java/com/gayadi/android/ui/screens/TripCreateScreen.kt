@@ -62,6 +62,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gayadi.android.domain.error.rethrowCancellation
+import com.gayadi.android.domain.error.userFacingMessage
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.gayadi.android.feature.trip.R
 import com.gayadi.android.ui.theme.PretendardFontFamily
@@ -172,7 +173,7 @@ fun TripCreateScreen(
                                     onFailure = { error ->
                                         error.rethrowCancellation()
                                         viewModel.submissionFailed(
-                                            error.message ?: "초대 코드를 서버에 등록하지 못했어요",
+                                            error.userFacingMessage("초대 코드를 서버에 등록하지 못했어요"),
                                         )
                                     },
                                 )
@@ -182,7 +183,7 @@ fun TripCreateScreen(
                         },
                         onFailure = {
                             it.rethrowCancellation()
-                            viewModel.submissionFailed(it.message ?: "여행을 만들지 못했어요")
+                            viewModel.submissionFailed(it.userFacingMessage("여행을 만들지 못했어요"))
                         },
                     )
                 }

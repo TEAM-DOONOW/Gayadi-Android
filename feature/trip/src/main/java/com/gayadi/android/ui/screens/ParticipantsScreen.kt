@@ -31,6 +31,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import com.gayadi.android.domain.error.userFacingMessage
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -100,7 +101,7 @@ fun ParticipantsScreen(
                                 },
                                 onFailure = {
                                     it.rethrowCancellation()
-                                    inviteMessage = it.message ?: "초대 코드를 등록하지 못했어요"
+                                    inviteMessage = it.userFacingMessage("초대 코드를 등록하지 못했어요")
                                 },
                             )
                         }
@@ -114,7 +115,7 @@ fun ParticipantsScreen(
                                 },
                                 onFailure = {
                                     it.rethrowCancellation()
-                                    inviteMessage = it.message ?: "초대 코드를 등록하지 못했어요"
+                                    inviteMessage = it.userFacingMessage("초대 코드를 등록하지 못했어요")
                                 },
                             )
                         }
