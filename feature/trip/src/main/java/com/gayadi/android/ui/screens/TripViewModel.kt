@@ -107,6 +107,16 @@ class TripViewModel(
 
     init {
         loadState()
+        observeSession()
+    }
+
+    private fun observeSession() {
+        val auth = authRepository ?: return
+        viewModelScope.launch {
+            auth.observeSession().collect { session ->
+                if (session != null) loadState()
+            }
+        }
     }
 
     fun retry() = loadState()

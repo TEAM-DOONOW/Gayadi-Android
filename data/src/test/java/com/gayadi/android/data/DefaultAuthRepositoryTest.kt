@@ -37,6 +37,16 @@ class DefaultAuthRepositoryTest {
         assertEquals(1, api.refreshCount)
     }
 
+    @Test
+    fun observeSessionEmitsAfterGoogleSignIn() = runTest {
+        val api = RecordingAuthApiDataSource(session("access-1", "refresh-1", issuedAt = 1))
+        val repository = DefaultAuthRepository(api, InMemoryAuthSessionStore()) { 100 }
+
+        assertEquals(null, repository.currentSession())
+        repository.signInWithGoogle("id-token")
+        assertEquals("access-1", repository.currentSession()?.accessToken)
+    }
+
     private fun session(access: String, refresh: String, issuedAt: Long) = AuthSession(
         accessToken = access,
         tokenType = "Bearer",

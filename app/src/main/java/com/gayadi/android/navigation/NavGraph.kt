@@ -28,6 +28,13 @@ fun GayadiNavHost(appContainer: AppContainer) {
     val appScope = rememberCoroutineScope()
     val context = LocalContext.current
     val reminderScheduler = remember(context) { ExpenseReminderScheduler(context) }
+    val googleLoginViewModel: GoogleLoginViewModel = viewModel(
+        factory = GoogleLoginViewModel.factory(
+            appContainer.signInWithGoogleUseCase,
+            appContainer.getUserProfileUseCase,
+        ),
+    )
+    val googleLoginUiState by googleLoginViewModel.uiState.collectAsStateWithLifecycle()
     val tripViewModel: TripViewModel = viewModel(
         factory = TripViewModel.factory(
             appContainer.getTravelStateUseCase,
@@ -77,6 +84,25 @@ fun GayadiNavHost(appContainer: AppContainer) {
             )
         }
     }
+    LaunchedEffect(travelUiState.hasLoadedTravelState) {
+        if (travelUiState.hasLoadedTravelState) {
+            placeViewModel.retry()
+        }
+    }
+    LaunchedEffect(googleLoginUiState.loginCompleted) {
+        if (!googleLoginUiState.loginCompleted) return@LaunchedEffect
+        sharedProfileViewModel.reload()
+        tripViewModel.retry()
+        placeViewModel.retry()
+        if (navController.currentDestination?.route == Routes.LOGIN) {
+            navController.navigate(
+                resolveAuthenticatedDestination(googleLoginUiState.completedProfile),
+            ) {
+                popUpTo(Routes.LOGIN) { inclusive = true }
+            }
+        }
+        googleLoginViewModel.consumeCompletion()
+    }
 
     val navigationContext = AppNavigationContext(
         navController = navController,
@@ -89,6 +115,8 @@ fun GayadiNavHost(appContainer: AppContainer) {
         travelUiState = travelUiState,
         sharedProfileViewModel = sharedProfileViewModel,
         sharedProfileUiState = sharedProfileUiState,
+        googleLoginViewModel = googleLoginViewModel,
+        googleLoginUiState = googleLoginUiState,
     )
 
     travelUiState.errorMessage
