@@ -17,6 +17,8 @@ import com.gayadi.android.domain.model.TravelSchedule
 import com.gayadi.android.domain.model.TravelState
 import com.gayadi.android.domain.model.TravelTrip
 import com.gayadi.android.domain.model.TripStatus
+import com.gayadi.android.domain.error.isTransientApiFailure
+import com.gayadi.android.domain.error.retryTransientRequest
 import com.gayadi.android.domain.error.rethrowCancellation
 import com.gayadi.android.domain.error.userFacingMessage
 import com.gayadi.android.domain.usecase.GetTravelStateUseCase
@@ -44,6 +46,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -1089,19 +1092,25 @@ class TripViewModel(
         val currentUserId = authRepository?.currentSession()?.user?.id?.toString()
             ?: throw IllegalStateException("로그인 사용자 정보를 확인할 수 없어요")
         val accountCache = if (cached.currentUserId == currentUserId) cached else TravelState()
-        val trips = buildList {
-            var offset = 0
-            do {
-                val page = gateway.listTrips(limit = REMOTE_PAGE_SIZE, offset = offset)
-                addAll(page)
-                offset += page.size
-            } while (page.size == REMOTE_PAGE_SIZE)
+        val trips = retryTransientRequest {
+            buildList {
+                var offset = 0
+                do {
+                    val page = gateway.listTrips(limit = REMOTE_PAGE_SIZE, offset = offset)
+                    addAll(page)
+                    offset += page.size
+                } while (page.size == REMOTE_PAGE_SIZE)
+            }
         }
         val bundleResults = supervisorScope {
             trips.map { remoteTrip ->
                 async {
                     try {
-                        Result.success(loadRemoteTripBundle(gateway, remoteTrip, accountCache))
+                        Result.success(
+                            retryTransientRequest {
+                                loadRemoteTripBundle(gateway, remoteTrip, accountCache)
+                            },
+                        )
                     } catch (cancelled: kotlinx.coroutines.CancellationException) {
                         throw cancelled
                     } catch (error: Exception) {
@@ -1129,13 +1138,15 @@ class TripViewModel(
             participants = bundles.flatMap { it.participants }.distinctBy(TravelParticipant::id),
             invitations = bundles.flatMap { it.invitations },
             schedules = bundles.flatMap { it.schedules },
-            favoritePlaceIds = buildSet {
-                var offset = 0
-                do {
-                    val page = gateway.listFavoritePlaceIds(limit = REMOTE_PAGE_SIZE, offset = offset)
-                    addAll(page)
-                    offset += page.size
-                } while (page.size == REMOTE_PAGE_SIZE)
+            favoritePlaceIds = retryTransientRequest {
+                buildSet {
+                    var offset = 0
+                    do {
+                        val page = gateway.listFavoritePlaceIds(limit = REMOTE_PAGE_SIZE, offset = offset)
+                        addAll(page)
+                        offset += page.size
+                    } while (page.size == REMOTE_PAGE_SIZE)
+                }
             },
             appliedRouteIds = accountCache.appliedRouteIds.filterKeys { key -> tripIds.any { key.startsWith("$it:") } },
             selectedTripId = accountCache.selectedTripId?.takeIf { it in tripIds },
@@ -1164,21 +1175,23 @@ class TripViewModel(
         }
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
         loadJob = viewModelScope.launch(ioDispatcher) {
-            try {
-                persistenceMutex.withLock {
-                    getTravelState().fold(
-                        onSuccess = { state ->
-                            val restoredResult = if (travelGateway == null) {
-                                Result.success(
-                                    if (state.trips.isEmpty() && legacyTrips.isNotEmpty()) {
-                                        state.copy(trips = legacyTrips.map(TripSummary::toDomain))
-                                    } else state,
-                                )
-                            } else {
-                                runCatching { loadRemoteState(state) }
-                            }
-                            restoredResult.fold(
-                                onSuccess = { restored ->
+            var delayMs = INITIAL_RETRY_DELAY_MS
+            repeat(MAX_LOAD_ATTEMPTS) { attempt ->
+                if (!isActive) return@launch
+                _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+                val restoredResult = try {
+                    persistenceMutex.withLock {
+                        getTravelState().fold(
+                            onSuccess = { state ->
+                                if (travelGateway == null) {
+                                    Result.success(
+                                        if (state.trips.isEmpty() && legacyTrips.isNotEmpty()) {
+                                            state.copy(trips = legacyTrips.map(TripSummary::toDomain))
+                                        } else state,
+                                    )
+                                } else {
+                                    runCatching { retryTransientRequest { loadRemoteState(state) } }
+                                }.onSuccess { restored ->
                                     savedStateHandle[SELECTED_TRIP_ID_KEY] = restored.selectedTripId
                                     _uiState.value = TravelUiState(
                                         travelState = restored,
@@ -1199,16 +1212,38 @@ class TripViewModel(
                                     }
                                     restartInviteObservers(restored)
                                     if (restored !== state) saveTravelState(restored).getOrThrow()
-                                },
-                                onFailure = ::showInitialTravelError,
-                            )
-                        },
-                        onFailure = ::showInitialTravelError,
-                    )
+                                }
+                            },
+                            onFailure = { Result.failure(it) },
+                        )
+                    }
+                } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                    if (!isActive) {
+                        _uiState.update { it.copy(isLoading = false) }
+                        throw cancelled
+                    }
+                    Result.failure(cancelled)
                 }
-            } catch (cancelled: kotlinx.coroutines.CancellationException) {
-                _uiState.update { it.copy(isLoading = false) }
-                throw cancelled
+                if (restoredResult.isSuccess) return@launch
+                val error = restoredResult.exceptionOrNull() ?: return@launch
+                val canRetry = error.isTransientApiFailure() && attempt < MAX_LOAD_ATTEMPTS - 1
+                if (!canRetry) {
+                    if (error is kotlinx.coroutines.CancellationException && !isActive) throw error
+                    if (error is kotlinx.coroutines.CancellationException) {
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                hasLoadedTravelState = false,
+                                errorMessage = "여행 정보를 불러오지 못했어요",
+                            )
+                        }
+                    } else {
+                        showInitialTravelError(error)
+                    }
+                    return@launch
+                }
+                delay(delayMs)
+                delayMs = (delayMs * 2).coerceAtMost(MAX_RETRY_DELAY_MS)
             }
         }
     }
@@ -1372,6 +1407,9 @@ class TripViewModel(
         private const val SELECTED_TRIP_ID_KEY = "selected_trip_id"
         private const val LEGACY_TRIPS_KEY = "saved_trips"
         private const val REMOTE_PAGE_SIZE = 100
+        private const val MAX_LOAD_ATTEMPTS = 8
+        private const val INITIAL_RETRY_DELAY_MS = 400L
+        private const val MAX_RETRY_DELAY_MS = 8_000L
 
         fun factory(
             getTravelState: GetTravelStateUseCase,

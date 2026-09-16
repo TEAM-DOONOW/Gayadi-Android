@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.gayadi.android.domain.model.TourPlace
+import com.gayadi.android.domain.error.isTransientApiFailure
 import com.gayadi.android.domain.error.rethrowCancellation
 import com.gayadi.android.domain.error.userFacingMessage
 import com.gayadi.android.domain.usecase.GetNearbyTourPlacesUseCase
@@ -13,6 +14,7 @@ import com.gayadi.android.domain.usecase.SearchTourPlacesUseCase
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -316,6 +318,9 @@ class PlaceViewModel(
         ) {
             return
         }
+        if (resolvedRegion != current.regionName) {
+            loadJob?.cancel()
+        }
         _uiState.update {
             it.copy(regionName = resolvedRegion, query = "", selectedCategory = "전체")
         }
@@ -360,30 +365,56 @@ class PlaceViewModel(
     }
 
     private fun loadPlaces() {
-        loadJob?.cancel()
+        if (loadJob?.isActive == true) return
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
         val regionName = _uiState.value.regionName
         loadJob = viewModelScope.launch {
-            repository.getPlaces(regionName).fold(
-                onSuccess = { places ->
+            var delayMs = INITIAL_RETRY_DELAY_MS
+            repeat(MAX_LOAD_ATTEMPTS) { attempt ->
+                if (!isActive) return@launch
+                _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+                val result = try {
+                    repository.getPlaces(regionName)
+                } catch (cancelled: CancellationException) {
+                    if (!isActive) throw cancelled
+                    Result.failure(cancelled)
+                }
+                val places = result.getOrNull()
+                if (places != null) {
                     knownPlaces.putAll(places.associateBy(PlaceItem::id))
-                    _uiState.update { it.copy(places = places, isLoading = false) }
-                },
-                onFailure = { error ->
-                    error.rethrowCancellation()
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            errorMessage = error.userFacingMessage("장소를 불러오지 못했습니다."),
-                        )
+                    _uiState.update { it.copy(places = places, isLoading = false, errorMessage = null) }
+                    return@launch
+                }
+                val error = result.exceptionOrNull() ?: return@launch
+                val canRetry = error.isTransientApiFailure() && attempt < MAX_LOAD_ATTEMPTS - 1
+                if (!canRetry) {
+                    if (error is CancellationException && !isActive) throw error
+                    if (error is CancellationException) {
+                        _uiState.update {
+                            it.copy(isLoading = false, errorMessage = "장소를 불러오지 못했습니다.")
+                        }
+                    } else {
+                        error.rethrowCancellation()
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                errorMessage = error.userFacingMessage("장소를 불러오지 못했습니다."),
+                            )
+                        }
                     }
-                },
-            )
+                    return@launch
+                }
+                delay(delayMs)
+                delayMs = (delayMs * 2).coerceAtMost(MAX_RETRY_DELAY_MS)
+            }
         }
     }
 
     companion object {
         private const val NEARBY_RADIUS_METERS = 2_000
+        private const val MAX_LOAD_ATTEMPTS = 8
+        private const val INITIAL_RETRY_DELAY_MS = 400L
+        private const val MAX_RETRY_DELAY_MS = 8_000L
 
         fun factory(repository: PlaceRepository = FakePlaceRepository()) = viewModelFactory {
             initializer { PlaceViewModel(repository) }
