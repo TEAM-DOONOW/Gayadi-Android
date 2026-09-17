@@ -14,6 +14,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
+import org.json.JSONObject
 
 /** Shared, cancellable backend transport. Only an explicit 401 causes one token refresh. */
 class GayadiApiClient internal constructor(
@@ -64,14 +65,15 @@ class GayadiApiClient internal constructor(
             call.enqueue(object : Callback {
                 override fun onFailure(call: Call, error: IOException) {
                     if (continuation.isActive) continuation.resumeWithException(
-                        IOException("서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요."),
+                        IOException("서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.", error),
                     )
                 }
                 override fun onResponse(call: Call, response: Response) {
                     val result = runCatching {
                         response.use {
-                            if (!it.isSuccessful) throw GayadiApiException(it.code)
-                            it.body?.string().orEmpty()
+                            val body = it.body?.string().orEmpty()
+                            if (!it.isSuccessful) throw GayadiApiException(it.code, body)
+                            body
                         }
                     }
                     if (continuation.isActive) result.fold(continuation::resume, continuation::resumeWithException)
@@ -81,15 +83,26 @@ class GayadiApiClient internal constructor(
     }
 }
 
-class GayadiApiException(val statusCode: Int) : IOException(
-    when (statusCode) {
+class GayadiApiException(
+    val statusCode: Int,
+    body: String = "",
+) : IOException(gayadiApiErrorMessage(statusCode, body))
+
+private fun gayadiApiErrorMessage(statusCode: Int, body: String): String {
+    val serverMessage = runCatching {
+        JSONObject(body).optString("message")
+    }.getOrDefault("").trim()
+    if (serverMessage.isNotBlank() && statusCode in 400..499) {
+        return serverMessage
+    }
+    return when (statusCode) {
         401 -> "로그인이 만료되었어요. 다시 로그인해 주세요."
         403 -> "이 작업을 수행할 권한이 없어요."
         404 -> "요청한 정보를 찾을 수 없어요."
         409 -> "정보가 변경되었어요. 새로고침 후 다시 시도해 주세요."
         else -> "요청을 처리하지 못했어요. 잠시 후 다시 시도해 주세요. (HTTP $statusCode)"
-    },
-)
+    }
+}
 
 internal suspend fun <T> apiResult(block: suspend () -> T): Result<T> = try {
     Result.success(block())

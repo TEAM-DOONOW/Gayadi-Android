@@ -20,6 +20,7 @@ class DefaultTourRepository(
         lclsSystm2: String?,
         lclsSystm3: String?,
         maxPages: Int?,
+        regionName: String?,
     ): Result<List<TourPlace>> = try {
         val cacheKey = TourPlacesCacheKey(
             pageSize = pageSize,
@@ -28,6 +29,7 @@ class DefaultTourRepository(
             lclsSystm2 = lclsSystm2,
             lclsSystm3 = lclsSystm3,
             maxPages = maxPages,
+            regionName = regionName,
         )
         Result.success(
             cache[cacheKey] ?: dataSource.getPlaces(
@@ -37,6 +39,7 @@ class DefaultTourRepository(
                 lclsSystm2 = lclsSystm2,
                 lclsSystm3 = lclsSystm3,
                 maxPages = maxPages,
+                regionName = regionName,
             ).map { it.toDomain() }
                 .also { cache[cacheKey] = it },
         )
@@ -110,4 +113,5 @@ private data class TourPlacesCacheKey(
     val lclsSystm2: String?,
     val lclsSystm3: String?,
     val maxPages: Int?,
+    val regionName: String?,
 )

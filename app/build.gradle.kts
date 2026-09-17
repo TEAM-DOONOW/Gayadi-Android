@@ -23,20 +23,45 @@ fun Properties.requiredString(key: String): String =
 fun String.asBuildConfigString(): String =
     "\"${replace("\\", "\\\\").replace("\"", "\\\"")}\""
 
+val googleWebClientId =
+    "6035741280-j8ed9ka462jcvhoc14q7hb8vl26iqk0f.apps.googleusercontent.com"
+val googleDebugAndroidClientId =
+    "6035741280-g9agek5bfnkprhp9ubqklb2ustbjd8ld.apps.googleusercontent.com"
+val googleReleaseAndroidClientId =
+    "6035741280-jedtnq850vigud4osf3ce6223i4abbe4.apps.googleusercontent.com"
+
+fun resolvedGoogleWebClientId(raw: String): String {
+    val value = raw.trim()
+    return if (
+        value.isNotBlank() &&
+        !value.startsWith("your_") &&
+        value.endsWith(".apps.googleusercontent.com")
+    ) {
+        value
+    } else {
+        googleWebClientId
+    }
+}
+
 val devProperties = loadEnvironmentProperties("dev")
 val prodProperties = loadEnvironmentProperties("prod")
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) {
+        keystorePropertiesFile.inputStream().use(::load)
+    }
+}
 
 android {
     namespace = "com.gayadi.android"
-    compileSdk = 35
-    buildToolsVersion = "35.0.0"
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.doonow.gayadi"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        targetSdk = 36
+        versionCode = 11
+        versionName = "0.0.11"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -67,7 +92,9 @@ android {
             buildConfigField(
                 "String",
                 "GOOGLE_WEB_CLIENT_ID",
-                devProperties.getProperty("GOOGLE_CLIENT_ID", "").trim().asBuildConfigString(),
+                resolvedGoogleWebClientId(
+                    devProperties.getProperty("GOOGLE_CLIENT_ID", ""),
+                ).asBuildConfigString(),
             )
         }
 
@@ -92,18 +119,46 @@ android {
             buildConfigField(
                 "String",
                 "GOOGLE_WEB_CLIENT_ID",
-                prodProperties.getProperty("GOOGLE_CLIENT_ID", "").trim().asBuildConfigString(),
+                resolvedGoogleWebClientId(
+                    prodProperties.getProperty("GOOGLE_CLIENT_ID", ""),
+                ).asBuildConfigString(),
             )
         }
     }
 
+    signingConfigs {
+        if (keystorePropertiesFile.exists()) {
+            create("release") {
+                storeFile = rootProject.file(keystoreProperties.requiredString("storeFile"))
+                storePassword = keystoreProperties.requiredString("storePassword")
+                keyAlias = keystoreProperties.requiredString("keyAlias")
+                keyPassword = keystoreProperties.requiredString("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
+        debug {
+            buildConfigField(
+                "String",
+                "GOOGLE_ANDROID_CLIENT_ID",
+                googleDebugAndroidClientId.asBuildConfigString(),
+            )
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            buildConfigField(
+                "String",
+                "GOOGLE_ANDROID_CLIENT_ID",
+                googleReleaseAndroidClientId.asBuildConfigString(),
+            )
+            if (keystorePropertiesFile.exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
     compileOptions {

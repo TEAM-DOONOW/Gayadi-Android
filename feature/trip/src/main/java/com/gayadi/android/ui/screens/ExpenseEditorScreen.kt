@@ -48,6 +48,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -103,6 +104,8 @@ fun ExpenseEditorScreen(
     errorMessage: String? = null,
     hasLoadedTravelState: Boolean = true,
     isLoadingTravelState: Boolean = false,
+    tripStartDate: String? = null,
+    tripEndDate: String? = null,
 ) {
     val formKey = expense?.id ?: schedule?.id ?: "unlinked-$tripId"
     val draftId = rememberSaveable(formKey) { expense?.id ?: UUID.randomUUID().toString() }
@@ -140,7 +143,13 @@ fun ExpenseEditorScreen(
         )
     }
     var date by rememberSaveable(formKey) {
-        mutableStateOf(expense?.date ?: schedule?.date ?: LocalDate.now().format(expenseDateFormatter))
+        mutableStateOf(
+            clampExpenseDate(
+                expense?.date ?: schedule?.date ?: LocalDate.now().format(expenseDateFormatter),
+                tripStartDate,
+                tripEndDate,
+            ),
+        )
     }
     var time by rememberSaveable(formKey) {
         mutableStateOf(expense?.time ?: schedule?.time ?: LocalTime.now().format(expenseTimeFormatter))
@@ -153,7 +162,7 @@ fun ExpenseEditorScreen(
         paymentSource == ExpensePaymentSource.PERSONAL && (payerId.isBlank() || payerId !in participantIds)
     ) "결제자를 선택해 주세요" else null
     val splitError = if (splitParticipantIds.isEmpty()) "분담 참여자를 한 명 이상 선택해 주세요" else null
-    val dateError = expenseDateErrorMessage(date)
+    val dateError = expenseDateErrorMessage(date, tripStartDate, tripEndDate)
     val timeError = expenseTimeErrorMessage(time)
     val formIsValid = listOf(
         titleError,
@@ -163,6 +172,15 @@ fun ExpenseEditorScreen(
         dateError,
         timeError,
     ).all { it == null }
+
+    LaunchedEffect(participantIds) {
+        if (splitParticipantIds.isEmpty() && participantIds.isNotEmpty()) {
+            splitParticipantIds = participantIds.toList()
+        }
+        if (payerId.isBlank() && participantIds.isNotEmpty()) {
+            payerId = initialPayerId?.takeIf { it in participantIds } ?: participantIds.first()
+        }
+    }
 
     BackHandler(enabled = isSaving) { }
 
@@ -659,13 +677,35 @@ private fun amountErrorMessage(value: String): String? = when {
     else -> null
 }
 
-private fun expenseDateErrorMessage(value: String): String? = when {
+private fun expenseDateErrorMessage(
+    value: String,
+    tripStartDate: String? = null,
+    tripEndDate: String? = null,
+): String? = when {
     value.isBlank() -> "날짜를 입력해 주세요"
     else -> try {
-        LocalDate.parse(value, expenseDateFormatter)
-        null
+        val parsed = LocalDate.parse(value, expenseDateFormatter)
+        val start = tripStartDate?.let { LocalDate.parse(it, expenseDateFormatter) }
+        val end = tripEndDate?.let { LocalDate.parse(it, expenseDateFormatter) }
+        when {
+            start != null && parsed.isBefore(start) -> "여행 시작일 이후 날짜를 입력해 주세요"
+            end != null && parsed.isAfter(end) -> "여행 종료일 이전 날짜를 입력해 주세요"
+            else -> null
+        }
     } catch (_: DateTimeParseException) {
         "날짜 형식을 확인해 주세요"
+    }
+}
+
+internal fun clampExpenseDate(value: String, tripStartDate: String?, tripEndDate: String?): String {
+    val parsed = runCatching { LocalDate.parse(value, expenseDateFormatter) }.getOrNull()
+        ?: return tripStartDate ?: value
+    val start = tripStartDate?.let { runCatching { LocalDate.parse(it, expenseDateFormatter) }.getOrNull() }
+    val end = tripEndDate?.let { runCatching { LocalDate.parse(it, expenseDateFormatter) }.getOrNull() }
+    return when {
+        start != null && parsed.isBefore(start) -> tripStartDate
+        end != null && parsed.isAfter(end) -> tripEndDate!!
+        else -> value
     }
 }
 

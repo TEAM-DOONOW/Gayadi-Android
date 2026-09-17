@@ -39,6 +39,7 @@ Thumbs.db
 # Signing
 *.jks
 *.keystore
+keystore.properties
 
 # Environment
 .env

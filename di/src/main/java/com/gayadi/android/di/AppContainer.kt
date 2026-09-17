@@ -71,13 +71,18 @@ class AppContainer(
         DefaultLegalDocumentRepository(publicContentDataSource)
     private val noticeRepository = DefaultNoticeRepository(publicContentDataSource)
     private val travelRepository = FileTravelRepository(travelFile)
-    private val tourRepository = DefaultTourRepository(com.gayadi.android.data.datasource.ServerPlaceApiDataSource(GayadiApiClient(tourApiBaseUrl)))
     val authRepository: com.gayadi.android.domain.repository.AuthRepository = DefaultAuthRepository(
         HttpAuthApiDataSource(tourApiBaseUrl),
         EncryptedFileAuthSessionStore(File(travelFile.parentFile, "auth-session")),
     )
     private val apiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val api = GayadiApiClient(tourApiBaseUrl, authRepository)
+    private val tourRepository = DefaultTourRepository(
+        HttpTourApiDataSource(
+            tourApiBaseUrl,
+            accessToken = { authRepository.validAccessToken() },
+        ),
+    )
     val friendshipGateway: com.gayadi.android.domain.repository.FriendshipGateway = com.gayadi.android.data.remote.travel.ServerFriendshipGateway(api)
     val travelGateway: com.gayadi.android.domain.repository.TravelGateway = com.gayadi.android.data.remote.travel.ServerTravelGateway(api)
     val tripSupportGateway: com.gayadi.android.domain.repository.TripSupportGateway =

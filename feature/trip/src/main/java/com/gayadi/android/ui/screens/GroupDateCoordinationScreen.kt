@@ -104,8 +104,17 @@ fun GroupDateCoordinationScreen(
     var visibleMonth by remember { mutableStateOf(YearMonth.now()) }
     var showParticipantPicker by remember { mutableStateOf(false) }
     var editingSubmittedMemberId by remember { mutableStateOf<String?>(null) }
-    var selectedDates by remember(activeMemberId, trip.dateAvailability) {
-        mutableStateOf(trip.dateAvailability[activeMemberId].orEmpty().toSet())
+    var selectedDates by remember(activeMemberId, trip.dateAvailability, trip.startDate, trip.endDate) {
+        val saved = trip.dateAvailability[activeMemberId].orEmpty().toSet()
+        mutableStateOf(
+            saved.ifEmpty {
+                if (otherParticipants.isEmpty()) {
+                    datesInInclusiveRange(trip.startDate, trip.endDate)
+                } else {
+                    emptySet()
+                }
+            },
+        )
     }
     var finalRange by remember { mutableStateOf<Set<String>>(emptySet()) }
     var guideStep by rememberSaveable { mutableStateOf(0) }
@@ -494,6 +503,15 @@ private fun connectedDateShape(date: String, dates: Set<String>): androidx.compo
         else -> CircleShape
     }
 }
+
+internal fun datesInInclusiveRange(startDate: String, endDate: String): Set<String> = runCatching {
+    val start = LocalDate.parse(startDate, savedDateFormatter)
+    val end = LocalDate.parse(endDate, savedDateFormatter)
+    generateSequence(start) { it.plusDays(1) }
+        .takeWhile { !it.isAfter(end) }
+        .map { it.format(savedDateFormatter) }
+        .toSet()
+}.getOrDefault(emptySet())
 
 internal fun commonAvailableDates(
     memberIds: Set<String>,

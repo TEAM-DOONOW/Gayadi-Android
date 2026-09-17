@@ -106,9 +106,10 @@ class TourApiPlaceRepository(
                 lclsSystm1 = request.lclsSystm1,
                 lclsSystm2 = request.lclsSystm2,
                 maxPages = MAX_PAGES_PER_CATEGORY,
+                regionName = tourRegionName(regionName),
             ).getOrElse { error ->
                 if (error is CancellationException) throw error
-                return Result.failure(error)
+                emptyList()
             }
             categoryPlaces.forEach { place ->
                 val existing = placesByContentId[place.contentId]
@@ -410,6 +411,11 @@ private fun TourPlace.toNearbyPlaceItem(): PlaceItem {
         latitude = latitude,
         hasRealtimeDetails = false,
     )
+}
+
+internal fun tourRegionName(regionName: String): String {
+    val first = regionName.trim().substringBefore("·").substringBefore(" ").trim()
+    return first.ifBlank { "서울" }
 }
 
 private fun regionalPlaces(regionName: String): List<PlaceItem> {

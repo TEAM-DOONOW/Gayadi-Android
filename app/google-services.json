@@ -12,7 +12,32 @@
           "package_name": "com.doonow.gayadi"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "6035741280-g9agek5bfnkprhp9ubqklb2ustbjd8ld.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.doonow.gayadi",
+            "certificate_hash": "b45b35cd37fbf7e26ed0b83d2ed6f5b585f75294"
+          }
+        },
+        {
+          "client_id": "6035741280-0dsqdjmor2087c7q0ulo7b5g8ic9el9h.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.doonow.gayadi",
+            "certificate_hash": "87a64c32da0423b946630832e65432b4ed15616a"
+          }
+        },
+        {
+          "client_id": "6035741280-jedtnq850vigud4osf3ce6223i4abbe4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.doonow.gayadi",
+            "certificate_hash": "08cb66b560ab2e5f9a49b6f299fb41dd341b35ad"
+          }
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCeToYHJjq2YrEaWPpqfOUB_e8AEedQTIs"
@@ -20,7 +45,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "6035741280-j8ed9ka462jcvhoc14q7hb8vl26iqk0f.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     },

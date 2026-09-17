@@ -129,7 +129,10 @@ internal fun NavGraphBuilder.myPageGraph(context: AppNavigationContext) = with(c
     }
     composable(Routes.INQUIRY) {
         val inquiryViewModel: InquiryViewModel = viewModel(
-            factory = InquiryViewModel.factory(appContainer.submitInquiryUseCase),
+            factory = InquiryViewModel.factory(
+                appContainer.submitInquiryUseCase,
+                appContainer.authRepository.currentSession()?.user?.email.orEmpty(),
+            ),
         )
         InquiryRoute(viewModel = inquiryViewModel, onBack = { navController.popBackStack() })
     }
