@@ -337,7 +337,8 @@ class HttpTourApiDataSource(
                 val item = items.getJSONObject(index)
                 add(
                     TourPlaceDto(
-                        contentId = item.optString("contentId"),
+                        contentId = item.optNullableString("placeId")
+                            ?: item.optString("contentId"),
                         title = item.optString("title"),
                         address = item.optString("address"),
                         addressDetail = item.optString("addressDetail"),

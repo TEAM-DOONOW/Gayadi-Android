@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.gayadi.android.domain.model.TourPlace
+import com.gayadi.android.domain.model.AgentRecommendation
 import com.gayadi.android.domain.error.retryTransientResult
 import com.gayadi.android.domain.error.rethrowCancellation
 import com.gayadi.android.domain.error.userFacingMessage
@@ -283,12 +284,15 @@ class PlaceViewModel(
             return
         }
         val regionName = _uiState.value.regionName
+        val expectedQuery = query.trim()
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
         searchJob = viewModelScope.launch {
             delay(250)
             applyPlaceResult(
-                retryTransientResult { repository.searchPlaces(regionName, query.trim()) },
+                retryTransientResult { repository.searchPlaces(regionName, expectedQuery) },
                 failureMessage = "장소를 검색하지 못했습니다.",
+                expectedRegion = regionName,
+                expectedQuery = expectedQuery,
             )
         }
     }
@@ -312,14 +316,58 @@ class PlaceViewModel(
         }
         if (resolvedRegion != current.regionName) {
             loadJob?.cancel()
+            loadJob = null
+            searchJob?.cancel()
+            searchJob = null
         }
         _uiState.update {
-            it.copy(regionName = resolvedRegion, query = "", selectedCategory = "전체")
+            it.copy(
+                regionName = resolvedRegion,
+                query = "",
+                selectedCategory = "전체",
+                places = if (resolvedRegion != current.regionName) emptyList() else it.places,
+                isLoading = true,
+                errorMessage = null,
+            )
         }
         loadPlaces()
     }
 
     fun findPlace(placeId: String): PlaceItem? = knownPlaces[placeId]
+
+    fun applyAgentRecommendations(recommendations: List<AgentRecommendation>) {
+        if (recommendations.isEmpty()) return
+        val current = _uiState.value.places.toMutableList()
+        recommendations.forEach { recommendation ->
+            if (recommendation.placeId.toLongOrNull() == null) return@forEach
+            val index = current.indexOfFirst { place ->
+                place.id == recommendation.placeId ||
+                    recommendation.sourcePlaceId.isNotBlank() && place.id == recommendation.sourcePlaceId ||
+                    place.name.equals(recommendation.name, ignoreCase = true)
+            }
+            val category = recommendation.category.toPlaceCategoryLabel()
+            if (index >= 0) {
+                current[index] = current[index].copy(
+                    id = recommendation.placeId,
+                    category = category.ifBlank { current[index].category },
+                )
+            } else {
+                current += PlaceItem(
+                    id = recommendation.placeId,
+                    name = recommendation.name,
+                    category = category.ifBlank { "관광명소" },
+                    rating = 0.0,
+                    reviews = 0,
+                    crowdLevel = CrowdLevel.NORMAL,
+                    emoji = "✨",
+                    description = recommendation.reason,
+                    hasRealtimeDetails = false,
+                )
+            }
+        }
+        knownPlaces.putAll(current.associateBy(PlaceItem::id))
+        _uiState.update { it.copy(places = current.distinctBy(PlaceItem::id)) }
+    }
 
     fun nearbyPlaces(originPlaceId: String?): List<PlaceItem> =
         _uiState.value.places.filterNot { it.id == originPlaceId }.sortedBy(PlaceItem::distanceMeters)
@@ -373,11 +421,24 @@ class PlaceViewModel(
             applyPlaceResult(
                 retryTransientResult { repository.getPlaces(regionName) },
                 failureMessage = "장소를 불러오지 못했습니다.",
+                expectedRegion = regionName,
             )
         }
     }
 
-    private fun applyPlaceResult(result: Result<List<PlaceItem>>, failureMessage: String) {
+    private fun applyPlaceResult(
+        result: Result<List<PlaceItem>>,
+        failureMessage: String,
+        expectedRegion: String,
+        expectedQuery: String? = null,
+    ) {
+        val current = _uiState.value
+        if (
+            current.regionName != expectedRegion ||
+            expectedQuery != null && current.query.trim() != expectedQuery
+        ) {
+            return
+        }
         result.fold(
             onSuccess = { places ->
                 knownPlaces.putAll(places.associateBy(PlaceItem::id))
@@ -424,6 +485,14 @@ class PlaceViewModel(
         }
     }
 
+}
+
+private fun String.toPlaceCategoryLabel(): String = when (trim().uppercase()) {
+    "FOOD", "RESTAURANT" -> "맛집"
+    "CAFE" -> "카페"
+    "STAY", "LODGING" -> "숙소"
+    "CULTURE", "TOURIST_ATTRACTION", "ATTRACTION" -> "관광명소"
+    else -> ""
 }
 
 private fun TourPlace.toNearbyPlaceItem(): PlaceItem {

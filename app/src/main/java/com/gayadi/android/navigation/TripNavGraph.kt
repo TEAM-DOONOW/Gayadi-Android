@@ -25,6 +25,7 @@ import com.gayadi.android.ui.screens.NearbyPlacesScreen
 import com.gayadi.android.ui.screens.ParticipantsScreen
 import com.gayadi.android.ui.screens.PlaceDetailScreen
 import com.gayadi.android.ui.screens.PlaceSearchScreen
+import com.gayadi.android.ui.screens.PlaceRecommendationViewModel
 import com.gayadi.android.ui.screens.RealtimeHomeScreen
 import com.gayadi.android.ui.screens.RealtimeHomeViewModel
 import com.gayadi.android.ui.screens.RouteHubScreen
@@ -33,6 +34,8 @@ import com.gayadi.android.ui.screens.RouteRecommendationType
 import com.gayadi.android.ui.screens.SettlementDetailsScreen
 import com.gayadi.android.ui.screens.TravelLedgerScreen
 import com.gayadi.android.ui.screens.TripCreateScreen
+import com.gayadi.android.ui.screens.AgentScreen
+import com.gayadi.android.ui.screens.AgentViewModel
 
 internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(context) {
     composable(
@@ -102,9 +105,49 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
         arguments = listOf(navArgument("tripId") { type = NavType.StringType }),
     ) { backStackEntry ->
         val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
-        val city = travelUiState.travelState.trip(tripId)?.cities?.firstOrNull().orEmpty()
+        val trip = travelUiState.travelState.trip(tripId)
+        val city = trip?.cities?.firstOrNull().orEmpty()
         val placeUiState by placeViewModel.uiState.collectAsStateWithLifecycle()
+        val recommendationViewModel: PlaceRecommendationViewModel = viewModel(
+            key = "place-recommendations-$tripId",
+            factory = PlaceRecommendationViewModel.factory(appContainer.agentGateway),
+        )
+        val recommendationUiState by recommendationViewModel.uiState.collectAsStateWithLifecycle()
+        val destination = city.ifBlank { "제주 성산" }
+        val recommendationRegionReady =
+            placeUiState.regionName == destination && !placeUiState.isLoading
+        val recommendationOrigin = placeUiState.places
+            .takeIf { recommendationRegionReady }
+            ?.firstOrNull { it.latitude != null && it.longitude != null }
+        val recommendationContextReady = recommendationRegionReady && recommendationOrigin != null
+        val recommendationProfile = sharedProfileUiState.profile?.let { profile ->
+            buildList {
+                profile.travelStyleName?.takeIf(String::isNotBlank)?.let(::add)
+                addAll(profile.strengths)
+                profile.introduction.takeIf(String::isNotBlank)?.let(::add)
+            }.joinToString(", ")
+        }.orEmpty().ifBlank { "새로운 장소를 발견하고 여유롭게 여행하는 것을 좋아해요." }
         LaunchedEffect(tripId, city) { placeViewModel.setRegion(city) }
+        LaunchedEffect(
+            tripId,
+            recommendationContextReady,
+            recommendationOrigin?.latitude,
+            recommendationOrigin?.longitude,
+            recommendationProfile,
+        ) {
+            if (!recommendationContextReady) return@LaunchedEffect
+            recommendationViewModel.recommend(
+                destination = destination,
+                profile = recommendationProfile,
+                latitude = recommendationOrigin?.latitude,
+                longitude = recommendationOrigin?.longitude,
+                keywords = emptyList(),
+                groupSize = trip?.participantIds?.size?.coerceAtLeast(1) ?: 1,
+            )
+        }
+        LaunchedEffect(recommendationUiState.recommendations) {
+            placeViewModel.applyAgentRecommendations(recommendationUiState.recommendations)
+        }
         val androidContext = LocalContext.current
         PlaceSearchScreen(
             showUsageGuide = remember(androidContext) {
@@ -114,6 +157,7 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
                 UsageGuidePreferences.markCompleted(androidContext, UsageGuidePreferences.PlaceSearch)
             },
             uiState = placeUiState,
+            recommendationUiState = recommendationUiState,
             onBack = { navController.popBackStack() },
             onQueryChange = placeViewModel::updateQuery,
             onCategorySelected = placeViewModel::selectCategory,
@@ -125,6 +169,23 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
             },
             onNearby = { navController.navigate(Routes.nearbyPlaces(tripId)) },
             onFavorites = { navController.navigate(Routes.favoritePlaces(tripId)) },
+            onRequestRecommendations = {
+                recommendationViewModel.recommend(
+                    destination = destination,
+                    profile = recommendationProfile,
+                    latitude = recommendationOrigin?.latitude,
+                    longitude = recommendationOrigin?.longitude,
+                    keywords = placeUiState.query.trim().takeIf(String::isNotBlank)?.let(::listOf).orEmpty(),
+                    groupSize = trip?.participantIds?.size?.coerceAtLeast(1) ?: 1,
+                    force = true,
+                )
+            },
+            onRecommendationClick = { recommendation ->
+                placeViewModel.applyAgentRecommendations(listOf(recommendation))
+                recommendation.placeId.toLongOrNull()
+                    ?.takeIf { it > 0 }
+                    ?.let { navController.navigate(Routes.placeDetail(tripId, recommendation.placeId)) }
+            },
         )
     }
     composable(
@@ -191,6 +252,37 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
                 }
             },
             onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+            onOpenAgent = { navController.navigate(Routes.AGENT) },
+        )
+    }
+    composable(Routes.AGENT) {
+        val activeTrip = selectedTripId
+            ?.let(travelUiState.travelState::trip)
+            ?: travelUiState.travelState.trips.firstOrNull { it.status != com.gayadi.android.domain.model.TripStatus.COMPLETED }
+        val agentViewModel: AgentViewModel = viewModel(
+            key = "agent-${activeTrip?.id ?: "empty"}",
+            factory = AgentViewModel.factory(activeTrip?.id, appContainer.agentGateway),
+        )
+        val agentUiState by agentViewModel.uiState.collectAsStateWithLifecycle()
+        val placeUiState by placeViewModel.uiState.collectAsStateWithLifecycle()
+        val city = activeTrip?.cities?.firstOrNull().orEmpty()
+        LaunchedEffect(activeTrip?.id, city) {
+            if (city.isNotBlank()) placeViewModel.setRegion(city)
+        }
+        AgentScreen(
+            tripName = activeTrip?.name,
+            uiState = agentUiState,
+            onBack = { navController.popBackStack() },
+            onAnalyze = {
+                val origin = placeUiState.places.firstOrNull {
+                    it.latitude != null && it.longitude != null
+                }
+                agentViewModel.analyze(origin?.latitude, origin?.longitude)
+            },
+            onRetry = agentViewModel::refresh,
+            onSelectOption = agentViewModel::selectOption,
+            onApprove = { agentViewModel.decide(it, approve = true) },
+            onReject = { agentViewModel.decide(it, approve = false) },
         )
     }
     composable(Routes.TRIP_CREATE) {

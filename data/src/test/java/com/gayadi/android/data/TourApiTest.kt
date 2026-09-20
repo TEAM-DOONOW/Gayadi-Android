@@ -56,6 +56,17 @@ class TourApiTest {
     }
 
     @Test
+    fun prefersCanonicalGayadiPlaceIdFromDiscoveryResponse() {
+        val places = HttpTourApiDataSource("http://example.com").parsePlaces(
+            """
+            {"items":[{"placeId":101,"contentId":"2783012","title":"경복궁"}]}
+            """.trimIndent(),
+        )
+
+        assertEquals("101", places.single().contentId)
+    }
+
+    @Test
     fun tourPlaceMapperPreservesClassification() {
         val place = TourPlaceDto(
             contentId = "1",

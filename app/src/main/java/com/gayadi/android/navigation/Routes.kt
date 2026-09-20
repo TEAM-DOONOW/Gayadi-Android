@@ -31,6 +31,7 @@ object Routes {
     const val NOTICES = "notices"
     const val NOTICE_DETAIL = "notices/{noticeId}"
     const val INQUIRY = "inquiry"
+    const val AGENT = "agent"
 
     fun placeSearch(tripId: String) = "place_search/$tripId"
     fun placeDetail(tripId: String, placeId: String) = "place_detail/$tripId/$placeId"

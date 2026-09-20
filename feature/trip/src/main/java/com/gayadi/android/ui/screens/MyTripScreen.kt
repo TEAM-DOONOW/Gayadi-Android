@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.outlined.Luggage
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -122,6 +123,7 @@ fun MyTripScreen(
     onOpenTripDetail: (String) -> Unit,
     onDeleteTrip: (String) -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenAgent: () -> Unit = {},
     onJoinTripWithCode: (String) -> Unit = { onJoinTrip() },
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
@@ -175,6 +177,13 @@ fun MyTripScreen(
                 color = TextPrimary,
             )
             Row {
+                IconButton(onClick = onOpenAgent) {
+                    Icon(
+                        Icons.Filled.AutoAwesome,
+                        contentDescription = "가야디 에이전트",
+                        tint = TripAccentColor,
+                    )
+                }
                 IconButton(
                     onClick = { showJoinTripSheet = true },
                 ) {

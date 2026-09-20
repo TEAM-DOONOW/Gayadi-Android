@@ -4,6 +4,8 @@ import com.gayadi.android.data.repository.InMemoryProfileRepository
 import com.gayadi.android.data.repository.FileTravelRepository
 import com.gayadi.android.data.repository.DefaultTourRepository
 import com.gayadi.android.data.datasource.ServerPlaceApiDataSource
+import com.gayadi.android.data.datasource.DiscoveryPlaceApiDataSource
+import com.gayadi.android.data.datasource.HttpTourApiDataSource
 import com.gayadi.android.data.datasource.HttpAuthApiDataSource
 import com.gayadi.android.data.datasource.HttpProfileApiDataSource
 import com.gayadi.android.data.datasource.FileProfileLocalDataSource
@@ -11,6 +13,7 @@ import com.gayadi.android.data.datasource.RestSurveyDataSource
 import com.gayadi.android.data.datasource.RestSessionApiDataSource
 import com.gayadi.android.data.datasource.RestInquiryDataSource
 import com.gayadi.android.data.datasource.GayadiApiClient
+import com.gayadi.android.data.remote.agent.ServerAgentGateway
 import com.gayadi.android.data.repository.RestSurveySubmissionRepository
 import com.gayadi.android.domain.usecase.SubmitSurveyUseCase
 import kotlinx.coroutines.CoroutineScope
@@ -78,10 +81,14 @@ class AppContainer(
     private val apiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val api = GayadiApiClient(tourApiBaseUrl, authRepository)
     private val tourRepository = DefaultTourRepository(
-        ServerPlaceApiDataSource(api),
+        DiscoveryPlaceApiDataSource(
+            discovery = HttpTourApiDataSource(tourApiBaseUrl),
+            canonical = ServerPlaceApiDataSource(api),
+        ),
     )
     val friendshipGateway: com.gayadi.android.domain.repository.FriendshipGateway = com.gayadi.android.data.remote.travel.ServerFriendshipGateway(api)
     val travelGateway: com.gayadi.android.domain.repository.TravelGateway = com.gayadi.android.data.remote.travel.ServerTravelGateway(api)
+    val agentGateway: com.gayadi.android.domain.repository.AgentGateway = ServerAgentGateway(api)
     private val surveyRepository: SurveyRepository =
         DefaultSurveyRepository(RestSurveyDataSource(api, apiScope))
     val submitSurveyUseCase = SubmitSurveyUseCase(RestSurveySubmissionRepository(api))
