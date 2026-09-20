@@ -532,7 +532,7 @@ class TripViewModel(
             launchRemote("schedule:${schedule.id}") {
                 val request = runCatching {
                     if (schedule.id.toLongOrNull() == null) {
-                        gateway.createSchedule(schedule.tripId, schedule)
+                        createScheduleWithPlaceFallback(gateway, schedule)
                     } else {
                         gateway.updateSchedule(
                             schedule.tripId,
@@ -570,6 +570,29 @@ class TripViewModel(
             val current = state.schedules.filterNot { it.id == schedule.id }
             state.copy(schedules = (current + schedule).normalizeOrders(schedule.tripId))
         }
+    }
+
+    private suspend fun createScheduleWithPlaceFallback(
+        gateway: TravelGateway,
+        schedule: TravelSchedule,
+    ): TravelSchedule {
+        val originalResult = runCatching { gateway.createSchedule(schedule.tripId, schedule) }
+        originalResult.getOrNull()?.let { return it }
+        val originalError = originalResult.exceptionOrNull() ?: error("일정을 저장하지 못했어요")
+        val sourcePlaceId = schedule.placeId
+        if (sourcePlaceId == null || !isUnknownPlaceError(originalError)) throw originalError
+
+        val resolvedPlaceId = runCatching { gateway.findPublicPlaceId(schedule.title) }.getOrNull()
+        if (!resolvedPlaceId.isNullOrBlank() && resolvedPlaceId != sourcePlaceId) {
+            val resolvedResult = runCatching {
+                gateway.createSchedule(schedule.tripId, schedule.copy(placeId = resolvedPlaceId))
+            }
+            resolvedResult.getOrNull()?.let { return it }
+            val resolvedError = resolvedResult.exceptionOrNull()
+            if (resolvedError != null && !isUnknownPlaceError(resolvedError)) throw resolvedError
+        }
+
+        return gateway.createSchedule(schedule.tripId, schedule.copy(placeId = null))
     }
 
     fun addPlaceSchedule(tripId: String, placeId: String, title: String, time: String, memo: String) {

@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.gayadi.android.ui.components.GayadiTopAppBar
+import com.gayadi.android.ui.components.ScheduleOptionsBottomSheet
 import com.gayadi.android.ui.components.UsageGuideCallout
 import com.gayadi.android.ui.components.UsageGuideOverlay
 import com.gayadi.android.ui.components.UsageGuidePlacement
@@ -86,11 +87,17 @@ fun PlaceSearchScreen(
     onFavorites: () -> Unit = {},
     onRequestRecommendations: () -> Unit = {},
     onRecommendationClick: (AgentRecommendation) -> Unit = {},
+    tripName: String = "",
+    tripDate: String = "",
+    scheduledPlaceIds: Set<String> = emptySet(),
+    scheduledPlaceNames: Set<String> = emptySet(),
+    onAddToSchedule: (placeId: String, time: String, memo: String) -> Unit = { _, _, _ -> },
     showUsageGuide: Boolean = false,
     onUsageGuideFinished: () -> Unit = {},
 ) {
     val density = LocalDensity.current
     val filterDialogVisible = remember { mutableStateOf(false) }
+    var schedulePlace by remember { mutableStateOf<PlaceItem?>(null) }
     var isUsageGuideVisible by rememberSaveable { mutableStateOf(showUsageGuide) }
     val firstPlace = uiState.filteredPlaces.firstOrNull()
     var firstPlaceBounds by remember(firstPlace?.id) { mutableStateOf<Rect?>(null) }
@@ -160,6 +167,16 @@ fun PlaceSearchScreen(
                             uiState = recommendationUiState,
                             onRetry = onRequestRecommendations,
                             onRecommendationClick = onRecommendationClick,
+                            scheduledPlaceIds = scheduledPlaceIds,
+                            scheduledPlaceNames = scheduledPlaceNames,
+                            onAddToSchedule = { recommendation ->
+                                val place = uiState.places.firstOrNull {
+                                    it.id == recommendation.placeId ||
+                                        it.name.equals(recommendation.name, ignoreCase = true)
+                                }
+                                if (place != null) schedulePlace = place
+                                else onRecommendationClick(recommendation)
+                            },
                         )
                     }
                     item {
@@ -180,8 +197,10 @@ fun PlaceSearchScreen(
                                         if (place.id == firstPlace?.id) firstPlaceBounds = it.boundsInRoot()
                                     },
                                     isFavorite = place.id in favoritePlaceIds,
+                                    isScheduled = place.id in scheduledPlaceIds || place.name in scheduledPlaceNames,
                                     onClick = { onPlaceClick(place.id) },
                                     onToggleFavorite = { onToggleFavorite(place.id) },
+                                    onAddToSchedule = { schedulePlace = place },
                                 )
                             }
                             if (rowPlaces.size == 1) Spacer(Modifier.weight(1f))
@@ -244,6 +263,18 @@ fun PlaceSearchScreen(
             confirmButton = {},
         )
     }
+
+    schedulePlace?.let { place ->
+        ScheduleOptionsBottomSheet(
+            title = place.name,
+            contextText = listOf(tripName, tripDate).filter(String::isNotBlank).joinToString(" · "),
+            onDismiss = { schedulePlace = null },
+            onConfirm = { time, memo ->
+                onAddToSchedule(place.id, time, memo)
+                schedulePlace = null
+            },
+        )
+    }
 }
 
 @Composable
@@ -251,6 +282,9 @@ private fun AgentRecommendationSection(
     uiState: PlaceRecommendationUiState,
     onRetry: () -> Unit,
     onRecommendationClick: (AgentRecommendation) -> Unit,
+    scheduledPlaceIds: Set<String>,
+    scheduledPlaceNames: Set<String>,
+    onAddToSchedule: (AgentRecommendation) -> Unit,
 ) {
     Column(
         modifier = Modifier.fillMaxWidth()
@@ -301,6 +335,8 @@ private fun AgentRecommendationSection(
                     Text(it, fontSize = 12.sp, color = TextSecondary)
                 }
                 uiState.recommendations.forEach { recommendation ->
+                    val isScheduled = recommendation.placeId in scheduledPlaceIds ||
+                        recommendation.name in scheduledPlaceNames
                     Column(
                         modifier = Modifier.fillMaxWidth()
                             .clip(RoundedCornerShape(14.dp))
@@ -323,6 +359,13 @@ private fun AgentRecommendationSection(
                             )
                         }
                         Text(recommendation.reason, fontSize = 12.sp, color = TextSecondary)
+                        TextButton(
+                            onClick = { onAddToSchedule(recommendation) },
+                            enabled = !isScheduled,
+                            modifier = Modifier.align(Alignment.End),
+                        ) {
+                            Text(if (isScheduled) "일정에 추가됨" else "일정 추가", color = PrimaryBlue)
+                        }
                     }
                 }
             }
@@ -335,8 +378,10 @@ private fun PlaceCard(
     place: PlaceItem,
     modifier: Modifier = Modifier,
     isFavorite: Boolean,
+    isScheduled: Boolean,
     onClick: () -> Unit,
     onToggleFavorite: () -> Unit,
+    onAddToSchedule: () -> Unit,
 ) {
     val (tagBackground, tagText) = when (place.crowdLevel) {
         CrowdLevel.RELAXED -> TagGreen to TagGreenText
@@ -379,6 +424,15 @@ private fun PlaceCard(
                 fontSize = 10.sp,
                 color = tagText,
             )
+        }
+        Spacer(Modifier.height(8.dp))
+        Button(
+            onClick = onAddToSchedule,
+            enabled = !isScheduled,
+            modifier = Modifier.fillMaxWidth().height(36.dp),
+            shape = RoundedCornerShape(8.dp),
+        ) {
+            Text(if (isScheduled) "추가됨" else "일정 추가", fontSize = 12.sp)
         }
     }
 }

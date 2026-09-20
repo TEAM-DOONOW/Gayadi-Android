@@ -15,6 +15,7 @@ import com.gayadi.android.domain.model.ExpenseSettlementSummary
 import com.gayadi.android.domain.error.isCoroutineCancellation
 import com.gayadi.android.domain.error.userFacingMessage
 import com.gayadi.android.domain.model.TravelParticipant
+import com.gayadi.android.domain.model.TravelSchedule
 import com.gayadi.android.ui.screens.ExpenseEditorScreen
 import com.gayadi.android.ui.screens.FavoritePlacesScreen
 import com.gayadi.android.ui.screens.FriendAddScreen
@@ -106,6 +107,7 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
     ) { backStackEntry ->
         val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
         val trip = travelUiState.travelState.trip(tripId)
+        val scheduledPlaces = travelUiState.travelState.schedulesForTrip(tripId)
         val city = trip?.cities?.firstOrNull().orEmpty()
         val placeUiState by placeViewModel.uiState.collectAsStateWithLifecycle()
         val recommendationViewModel: PlaceRecommendationViewModel = viewModel(
@@ -185,6 +187,15 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
                 recommendation.placeId.toLongOrNull()
                     ?.takeIf { it > 0 }
                     ?.let { navController.navigate(Routes.placeDetail(tripId, recommendation.placeId)) }
+            },
+            tripName = trip?.name.orEmpty(),
+            tripDate = trip?.startDate.orEmpty(),
+            scheduledPlaceIds = scheduledPlaces.mapNotNull(TravelSchedule::placeId).toSet(),
+            scheduledPlaceNames = scheduledPlaces.map(TravelSchedule::title).toSet(),
+            onAddToSchedule = { placeId, time, memo ->
+                placeViewModel.findPlace(placeId)?.let { place ->
+                    tripViewModel.addPlaceSchedule(tripId, placeId, place.name, time, memo)
+                }
             },
         )
     }

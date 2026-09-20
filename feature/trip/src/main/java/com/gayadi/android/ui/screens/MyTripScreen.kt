@@ -128,6 +128,7 @@ fun MyTripScreen(
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     var showJoinTripSheet by rememberSaveable { mutableStateOf(false) }
+    var selectedRecommendationCategory by rememberSaveable { mutableStateOf(homeRecommendationCategories.first()) }
     var isUsageGuideVisible by rememberSaveable { mutableStateOf(showUsageGuide) }
     var inviteButtonBounds by remember { mutableStateOf<Rect?>(null) }
     var addButtonBounds by remember { mutableStateOf<Rect?>(null) }
@@ -213,21 +214,24 @@ fun MyTripScreen(
             modifier = Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            listOf("축제·행사", "인기 관광지", "바다 여행", "도시 여행").forEachIndexed { index, label ->
+            homeRecommendationCategories.forEach { label ->
+                val selected = label == selectedRecommendationCategory
                 Text(
                     label,
                     modifier = Modifier
-                        .background(if (index == 0) TripAccentColor else Color.White, RoundedCornerShape(20.dp))
+                        .clip(RoundedCornerShape(20.dp))
+                        .clickable { selectedRecommendationCategory = label }
+                        .background(if (selected) TripAccentColor else Color.White)
                         .padding(horizontal = 20.dp, vertical = 6.dp),
                     fontFamily = PretendardFontFamily,
                     fontSize = 14.sp,
-                    color = if (index == 0) Color.White else TextSecondary,
+                    color = if (selected) Color.White else TextSecondary,
                 )
             }
         }
         Spacer(modifier = Modifier.height(16.dp))
         Box(Modifier.padding(horizontal = 20.dp)) {
-            HomeRecommendationRow()
+            HomeRecommendationRow(selectedRecommendationCategory)
         }
         Spacer(modifier = Modifier.height(28.dp))
         Box(
@@ -424,25 +428,49 @@ private fun JoinTripBottomSheet(onDismiss: () -> Unit, onSubmit: (String) -> Uni
 }
 
 @Composable
-private fun HomeRecommendationRow() {
+private fun HomeRecommendationRow(category: String) {
+    val recommendations = homeRecommendations.getValue(category)
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        HomeRecommendationCard(
-            modifier = Modifier.weight(1f),
-            imageRes = R.drawable.city_pohang,
-            title = "포항국제불빛축제",
-            subtitle = "이번 달 인기 축제",
-        )
-        HomeRecommendationCard(
-            modifier = Modifier.weight(1f),
-            imageRes = R.drawable.city_gyeongju,
-            title = "경주 역사 여행",
-            subtitle = "인기 관광지 TOP 10",
-        )
+        recommendations.forEach { recommendation ->
+            HomeRecommendationCard(
+                modifier = Modifier.weight(1f),
+                imageRes = recommendation.imageRes,
+                title = recommendation.title,
+                subtitle = recommendation.subtitle,
+            )
+        }
     }
 }
+
+private data class HomeRecommendation(
+    val imageRes: Int,
+    val title: String,
+    val subtitle: String,
+)
+
+private val homeRecommendationCategories = listOf("축제·행사", "인기 관광지", "바다 여행", "도시 여행")
+
+private val homeRecommendations = mapOf(
+    "축제·행사" to listOf(
+        HomeRecommendation(R.drawable.city_pohang, "포항국제불빛축제", "이번 달 인기 축제"),
+        HomeRecommendation(R.drawable.city_busan, "부산 불꽃 여행", "밤바다와 함께 즐기는 축제"),
+    ),
+    "인기 관광지" to listOf(
+        HomeRecommendation(R.drawable.city_gyeongju, "경주 역사 여행", "인기 관광지 TOP 10"),
+        HomeRecommendation(R.drawable.city_seoul, "서울 도심 명소", "지금 많이 찾는 관광지"),
+    ),
+    "바다 여행" to listOf(
+        HomeRecommendation(R.drawable.city_jeju, "제주 바다 여행", "오름과 해안을 한 번에"),
+        HomeRecommendation(R.drawable.city_yeosu, "여수 밤바다", "낭만적인 해안 여행"),
+    ),
+    "도시 여행" to listOf(
+        HomeRecommendation(R.drawable.city_seoul, "서울 골목 여행", "문화와 맛집을 함께"),
+        HomeRecommendation(R.drawable.city_busan, "부산 도심 여행", "시장과 해변을 함께"),
+    ),
+)
 
 @Composable
 private fun HomeRecommendationCard(
