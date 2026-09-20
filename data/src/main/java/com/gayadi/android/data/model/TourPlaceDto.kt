@@ -12,5 +12,7 @@ data class TourPlaceDto(
     val lclsSystm1: String = "",
     val lclsSystm2: String = "",
     val lclsSystm3: String = "",
+    val lDongRegnCd: String = "",
+    val lDongSignguCd: String = "",
     val distanceMeters: Int? = null,
 )

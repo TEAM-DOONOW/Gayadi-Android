@@ -15,5 +15,7 @@ fun TourPlaceDto.toDomain() = TourPlace(
     lclsSystm1 = lclsSystm1,
     lclsSystm2 = lclsSystm2,
     lclsSystm3 = lclsSystm3,
+    regionCode = lDongRegnCd,
+    districtCode = lDongSignguCd,
     distanceMeters = distanceMeters,
 )

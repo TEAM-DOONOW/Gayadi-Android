@@ -12,5 +12,7 @@ data class TourPlace(
     val lclsSystm1: String = "",
     val lclsSystm2: String = "",
     val lclsSystm3: String = "",
+    val regionCode: String = "",
+    val districtCode: String = "",
     val distanceMeters: Int? = null,
 )

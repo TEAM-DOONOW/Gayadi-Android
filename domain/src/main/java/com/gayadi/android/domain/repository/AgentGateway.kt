@@ -18,6 +18,8 @@ interface AgentGateway {
         tripId: String,
         latitude: Double,
         longitude: Double,
+        regionCode: String = "",
+        districtCode: String = "",
         keywords: List<String> = emptyList(),
     ): AgentSituationResponse
 

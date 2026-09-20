@@ -15,7 +15,15 @@ class TourApiPlaceRepositoryTest {
         val source = RecordingTourRepository { query ->
             Result.success(
                 when {
-                    query.contentTypeId == 12 -> listOf(tourPlace("attraction", "성산일출봉", ""))
+                    query.contentTypeId == 12 -> listOf(
+                        tourPlace(
+                            "attraction",
+                            "성산일출봉",
+                            "",
+                            regionCode = "50",
+                            districtCode = "130",
+                        ),
+                    )
                     query.lclsSystm2 == "FD01" -> emptyList()
                     query.lclsSystm2 == "FD05" -> listOf(tourPlace("cafe", "성산다원", ""))
                     query.contentTypeId == 39 -> listOf(
@@ -49,6 +57,8 @@ class TourApiPlaceRepositoryTest {
             ),
             places.associate { it.id to (it.category to it.emoji) },
         )
+        assertEquals("50", places.single { it.id == "attraction" }.regionCode)
+        assertEquals("130", places.single { it.id == "attraction" }.districtCode)
     }
 
     @Test
@@ -255,6 +265,8 @@ private fun tourPlace(
     contentTypeId: String,
     lclsSystm2: String = "",
     lclsSystm3: String = "",
+    regionCode: String = "",
+    districtCode: String = "",
 ) = TourPlace(
     contentId = contentId,
     title = title,
@@ -266,4 +278,6 @@ private fun tourPlace(
     contentTypeId = contentTypeId,
     lclsSystm2 = lclsSystm2,
     lclsSystm3 = lclsSystm3,
+    regionCode = regionCode,
+    districtCode = districtCode,
 )

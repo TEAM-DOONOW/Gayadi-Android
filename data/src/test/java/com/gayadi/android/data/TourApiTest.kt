@@ -40,7 +40,9 @@ class TourApiTest {
                 "mapY": "35.0052",
                 "lclsSystm1": "FD",
                 "lclsSystm2": "FD05",
-                "lclsSystm3": "FD050100"
+                "lclsSystm3": "FD050100",
+                "lDongRegnCd": "46",
+                "lDongSignguCd": "170"
               }]
             }
             """.trimIndent(),
@@ -53,6 +55,8 @@ class TourApiTest {
         assertEquals("FD", places.single().lclsSystm1)
         assertEquals("FD05", places.single().lclsSystm2)
         assertEquals("FD050100", places.single().lclsSystm3)
+        assertEquals("46", places.single().lDongRegnCd)
+        assertEquals("170", places.single().lDongSignguCd)
     }
 
     @Test
@@ -80,12 +84,16 @@ class TourApiTest {
             lclsSystm1 = "FD",
             lclsSystm2 = "FD05",
             lclsSystm3 = "FD050100",
+            lDongRegnCd = "11",
+            lDongSignguCd = "110",
         ).toDomain()
 
         assertEquals("39", place.contentTypeId)
         assertEquals("FD", place.lclsSystm1)
         assertEquals("FD05", place.lclsSystm2)
         assertEquals("FD050100", place.lclsSystm3)
+        assertEquals("11", place.regionCode)
+        assertEquals("110", place.districtCode)
     }
 
     @Test

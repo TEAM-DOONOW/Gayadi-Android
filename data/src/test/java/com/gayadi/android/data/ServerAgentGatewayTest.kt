@@ -75,7 +75,13 @@ class ServerAgentGatewayTest {
             ))
             val gateway = ServerAgentGateway(GayadiApiClient(server.url("/").toString(), TestAuthRepository()))
 
-            val response = gateway.analyzeSituation("3", 37.5, 127.0)
+            val response = gateway.analyzeSituation(
+                "3",
+                37.5,
+                127.0,
+                regionCode = "11",
+                districtCode = "110",
+            )
 
             assertEquals("국립중앙박물관", response.recommendations.single().name)
             assertEquals("7", response.changeProposal?.id)
@@ -83,7 +89,10 @@ class ServerAgentGatewayTest {
             val request = server.takeRequest(1, TimeUnit.SECONDS)!!
             assertEquals("/api/v1/trips/3/situation-responses", request.path)
             assertEquals("Bearer access", request.getHeader("Authorization"))
-            assertTrue(JSONObject(request.body.readUtf8()).getBoolean("externalProcessingConsent"))
+            val body = JSONObject(request.body.readUtf8())
+            assertEquals("11", body.getString("regionCode"))
+            assertEquals("110", body.getString("sigunguCode"))
+            assertTrue(body.getBoolean("externalProcessingConsent"))
         }
     }
 

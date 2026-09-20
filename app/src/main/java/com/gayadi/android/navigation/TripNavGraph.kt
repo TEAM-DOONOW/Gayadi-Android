@@ -288,7 +288,12 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
                 val origin = placeUiState.places.firstOrNull {
                     it.latitude != null && it.longitude != null
                 }
-                agentViewModel.analyze(origin?.latitude, origin?.longitude)
+                agentViewModel.analyze(
+                    latitude = origin?.latitude,
+                    longitude = origin?.longitude,
+                    regionCode = origin?.regionCode.orEmpty(),
+                    districtCode = origin?.districtCode.orEmpty(),
+                )
             },
             onRetry = agentViewModel::refresh,
             onSelectOption = agentViewModel::selectOption,

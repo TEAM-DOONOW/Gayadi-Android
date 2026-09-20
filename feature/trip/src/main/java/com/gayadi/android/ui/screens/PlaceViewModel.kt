@@ -41,6 +41,8 @@ data class PlaceItem(
     val longitude: Double? = null,
     val latitude: Double? = null,
     val hasRealtimeDetails: Boolean = true,
+    val regionCode: String = "",
+    val districtCode: String = "",
 )
 
 data class PlaceUiState(
@@ -166,6 +168,8 @@ class TourApiPlaceRepository(
             longitude = longitude,
             latitude = latitude,
             hasRealtimeDetails = false,
+            regionCode = regionCode,
+            districtCode = districtCode,
         )
     }
 

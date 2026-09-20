@@ -71,7 +71,12 @@ class AgentViewModel(
         }
     }
 
-    fun analyze(latitude: Double?, longitude: Double?) {
+    fun analyze(
+        latitude: Double?,
+        longitude: Double?,
+        regionCode: String = "",
+        districtCode: String = "",
+    ) {
         val id = tripId
         if (id == null) {
             _uiState.update { it.copy(errorMessage = "먼저 여행을 만들어 주세요.") }
@@ -83,7 +88,15 @@ class AgentViewModel(
         }
         _uiState.update { it.copy(isAnalyzing = true, errorMessage = null) }
         viewModelScope.launch(ioDispatcher) {
-            runCatching { gateway.analyzeSituation(id, latitude, longitude) }.fold(
+            runCatching {
+                gateway.analyzeSituation(
+                    id,
+                    latitude,
+                    longitude,
+                    regionCode = regionCode,
+                    districtCode = districtCode,
+                )
+            }.fold(
                 onSuccess = { response ->
                     _uiState.update { state ->
                         val proposal = response.changeProposal

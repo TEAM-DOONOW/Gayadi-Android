@@ -44,11 +44,15 @@ class ServerAgentGateway(
         tripId: String,
         latitude: Double,
         longitude: Double,
+        regionCode: String,
+        districtCode: String,
         keywords: List<String>,
     ): AgentSituationResponse {
         val request = JSONObject()
             .put("latitude", latitude)
             .put("longitude", longitude)
+            .put("regionCode", regionCode)
+            .put("sigunguCode", districtCode)
             .put("keywords", JSONArray(keywords.take(10)))
             .put("limit", 5)
             .put("targetAt", OffsetDateTime.now(ZoneId.of("Asia/Seoul")).toString())

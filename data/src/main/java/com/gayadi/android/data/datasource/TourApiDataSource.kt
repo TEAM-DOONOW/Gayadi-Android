@@ -349,6 +349,8 @@ class HttpTourApiDataSource(
                         lclsSystm1 = item.optString("lclsSystm1"),
                         lclsSystm2 = item.optString("lclsSystm2"),
                         lclsSystm3 = item.optString("lclsSystm3"),
+                        lDongRegnCd = item.optString("lDongRegnCd"),
+                        lDongSignguCd = item.optString("lDongSignguCd"),
                         distanceMeters = item.optNullableInt("dist"),
                     ),
                 )
