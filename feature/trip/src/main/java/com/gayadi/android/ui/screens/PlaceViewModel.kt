@@ -506,8 +506,9 @@ class PlaceViewModel(
         }
         result.fold(
             onSuccess = { places ->
-                knownPlaces.putAll(places.associateBy(PlaceItem::id))
-                _uiState.update { it.copy(places = places, isLoading = false, errorMessage = null) }
+                val enrichedPlaces = places.map(::restoreKnownPlaceDetails)
+                knownPlaces.putAll(enrichedPlaces.associateBy(PlaceItem::id))
+                _uiState.update { it.copy(places = enrichedPlaces, isLoading = false, errorMessage = null) }
             },
             onFailure = { error ->
                 if (error is CancellationException && !viewModelScope.isActive) throw error
@@ -523,6 +524,24 @@ class PlaceViewModel(
                     }
                 }
             },
+        )
+    }
+
+    private fun restoreKnownPlaceDetails(place: PlaceItem): PlaceItem {
+        val known = knownPlaces[place.id]
+            ?: knownPlaces.values.firstOrNull { it.name.equals(place.name, ignoreCase = true) }
+            ?: return place
+        return place.copy(
+            imageUrl = place.imageUrl.ifBlank { known.imageUrl },
+            longitude = place.longitude ?: known.longitude,
+            latitude = place.latitude ?: known.latitude,
+            regionCode = place.regionCode.ifBlank { known.regionCode },
+            districtCode = place.districtCode.ifBlank { known.districtCode },
+            concentrationScore = place.concentrationScore ?: known.concentrationScore,
+            crowdSource = place.crowdSource.ifBlank { known.crowdSource },
+            crowdConfidence = place.crowdConfidence.ifBlank { known.crowdConfidence },
+            crowdMessage = place.crowdMessage.ifBlank { known.crowdMessage },
+            hasRealtimeDetails = place.hasRealtimeDetails || known.hasRealtimeDetails,
         )
     }
 

@@ -1,6 +1,7 @@
 package com.gayadi.android.data.repository
 
 import com.gayadi.android.data.datasource.AuthApiDataSource
+import com.gayadi.android.data.datasource.AuthTokenRequestException
 import com.gayadi.android.domain.model.AuthSession
 import com.gayadi.android.domain.repository.AuthRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,21 +22,21 @@ class DefaultAuthRepository(
         authApiDataSource.exchangeGoogleIdToken(idToken).also(::replaceSession)
 
     override suspend fun refreshSession(): AuthSession = refreshMutex.withLock {
-        val current = requireNotNull(sessionState.value) { "로그인 세션이 없습니다." }
-        require(!current.isRefreshTokenExpired(epochSeconds())) { "로그인 세션이 만료되었습니다." }
-        authApiDataSource.refreshToken(current.refreshToken).also(::replaceSession)
+        val current = sessionState.value ?: throw expiredSession()
+        if (current.isRefreshTokenExpired(epochSeconds())) throw expiredSession()
+        refresh(current)
     }
 
     override suspend fun validAccessToken(): String {
         val current = requireNotNull(sessionState.value) { "로그인 세션이 없습니다." }
         if (!current.isAccessTokenExpiring(epochSeconds())) return current.accessToken
         return refreshMutex.withLock {
-            val latest = requireNotNull(sessionState.value) { "로그인 세션이 없습니다." }
+            val latest = sessionState.value ?: throw expiredSession()
             if (!latest.isAccessTokenExpiring(epochSeconds())) {
                 latest.accessToken
             } else {
-                require(!latest.isRefreshTokenExpired(epochSeconds())) { "로그인 세션이 만료되었습니다." }
-                authApiDataSource.refreshToken(latest.refreshToken).also(::replaceSession).accessToken
+                if (latest.isRefreshTokenExpired(epochSeconds())) throw expiredSession()
+                refresh(latest).accessToken
             }
         }
     }
@@ -52,6 +53,29 @@ class DefaultAuthRepository(
     private fun replaceSession(newSession: AuthSession) {
         sessionStore.save(newSession)
         sessionState.value = newSession
+    }
+
+    private suspend fun refresh(session: AuthSession): AuthSession = try {
+        authApiDataSource.refreshToken(session.refreshToken).also(::replaceSession)
+    } catch (error: AuthTokenRequestException) {
+        if (
+            error.statusCode == 400 ||
+            error.statusCode == 401 ||
+            error.statusCode == 403 ||
+            error.errorCode.equals("AUTH_REFRESH_TOKEN_INVALID", ignoreCase = true)
+        ) {
+            throw expiredSession(error)
+        }
+        throw error
+    }
+
+    private fun expiredSession(cause: Throwable? = null): IllegalStateException {
+        clearSession()
+        return IllegalStateException(SESSION_EXPIRED_MESSAGE, cause)
+    }
+
+    private companion object {
+        const val SESSION_EXPIRED_MESSAGE = "로그인이 만료되었어요. 다시 로그인해 주세요."
     }
 }
 

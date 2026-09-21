@@ -76,7 +76,7 @@ fun RealtimeHomeScreen(
     onNavigateMyTrip: () -> Unit,
     onNavigateMyPage: () -> Unit,
     onNavigateLedger: () -> Unit = {},
-    onNavigatePlaceSearch: () -> Unit,
+    onNavigatePlaceSearch: (String) -> Unit,
     onNavigateParticipants: () -> Unit,
     onUpdateSchedule: (scheduleId: String, time: String, memo: String) -> Unit,
     onAddScheduleExpense: (scheduleId: String, time: String, memo: String) -> Unit,
@@ -196,7 +196,7 @@ fun RealtimeHomeScreen(
                     TripDaySection(
                         day = day,
                         plans = travelPlans.filter { it.date == day.date },
-                        onAddPlace = onNavigatePlaceSearch,
+                        onAddPlace = { onNavigatePlaceSearch(day.date) },
                         onPlanClick = { selectedPlan = it },
                         onAddPlaceBoundsChanged = if (dayIndex == 0) ({ addPlaceBounds = it }) else null,
                         highlightedPlanId = firstPlanId,
@@ -284,7 +284,11 @@ fun RealtimeHomeScreen(
                     onDismiss = finishGuide,
                     onTargetClick = { index ->
                         finishGuide()
-                        if (index == 0) onNavigateParticipants() else onNavigatePlaceSearch()
+                        if (index == 0) {
+                            onNavigateParticipants()
+                        } else {
+                            tripDays.firstOrNull()?.date?.let(onNavigatePlaceSearch)
+                        }
                     },
                 )
             }
@@ -352,7 +356,7 @@ private fun RealtimeHomePreview() {
             tripTitle = "제주 여행",
             onNavigateMyTrip = {},
             onNavigateMyPage = {},
-            onNavigatePlaceSearch = {},
+            onNavigatePlaceSearch = { _ -> },
             onNavigateParticipants = {},
             onUpdateSchedule = { _, _, _ -> },
             onAddScheduleExpense = { _, _, _ -> },

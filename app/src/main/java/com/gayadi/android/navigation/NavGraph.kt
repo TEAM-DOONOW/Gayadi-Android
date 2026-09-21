@@ -35,6 +35,9 @@ fun GayadiNavHost(appContainer: AppContainer) {
         ),
     )
     val googleLoginUiState by googleLoginViewModel.uiState.collectAsStateWithLifecycle()
+    val authSession by appContainer.authRepository.observeSession().collectAsStateWithLifecycle(
+        initialValue = appContainer.authRepository.currentSession(),
+    )
     val tripViewModel: TripViewModel = viewModel(
         factory = TripViewModel.factory(
             appContainer.getTravelStateUseCase,
@@ -104,6 +107,16 @@ fun GayadiNavHost(appContainer: AppContainer) {
         }
         googleLoginViewModel.consumeCompletion()
     }
+    LaunchedEffect(authSession) {
+        if (authSession != null) return@LaunchedEffect
+        val route = navController.currentDestination?.route
+        if (route != null && route !in unauthenticatedRoutes) {
+            navController.navigate(Routes.LOGIN) {
+                popUpTo(navController.graph.id) { inclusive = true }
+                launchSingleTop = true
+            }
+        }
+    }
 
     val navigationContext = AppNavigationContext(
         navController = navController,
@@ -121,6 +134,7 @@ fun GayadiNavHost(appContainer: AppContainer) {
     )
 
     travelUiState.errorMessage
+        ?.takeIf { authSession != null }
         ?.takeUnless { it.isCoroutineCancellationMessage() }
         ?.let { message ->
             AlertDialog(
@@ -137,6 +151,12 @@ fun GayadiNavHost(appContainer: AppContainer) {
         myPageGraph(navigationContext)
     }
 }
+
+private val unauthenticatedRoutes = setOf(
+    Routes.STARTUP,
+    Routes.LOGIN,
+    Routes.LEGAL_DOCUMENT,
+)
 
 internal fun resolveStartupDestination(profile: UserProfile?): String = when {
     profile?.nickname.isNullOrBlank() -> Routes.LOGIN

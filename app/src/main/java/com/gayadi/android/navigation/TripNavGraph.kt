@@ -103,10 +103,19 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
     }
     composable(
         route = Routes.PLACE_SEARCH,
-        arguments = listOf(navArgument("tripId") { type = NavType.StringType }),
+        arguments = listOf(
+            navArgument("tripId") { type = NavType.StringType },
+            navArgument("date") {
+                type = NavType.StringType
+                defaultValue = ""
+            },
+        ),
     ) { backStackEntry ->
         val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
         val trip = travelUiState.travelState.trip(tripId)
+        val selectedDate = backStackEntry.arguments?.getString("date")
+            ?.takeIf(String::isNotBlank)
+            ?: trip?.startDate.orEmpty()
         val scheduledPlaces = travelUiState.travelState.schedulesForTrip(tripId)
         val city = trip?.cities?.firstOrNull().orEmpty()
         val placeUiState by placeViewModel.uiState.collectAsStateWithLifecycle()
@@ -163,7 +172,7 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
             onBack = { navController.popBackStack() },
             onQueryChange = placeViewModel::updateQuery,
             onCategorySelected = placeViewModel::selectCategory,
-            onPlaceClick = { id -> navController.navigate(Routes.placeDetail(tripId, id)) },
+            onPlaceClick = { id -> navController.navigate(Routes.placeDetail(tripId, id, selectedDate)) },
             onRetry = placeViewModel::retry,
             favoritePlaceIds = travelUiState.travelState.favoritePlaceIds,
             onToggleFavorite = { id ->
@@ -186,15 +195,17 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
                 placeViewModel.applyAgentRecommendations(listOf(recommendation))
                 recommendation.placeId.toLongOrNull()
                     ?.takeIf { it > 0 }
-                    ?.let { navController.navigate(Routes.placeDetail(tripId, recommendation.placeId)) }
+                    ?.let {
+                        navController.navigate(Routes.placeDetail(tripId, recommendation.placeId, selectedDate))
+                    }
             },
             tripName = trip?.name.orEmpty(),
-            tripDate = trip?.startDate.orEmpty(),
+            tripDate = selectedDate,
             scheduledPlaceIds = scheduledPlaces.mapNotNull(TravelSchedule::placeId).toSet(),
             scheduledPlaceNames = scheduledPlaces.map(TravelSchedule::title).toSet(),
             onAddToSchedule = { placeId, time, memo ->
                 placeViewModel.findPlace(placeId)?.let { place ->
-                    tripViewModel.addPlaceSchedule(tripId, placeId, place.name, time, memo)
+                    tripViewModel.addPlaceSchedule(tripId, placeId, place.name, selectedDate, time, memo)
                 }
             },
         )
@@ -204,12 +215,19 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
         arguments = listOf(
             navArgument("tripId") { type = NavType.StringType },
             navArgument("placeId") { type = NavType.StringType },
+            navArgument("date") {
+                type = NavType.StringType
+                defaultValue = ""
+            },
         ),
     ) { backStackEntry ->
         val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
         val placeId = requireNotNull(backStackEntry.arguments?.getString("placeId"))
         val travelState = travelUiState.travelState
         val trip = travelState.trip(tripId)
+        val selectedDate = backStackEntry.arguments?.getString("date")
+            ?.takeIf(String::isNotBlank)
+            ?: trip?.startDate.orEmpty()
         val androidContext = LocalContext.current
         val placeUiState by placeViewModel.uiState.collectAsStateWithLifecycle()
         val place = placeUiState.places.firstOrNull { it.id == placeId }
@@ -227,12 +245,12 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
             },
             place = place,
             tripName = trip?.name.orEmpty(),
-            tripDate = trip?.startDate.orEmpty(),
+            tripDate = selectedDate,
             isScheduled = travelState.schedulesForTrip(tripId).any { it.placeId == placeId },
             onBack = { navController.popBackStack() },
             onAddToSchedule = { time, memo ->
                 placeViewModel.findPlace(placeId)?.let { place ->
-                    tripViewModel.addPlaceSchedule(tripId, placeId, place.name, time, memo)
+                    tripViewModel.addPlaceSchedule(tripId, placeId, place.name, selectedDate, time, memo)
                 }
             },
             isFavorite = placeId in travelState.favoritePlaceIds,
@@ -642,7 +660,7 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
             onNavigateMyTrip = { navController.navigate(Routes.MY_TRIP) },
             onNavigateMyPage = { navController.navigate(Routes.MY_PAGE) },
             onNavigateLedger = { navController.navigate(Routes.tripLedger(tripId)) },
-            onNavigatePlaceSearch = { navController.navigate(Routes.placeSearch(tripId)) },
+            onNavigatePlaceSearch = { date -> navController.navigate(Routes.placeSearch(tripId, date)) },
             onNavigateParticipants = { navController.navigate(Routes.tripInviteCode(tripId)) },
             onUpdateSchedule = { scheduleId, time, memo ->
                 tripSchedules.firstOrNull { it.id == scheduleId }?.let { schedule ->

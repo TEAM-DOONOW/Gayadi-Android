@@ -9,6 +9,9 @@ import com.gayadi.android.domain.model.TravelSchedule
 import com.gayadi.android.domain.model.TravelState
 import com.gayadi.android.domain.model.TravelTrip
 import com.gayadi.android.domain.model.TripStatus
+import com.gayadi.android.domain.model.AuthSession
+import com.gayadi.android.domain.model.AuthUser
+import com.gayadi.android.domain.repository.AuthRepository
 import com.gayadi.android.domain.repository.TravelRepository
 import com.gayadi.android.domain.usecase.GetTravelStateUseCase
 import com.gayadi.android.domain.usecase.SaveTravelStateUseCase
@@ -24,6 +27,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -644,12 +648,59 @@ class TripViewModelTest {
         )
         advanceUntilIdle()
 
-        viewModel.addPlaceSchedule("trip-28", "tour-source-7", "테스트 명소", "10:00", "")
+        viewModel.addPlaceSchedule(
+            "trip-28",
+            "tour-source-7",
+            "테스트 명소",
+            "2026.08.09",
+            "10:00",
+            "",
+        )
         advanceUntilIdle()
 
         assertEquals(listOf("tour-source-7", "canonical-7"), attemptedPlaceIds)
         assertEquals("canonical-7", viewModel.schedulesForTrip("trip-28").single().placeId)
         assertEquals("테스트 명소", viewModel.schedulesForTrip("trip-28").single().title)
+        assertEquals("2026.08.09", viewModel.schedulesForTrip("trip-28").single().date)
+    }
+
+    @Test
+    fun clearedAuthSession_discardsRemoteTravelStateAndErrors() = runTest(dispatcher) {
+        val repository = MemoryTravelRepository()
+        val gateway = java.lang.reflect.Proxy.newProxyInstance(
+            com.gayadi.android.domain.repository.TravelGateway::class.java.classLoader,
+            arrayOf(com.gayadi.android.domain.repository.TravelGateway::class.java),
+        ) { _, method, _ ->
+            when (method.name) {
+                "listTrips" -> emptyList<TravelTrip>()
+                "listFavoritePlaceIds" -> emptySet<String>()
+                else -> error("Unexpected gateway call: ${method.name}")
+            }
+        } as com.gayadi.android.domain.repository.TravelGateway
+        val auth = MutableAuthRepository(
+            AuthSession(
+                "access", "Bearer", 3600, "refresh", 3600, 0,
+                AuthUser(42, "테스트", "test@example.invalid"),
+            ),
+        )
+        val viewModel = TripViewModel(
+            SavedStateHandle(),
+            GetTravelStateUseCase(repository),
+            SaveTravelStateUseCase(repository),
+            dispatcher,
+            travelGateway = gateway,
+            authRepository = auth,
+        )
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.hasLoadedTravelState)
+
+        auth.clearSession()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.isLoading)
+        assertFalse(viewModel.uiState.value.hasLoadedTravelState)
+        assertNull(viewModel.uiState.value.errorMessage)
+        assertTrue(viewModel.uiState.value.travelState.trips.isEmpty())
     }
 
     private fun viewModel(
@@ -710,6 +761,17 @@ class TripViewModelTest {
         cities = cities,
         coverImageResList = coverImageResList,
     )
+}
+
+private class MutableAuthRepository(initial: AuthSession?) : AuthRepository {
+    private val session = MutableStateFlow(initial)
+
+    override suspend fun signInWithGoogle(idToken: String): AuthSession = error("Not used")
+    override suspend fun refreshSession(): AuthSession = error("Not used")
+    override suspend fun validAccessToken(): String = requireNotNull(session.value).accessToken
+    override fun currentSession(): AuthSession? = session.value
+    override fun observeSession() = session
+    override fun clearSession() { session.value = null }
 }
 
 private class MemoryTravelRepository(initial: TravelState = TravelState()) : TravelRepository {
