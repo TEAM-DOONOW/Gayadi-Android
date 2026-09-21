@@ -143,44 +143,51 @@ fun PlaceSearchScreen(
             }
             Spacer(Modifier.height(12.dp))
 
-            when {
-                uiState.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = PrimaryBlue)
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp),
+            ) {
+                item {
+                    AgentRecommendationSection(
+                        uiState = recommendationUiState,
+                        onRetry = onRequestRecommendations,
+                        onRecommendationClick = onRecommendationClick,
+                        scheduledPlaceIds = scheduledPlaceIds,
+                        scheduledPlaceNames = scheduledPlaceNames,
+                        onAddToSchedule = { recommendation ->
+                            val place = uiState.places.firstOrNull {
+                                it.id == recommendation.placeId ||
+                                    it.name.equals(recommendation.name, ignoreCase = true)
+                            }
+                            if (place != null) schedulePlace = place
+                            else onRecommendationClick(recommendation)
+                        },
+                    )
                 }
-                uiState.errorMessage != null -> Column(
-                    Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Text(uiState.errorMessage, color = TextSecondary)
-                    Button(onClick = onRetry) { Text("다시 시도") }
-                }
-                uiState.filteredPlaces.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("조건에 맞는 장소가 없어요", color = TextSecondary)
-                }
-                else -> LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
-                    verticalArrangement = Arrangement.spacedBy(18.dp),
-                ) {
-                    item {
-                        AgentRecommendationSection(
-                            uiState = recommendationUiState,
-                            onRetry = onRequestRecommendations,
-                            onRecommendationClick = onRecommendationClick,
-                            scheduledPlaceIds = scheduledPlaceIds,
-                            scheduledPlaceNames = scheduledPlaceNames,
-                            onAddToSchedule = { recommendation ->
-                                val place = uiState.places.firstOrNull {
-                                    it.id == recommendation.placeId ||
-                                        it.name.equals(recommendation.name, ignoreCase = true)
-                                }
-                                if (place != null) schedulePlace = place
-                                else onRecommendationClick(recommendation)
-                            },
-                        )
+                when {
+                    uiState.isLoading -> item {
+                        Box(Modifier.fillMaxWidth().height(240.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = PrimaryBlue)
+                        }
                     }
-                    item {
-                        Text(
+                    uiState.errorMessage != null -> item {
+                        Column(
+                            Modifier.fillMaxWidth().height(240.dp),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Text(uiState.errorMessage, color = TextSecondary)
+                            Button(onClick = onRetry) { Text("다시 시도") }
+                        }
+                    }
+                    uiState.filteredPlaces.isEmpty() -> item {
+                        Box(Modifier.fillMaxWidth().height(240.dp), contentAlignment = Alignment.Center) {
+                            Text("조건에 맞는 장소가 없어요", color = TextSecondary)
+                        }
+                    }
+                    else -> {
+                        item {
+                            Text(
                             "${uiState.regionName}의 모든 장소",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
@@ -206,7 +213,8 @@ fun PlaceSearchScreen(
                             if (rowPlaces.size == 1) Spacer(Modifier.weight(1f))
                         }
                     }
-                    item { Spacer(Modifier.height(24.dp)) }
+                        item { Spacer(Modifier.height(24.dp)) }
+                    }
                 }
             }
         }

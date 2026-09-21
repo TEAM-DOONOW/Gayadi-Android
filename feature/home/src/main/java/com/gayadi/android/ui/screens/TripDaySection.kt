@@ -81,7 +81,7 @@ internal fun TripDaySection(
         onClick = onAddPlace,
         modifier = Modifier
             .fillMaxWidth()
-            .height(34.dp)
+            .height(48.dp)
             .then(
                 if (onAddPlaceBoundsChanged != null) {
                     Modifier.onGloballyPositioned { onAddPlaceBoundsChanged(it.boundsInRoot()) }

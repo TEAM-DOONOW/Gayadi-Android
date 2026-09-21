@@ -648,12 +648,20 @@ class TripViewModelTest {
         )
         advanceUntilIdle()
 
-        viewModel.addPlaceSchedule("trip-28", "tour-source-7", "테스트 명소", "10:00", "")
+        viewModel.addPlaceSchedule(
+            "trip-28",
+            "tour-source-7",
+            "테스트 명소",
+            "2026.08.09",
+            "10:00",
+            "",
+        )
         advanceUntilIdle()
 
         assertEquals(listOf("tour-source-7", "canonical-7"), attemptedPlaceIds)
         assertEquals("canonical-7", viewModel.schedulesForTrip("trip-28").single().placeId)
         assertEquals("테스트 명소", viewModel.schedulesForTrip("trip-28").single().title)
+        assertEquals("2026.08.09", viewModel.schedulesForTrip("trip-28").single().date)
     }
 
     @Test

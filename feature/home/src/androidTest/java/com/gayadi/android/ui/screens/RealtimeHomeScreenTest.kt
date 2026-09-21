@@ -32,7 +32,7 @@ class RealtimeHomeScreenTest {
                     onNavigateMyTrip = {},
                     onNavigateMyPage = {},
                     onNavigateLedger = {},
-                    onNavigatePlaceSearch = {},
+                    onNavigatePlaceSearch = { _ -> },
                     onNavigateParticipants = {},
                     onUpdateSchedule = { _, _, _ -> },
                     onAddScheduleExpense = { _, _, _ -> },
@@ -50,7 +50,7 @@ class RealtimeHomeScreenTest {
     @Test
     fun primaryHomeActionsAreAccessibleAndLargeEnough() {
         var participantsOpened = false
-        var placeSearchOpened = false
+        var selectedDate: String? = null
         composeRule.setContent {
             GayadiTheme {
                 RealtimeHomeScreen(
@@ -61,7 +61,7 @@ class RealtimeHomeScreenTest {
                     onNavigateMyTrip = {},
                     onNavigateMyPage = {},
                     onNavigateLedger = {},
-                    onNavigatePlaceSearch = { placeSearchOpened = true },
+                    onNavigatePlaceSearch = { selectedDate = it },
                     onNavigateParticipants = { participantsOpened = true },
                     onUpdateSchedule = { _, _, _ -> },
                     onAddScheduleExpense = { _, _, _ -> },
@@ -80,7 +80,7 @@ class RealtimeHomeScreenTest {
             .performClick()
 
         assertTrue(participantsOpened)
-        assertTrue(placeSearchOpened)
+        assertTrue(selectedDate == "2026.08.21")
     }
 
 }

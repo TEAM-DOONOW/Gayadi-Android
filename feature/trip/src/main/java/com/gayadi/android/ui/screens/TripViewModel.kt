@@ -600,8 +600,19 @@ class TripViewModel(
         return gateway.createSchedule(schedule.tripId, schedule.copy(placeId = null))
     }
 
-    fun addPlaceSchedule(tripId: String, placeId: String, title: String, time: String, memo: String) {
+    fun addPlaceSchedule(
+        tripId: String,
+        placeId: String,
+        title: String,
+        date: String,
+        time: String,
+        memo: String,
+    ) {
         val trip = _uiState.value.travelState.trips.find { it.id == tripId } ?: return
+        if (date < trip.startDate || date > trip.endDate) {
+            _uiState.update { it.copy(errorMessage = "선택한 날짜가 여행 기간에 포함되지 않아요.") }
+            return
+        }
         val order = schedulesForTrip(tripId).size
         upsertSchedule(
             TravelSchedule(
@@ -609,7 +620,7 @@ class TripViewModel(
                 tripId = tripId,
                 title = title,
                 placeId = placeId,
-                date = trip.startDate,
+                date = date,
                 time = time,
                 order = order,
                 memo = memo,

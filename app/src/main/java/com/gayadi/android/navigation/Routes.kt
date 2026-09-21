@@ -8,8 +8,8 @@ object Routes {
     const val SURVEY_RESULT = "survey_result/{resultCode}"
     const val FRIEND_ADD = "friend_add"
     const val FRIEND_ADD_WITH_CODE = "friend_add?inviteCode={inviteCode}"
-    const val PLACE_SEARCH = "place_search/{tripId}"
-    const val PLACE_DETAIL = "place_detail/{tripId}/{placeId}"
+    const val PLACE_SEARCH = "place_search/{tripId}?date={date}"
+    const val PLACE_DETAIL = "place_detail/{tripId}/{placeId}?date={date}"
     const val MY_TRIP = "my_trip"
     const val TRIP_CREATE = "trip_create"
     const val TRIP_EDIT = "trip_edit/{tripId}"
@@ -33,8 +33,10 @@ object Routes {
     const val INQUIRY = "inquiry"
     const val AGENT = "agent"
 
-    fun placeSearch(tripId: String) = "place_search/$tripId"
-    fun placeDetail(tripId: String, placeId: String) = "place_detail/$tripId/$placeId"
+    fun placeSearch(tripId: String, date: String? = null) =
+        "place_search/$tripId" + (date?.takeIf(String::isNotBlank)?.let { "?date=$it" } ?: "")
+    fun placeDetail(tripId: String, placeId: String, date: String? = null) =
+        "place_detail/$tripId/$placeId" + (date?.takeIf(String::isNotBlank)?.let { "?date=$it" } ?: "")
     fun surveyResult(resultCode: String) = "survey_result/$resultCode"
     fun realtimeHome(tripId: String) = "realtime_home/$tripId"
     fun tripEdit(tripId: String) = "trip_edit/$tripId"

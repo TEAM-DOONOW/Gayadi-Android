@@ -13,6 +13,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.gayadi.android.domain.model.AgentRecommendation
 import com.gayadi.android.ui.theme.GayadiTheme
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -170,6 +171,62 @@ class PlaceSearchScreenTest {
             assertTrue(addedPlaceId == "42")
             assertTrue(addedTime == "10:00")
         }
+    }
+
+    @Test
+    fun agentRecommendationsStayVisibleWhilePlaceListIsLoading() {
+        composeRule.setContent {
+            GayadiTheme {
+                PlaceSearchScreen(
+                    uiState = PlaceUiState(isLoading = true),
+                    recommendationUiState = PlaceRecommendationUiState(
+                        recommendations = listOf(
+                            AgentRecommendation(
+                                placeId = "42",
+                                sourcePlaceId = "126508",
+                                name = "국립중앙박물관",
+                                category = "CULTURE",
+                                score = 0.91,
+                                reason = "실내 관람이 가능해요.",
+                            ),
+                        ),
+                    ),
+                    onBack = {},
+                    onQueryChange = {},
+                    onCategorySelected = {},
+                    onPlaceClick = {},
+                    onRetry = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("가야디 에이전트 추천").assertIsDisplayed()
+        composeRule.onNodeWithText("국립중앙박물관").assertIsDisplayed()
+    }
+
+    @Test
+    fun placeImageIsExposedWhenApiProvidesAnImageUrl() {
+        composeRule.setContent {
+            GayadiTheme {
+                PlaceSearchScreen(
+                    uiState = PlaceUiState(
+                        places = listOf(
+                            tourApiPlace("42", "사진 명소", "관광명소", "🏞️").copy(
+                                imageUrl = "https://images.example/place.jpg",
+                            ),
+                        ),
+                        isLoading = false,
+                    ),
+                    onBack = {},
+                    onQueryChange = {},
+                    onCategorySelected = {},
+                    onPlaceClick = {},
+                    onRetry = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithContentDescription("사진 명소 이미지").performScrollTo().assertIsDisplayed()
     }
 }
 

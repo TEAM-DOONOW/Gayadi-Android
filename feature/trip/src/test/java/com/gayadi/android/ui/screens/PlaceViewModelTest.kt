@@ -162,4 +162,51 @@ class PlaceViewModelTest {
         assertEquals(2, repository.loads)
         assertEquals(listOf("재조회 장소"), viewModel.uiState.value.places.map(PlaceItem::name))
     }
+
+    @Test
+    fun searchResultRestoresImageFromPreviouslyLoadedPlace() {
+        val repository = object : PlaceRepository {
+            override suspend fun getPlaces(regionName: String) = Result.success(
+                listOf(
+                    PlaceItem(
+                        id = "tour-126508",
+                        name = "국립중앙박물관",
+                        category = "문화",
+                        rating = 0.0,
+                        reviews = 0,
+                        crowdLevel = CrowdLevel.NORMAL,
+                        emoji = "🎨",
+                        description = "서울 용산구",
+                        imageUrl = "https://images.example/museum.jpg",
+                    ),
+                ),
+            )
+
+            override suspend fun searchPlaces(regionName: String, keyword: String) = Result.success(
+                listOf(
+                    PlaceItem(
+                        id = "42",
+                        name = "국립중앙박물관",
+                        category = "문화",
+                        rating = 0.0,
+                        reviews = 0,
+                        crowdLevel = CrowdLevel.NORMAL,
+                        emoji = "🎨",
+                        description = "서울 용산구",
+                    ),
+                ),
+            )
+        }
+        val viewModel = PlaceViewModel(repository)
+
+        viewModel.updateQuery("박물관")
+        dispatcher.scheduler.advanceTimeBy(300)
+        dispatcher.scheduler.runCurrent()
+
+        assertEquals("42", viewModel.uiState.value.places.single().id)
+        assertEquals(
+            "https://images.example/museum.jpg",
+            viewModel.uiState.value.places.single().imageUrl,
+        )
+    }
 }
