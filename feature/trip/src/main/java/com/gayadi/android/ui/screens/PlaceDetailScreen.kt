@@ -21,9 +21,11 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -44,14 +46,20 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.gayadi.android.domain.model.CongestionHourlyForecast
+import com.gayadi.android.domain.model.CongestionHourlyPoint
 import com.gayadi.android.ui.components.GayadiTopAppBar
 import com.gayadi.android.ui.components.ScheduleOptionsBottomSheet
 import com.gayadi.android.ui.components.UsageGuideCallout
 import com.gayadi.android.ui.components.UsageGuideOverlay
 import com.gayadi.android.ui.components.UsageGuidePlacement
 import com.gayadi.android.ui.theme.GayadiTheme
+import com.gayadi.android.ui.theme.CrowdedHigh
+import com.gayadi.android.ui.theme.CrowdedLow
+import com.gayadi.android.ui.theme.CrowdedMedium
 import com.gayadi.android.ui.theme.PrimaryAction
 import com.gayadi.android.ui.theme.PrimaryBlue
+import com.gayadi.android.ui.theme.SurfaceCard
 import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary
 import com.gayadi.android.ui.theme.TextTertiary
@@ -69,6 +77,8 @@ fun PlaceDetailScreen(
     onNearby: () -> Unit = {},
     showUsageGuide: Boolean = false,
     onUsageGuideFinished: () -> Unit = {},
+    hourlyUiState: CongestionHourlyUiState = CongestionHourlyUiState(),
+    onHourlyRetry: () -> Unit = {},
 ) {
     var showScheduleOptions by rememberSaveable { mutableStateOf(false) }
     var isUsageGuideVisible by rememberSaveable { mutableStateOf(showUsageGuide) }
@@ -146,7 +156,12 @@ fun PlaceDetailScreen(
                 if (place.hasRealtimeDetails) {
                     Spacer(Modifier.height(24.dp))
                     Text("실시간 혼잡도", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                    Text("현재 ${place.crowdLevel.label} · 예상 대기 5분", fontSize = 12.sp, color = TextSecondary)
+                    Text(
+                        "현재 ${place.crowdLevel.label}" +
+                            (place.concentrationScore?.let { " · 혼잡 점수 $it" }.orEmpty()),
+                        fontSize = 12.sp,
+                        color = TextSecondary,
+                    )
                     Spacer(Modifier.height(10.dp))
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -159,20 +174,10 @@ fun PlaceDetailScreen(
                         }
                     }
                     Spacer(Modifier.height(12.dp))
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FB)),
-                    ) {
-                        Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-                            listOf("11시" to 24, "13시" to 40, "15시" to 58, "17시" to 32).forEach { (hour, height) ->
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Box(Modifier.width(30.dp).height(height.dp).background(PrimaryBlue, RoundedCornerShape(4.dp)))
-                                    Text(hour, fontSize = 10.sp, color = TextTertiary)
-                                }
-                            }
-                        }
-                    }
+                    CongestionHourlyCard(
+                        hourlyUiState = hourlyUiState,
+                        onRetry = onHourlyRetry,
+                    )
                 }
                 Spacer(Modifier.height(24.dp))
                 Button(
@@ -235,6 +240,94 @@ fun PlaceDetailScreen(
     }
 }
 
+@Composable
+private fun CongestionHourlyCard(
+    hourlyUiState: CongestionHourlyUiState,
+    onRetry: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = SurfaceCard),
+    ) {
+        Column(Modifier.fillMaxWidth().padding(16.dp)) {
+            Text("시간대별 혼잡 예상", fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(4.dp))
+            when {
+                hourlyUiState.isLoading -> {
+                    Row(
+                        Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                        horizontalArrangement = Arrangement.Center,
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
+                hourlyUiState.errorMessage != null -> {
+                    Text(
+                        hourlyUiState.errorMessage,
+                        fontSize = 12.sp,
+                        color = TextSecondary,
+                    )
+                    TextButton(onClick = onRetry) { Text("다시 시도") }
+                }
+                hourlyUiState.forecast == null || hourlyUiState.forecast.points.isEmpty() -> {
+                    Text(
+                        "지역 코드가 있는 장소에서 시간대별 예상을 볼 수 있어요",
+                        fontSize = 12.sp,
+                        color = TextSecondary,
+                    )
+                }
+                else -> {
+                    val forecast = hourlyUiState.forecast
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.Bottom,
+                    ) {
+                        forecast.points.forEach { point ->
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    "${point.concentrationScore}",
+                                    fontSize = 10.sp,
+                                    color = TextTertiary,
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Box(
+                                    Modifier.width(30.dp)
+                                        .height(hourlyBarHeight(point.concentrationScore))
+                                        .background(
+                                            hourlyLevelColor(point.level),
+                                            RoundedCornerShape(4.dp),
+                                        ),
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text("${point.hour}시", fontSize = 10.sp, color = TextTertiary)
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        forecast.message.ifBlank { "시간대별 값은 추정치이므로 실제 혼잡과 다를 수 있어요" },
+                        fontSize = 11.sp,
+                        color = TextSecondary,
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun hourlyLevelColor(level: String): Color = when (level.trim().uppercase()) {
+    "RELAXED" -> CrowdedLow
+    "CROWDED" -> CrowdedHigh
+    else -> CrowdedMedium
+}
+
+private fun hourlyBarHeight(score: Int): androidx.compose.ui.unit.Dp {
+    val clamped = score.coerceIn(0, 100)
+    return (6 + (58 * clamped / 100)).dp
+}
+
 @Preview(showBackground = true)
 @Composable
 private fun PlaceDetailPreview() {
@@ -244,6 +337,19 @@ private fun PlaceDetailPreview() {
             isScheduled = false,
             onBack = {},
             onAddToSchedule = { _, _ -> },
+            hourlyUiState = CongestionHourlyUiState(
+                forecast = CongestionHourlyForecast(
+                    placeName = "명진전복",
+                    points = listOf(
+                        CongestionHourlyPoint(hour = 9, concentrationScore = 38, level = "RELAXED"),
+                        CongestionHourlyPoint(hour = 11, concentrationScore = 55, level = "NORMAL"),
+                        CongestionHourlyPoint(hour = 13, concentrationScore = 72, level = "CROWDED"),
+                        CongestionHourlyPoint(hour = 15, concentrationScore = 68, level = "NORMAL"),
+                        CongestionHourlyPoint(hour = 17, concentrationScore = 52, level = "NORMAL"),
+                        CongestionHourlyPoint(hour = 19, concentrationScore = 40, level = "NORMAL"),
+                    ),
+                ),
+            ),
         )
     }
 }

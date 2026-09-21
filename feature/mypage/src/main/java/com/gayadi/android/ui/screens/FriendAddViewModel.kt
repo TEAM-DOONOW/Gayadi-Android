@@ -5,6 +5,8 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.lifecycle.viewModelScope
 import com.gayadi.android.domain.model.TravelParticipant
+import com.gayadi.android.domain.error.rethrowCancellation
+import com.gayadi.android.domain.error.userFacingMessage
 import com.gayadi.android.domain.usecase.JoinTripByInviteCodeUseCase
 import java.util.Locale
 import kotlinx.coroutines.CoroutineDispatcher
@@ -117,7 +119,8 @@ class FriendAddViewModel(
                     }
                 },
                 onFailure = { error ->
-                    _uiState.update { it.copy(codeMessage = error.message ?: "여행에 참여하지 못했어요") }
+                    error.rethrowCancellation()
+                    _uiState.update { it.copy(codeMessage = error.userFacingMessage("여행에 참여하지 못했어요")) }
                 },
             )
             } finally { _uiState.update { it.copy(isJoining = false) } }
@@ -127,7 +130,11 @@ class FriendAddViewModel(
     fun addFriend(friendId: String) {
         repository.addFriend(friendId).fold(
             onSuccess = { loadFriends() },
-            onFailure = { error -> _uiState.update { it.copy(errorMessage = error.message) } },
+            onFailure = { error ->
+                _uiState.update {
+                    it.copy(errorMessage = error.userFacingMessage("친구를 추가하지 못했어요"))
+                }
+            },
         )
     }
 
@@ -143,7 +150,7 @@ class FriendAddViewModel(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        errorMessage = error.message ?: "친구 목록을 불러오지 못했습니다.",
+                        errorMessage = error.userFacingMessage("친구 목록을 불러오지 못했습니다."),
                     )
                 }
             },

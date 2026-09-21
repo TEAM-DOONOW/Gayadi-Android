@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.gayadi.android.ui.theme.TextSecondary
+import java.net.URI
 import org.json.JSONArray
 
 @Composable
@@ -185,5 +186,21 @@ internal fun TravelRoutePreview(
     }
 }
 
-internal fun kakaoWebViewOrigin(@Suppress("UNUSED_PARAMETER") baseUrl: String): String =
-    "https://localhost"
+internal fun kakaoWebViewOrigin(baseUrl: String): String {
+    val uri = runCatching { URI(baseUrl.trim()) }
+        .getOrElse { error -> throw IllegalArgumentException("Invalid Kakao map base URL", error) }
+    val scheme = uri.scheme?.lowercase()
+    require(scheme == "http" || scheme == "https") {
+        "Kakao map base URL must use HTTP or HTTPS."
+    }
+    val host = requireNotNull(uri.host) { "Kakao map base URL must include a host." }
+    return buildString {
+        append(scheme)
+        append("://")
+        append(host)
+        if (uri.port != -1) {
+            append(':')
+            append(uri.port)
+        }
+    }
+}

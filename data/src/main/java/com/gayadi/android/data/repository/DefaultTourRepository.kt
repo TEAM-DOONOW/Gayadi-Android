@@ -41,7 +41,7 @@ class DefaultTourRepository(
                 maxPages = maxPages,
                 regionName = regionName,
             ).map { it.toDomain() }
-                .also { cache[cacheKey] = it },
+                .also { places -> if (places.isNotEmpty()) cache[cacheKey] = places },
         )
     } catch (cancellation: CancellationException) {
         throw cancellation

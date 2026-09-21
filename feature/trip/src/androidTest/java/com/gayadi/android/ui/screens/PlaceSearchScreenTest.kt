@@ -4,10 +4,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.gayadi.android.ui.theme.GayadiTheme
@@ -83,8 +86,8 @@ class PlaceSearchScreenTest {
             }
         }
 
-        composeRule.onNodeWithText("서울 · 4곳").assertIsDisplayed()
-        composeRule.onNodeWithText("광장시장").assertIsDisplayed()
+        composeRule.onNodeWithText("서울의 모든 장소").assertIsDisplayed()
+        composeRule.onNodeWithText("광장시장").performScrollTo().assertIsDisplayed()
     }
 
     @Test
@@ -114,20 +117,59 @@ class PlaceSearchScreenTest {
             }
         }
 
-        composeRule.onNodeWithText("장소 추천 · 1곳").assertIsDisplayed()
-        composeRule.onNodeWithText("실데이터 관광명소").assertIsDisplayed()
+        composeRule.onNodeWithText("실데이터 관광명소").performScrollTo().assertIsDisplayed()
 
+        composeRule.onNodeWithContentDescription("장소 필터").performClick()
         composeRule.onNodeWithText("맛집").performClick()
-        composeRule.onNodeWithText("실데이터 맛집").assertIsDisplayed()
+        composeRule.onNodeWithText("실데이터 맛집").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("실데이터 관광명소").assertDoesNotExist()
 
+        composeRule.onNodeWithContentDescription("장소 필터").performClick()
         composeRule.onNodeWithText("카페").performClick()
-        composeRule.onNodeWithText("실데이터 카페").assertIsDisplayed()
+        composeRule.onNodeWithText("실데이터 카페").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("실데이터 맛집").assertDoesNotExist()
 
+        composeRule.onNodeWithContentDescription("장소 필터").performClick()
         composeRule.onNodeWithText("숙소").performClick()
-        composeRule.onNodeWithText("실데이터 숙소").assertIsDisplayed()
+        composeRule.onNodeWithText("실데이터 숙소").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("실데이터 카페").assertDoesNotExist()
+    }
+
+    @Test
+    fun placeCanBeAddedToScheduleDirectlyFromTheList() {
+        var addedPlaceId: String? = null
+        var addedTime: String? = null
+        composeRule.setContent {
+            GayadiTheme {
+                PlaceSearchScreen(
+                    uiState = PlaceUiState(
+                        regionName = "서울",
+                        places = listOf(tourApiPlace("42", "목록 명소", "관광명소", "🏞️")),
+                        isLoading = false,
+                    ),
+                    onBack = {},
+                    onQueryChange = {},
+                    onCategorySelected = {},
+                    onPlaceClick = {},
+                    onRetry = {},
+                    tripName = "서울 여행",
+                    tripDate = "2026.09.21",
+                    onAddToSchedule = { placeId, time, _ ->
+                        addedPlaceId = placeId
+                        addedTime = time
+                    },
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("일정 추가").performScrollTo().performClick()
+        composeRule.onNodeWithText("여행 일정에 추가").assertIsDisplayed()
+        composeRule.onAllNodesWithText("일정에 추가").onLast().performClick()
+
+        composeRule.runOnIdle {
+            assertTrue(addedPlaceId == "42")
+            assertTrue(addedTime == "10:00")
+        }
     }
 }
 

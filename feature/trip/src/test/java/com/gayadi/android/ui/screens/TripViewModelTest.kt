@@ -15,6 +15,7 @@ import com.gayadi.android.domain.usecase.SaveTravelStateUseCase
 import com.gayadi.android.domain.usecase.UpdateTravelStateUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -485,6 +486,54 @@ class TripViewModelTest {
     }
 
     @Test
+    fun wrappedCoroutineCancellationIsNotShownAsRawMessage() = runTest(dispatcher) {
+        val repository = object : TravelRepository {
+            override suspend fun getTravelState(): Result<TravelState> =
+                Result.failure(IllegalStateException("StandaloneCoroutine was cancelled"))
+
+            override suspend fun saveTravelState(state: TravelState): Result<Unit> =
+                Result.success(Unit)
+        }
+        val viewModel = TripViewModel(
+            SavedStateHandle(),
+            GetTravelStateUseCase(repository),
+            SaveTravelStateUseCase(repository),
+            dispatcher,
+            updateTravelState = UpdateTravelStateUseCase(repository),
+        )
+
+        advanceUntilIdle()
+
+        assertEquals("여행 정보를 불러오지 못했어요", viewModel.uiState.value.errorMessage)
+        assertFalse(viewModel.uiState.value.hasLoadedTravelState)
+    }
+
+    @Test
+    fun retryWhileInitialLoadIsRunningReusesTheActiveRequest() = runTest(dispatcher) {
+        val repository = BlockingTravelRepository()
+        val viewModel = TripViewModel(
+            SavedStateHandle(),
+            GetTravelStateUseCase(repository),
+            SaveTravelStateUseCase(repository),
+            dispatcher,
+            updateTravelState = UpdateTravelStateUseCase(repository),
+        )
+        runCurrent()
+
+        viewModel.retry()
+        runCurrent()
+
+        assertEquals(1, repository.loadCount)
+        assertFalse(repository.firstLoadCancelled)
+
+        repository.releaseLoad.complete(Unit)
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.hasLoadedTravelState)
+        assertNull(viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
     fun inviteCodeGenerationStopsAfterMaximumAttempts() = runTest(dispatcher) {
         val existingTrip = TravelTrip(
             id = "existing",
@@ -548,6 +597,59 @@ class TripViewModelTest {
         assertTrue(vm.addTrip(sampleTrip()).isFailure)
         advanceUntilIdle()
         assertTrue(repository.state.trips.isEmpty())
+    }
+
+    @Test
+    fun placeScheduleResolvesSourcePlaceIdBeforeSaving() = runTest(dispatcher) {
+        val repository = MemoryTravelRepository()
+        val attemptedPlaceIds = mutableListOf<String?>()
+        val gateway = java.lang.reflect.Proxy.newProxyInstance(
+            com.gayadi.android.domain.repository.TravelGateway::class.java.classLoader,
+            arrayOf(com.gayadi.android.domain.repository.TravelGateway::class.java),
+        ) { _, method, args ->
+            when (method.name) {
+                "listTrips" -> listOf(sampleTrip().toExistingDomain())
+                "listParticipants", "listInvitations", "listSchedules", "listExpenses" -> emptyList<Any>()
+                "listFavoritePlaceIds" -> emptySet<String>()
+                "findPublicPlaceId" -> "canonical-7"
+                "createSchedule" -> {
+                    val schedule = args!![1] as TravelSchedule
+                    attemptedPlaceIds += schedule.placeId
+                    if (schedule.placeId == "tour-source-7") {
+                        throw IllegalStateException("HTTP 404 place not found")
+                    }
+                    schedule.copy(id = "schedule-7")
+                }
+                else -> error("Unexpected gateway call: ${method.name}")
+            }
+        } as com.gayadi.android.domain.repository.TravelGateway
+        val session = com.gayadi.android.domain.model.AuthSession(
+            "test", "Bearer", 3600, "refresh", 3600, 0,
+            com.gayadi.android.domain.model.AuthUser(42, "테스트", "test@example.invalid"),
+        )
+        val auth = object : com.gayadi.android.domain.repository.AuthRepository {
+            override fun currentSession() = session
+            override fun clearSession() {}
+            override suspend fun validAccessToken() = session.accessToken
+            override suspend fun refreshSession() = session
+            override suspend fun signInWithGoogle(idToken: String) = session
+        }
+        val viewModel = TripViewModel(
+            SavedStateHandle(),
+            GetTravelStateUseCase(repository),
+            SaveTravelStateUseCase(repository),
+            dispatcher,
+            travelGateway = gateway,
+            authRepository = auth,
+        )
+        advanceUntilIdle()
+
+        viewModel.addPlaceSchedule("trip-28", "tour-source-7", "테스트 명소", "10:00", "")
+        advanceUntilIdle()
+
+        assertEquals(listOf("tour-source-7", "canonical-7"), attemptedPlaceIds)
+        assertEquals("canonical-7", viewModel.schedulesForTrip("trip-28").single().placeId)
+        assertEquals("테스트 명소", viewModel.schedulesForTrip("trip-28").single().title)
     }
 
     private fun viewModel(
@@ -637,4 +739,23 @@ private class FailingTravelRepository : TravelRepository {
     override suspend fun getTravelState(): Result<TravelState> = Result.failure(error)
 
     override suspend fun saveTravelState(state: TravelState): Result<Unit> = Result.failure(error)
+}
+
+private class BlockingTravelRepository : TravelRepository {
+    val releaseLoad = CompletableDeferred<Unit>()
+    var loadCount = 0
+    var firstLoadCancelled = false
+
+    override suspend fun getTravelState(): Result<TravelState> {
+        loadCount += 1
+        return try {
+            releaseLoad.await()
+            Result.success(TravelState())
+        } catch (cancelled: CancellationException) {
+            firstLoadCancelled = true
+            throw cancelled
+        }
+    }
+
+    override suspend fun saveTravelState(state: TravelState): Result<Unit> = Result.success(Unit)
 }

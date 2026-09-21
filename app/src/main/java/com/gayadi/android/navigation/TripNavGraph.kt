@@ -12,7 +12,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
 import com.gayadi.android.domain.model.ExpenseSettlementSummary
+import com.gayadi.android.domain.error.isCoroutineCancellation
+import com.gayadi.android.domain.error.userFacingMessage
 import com.gayadi.android.domain.model.TravelParticipant
+import com.gayadi.android.domain.model.TravelSchedule
 import com.gayadi.android.ui.screens.ExpenseEditorScreen
 import com.gayadi.android.ui.screens.FavoritePlacesScreen
 import com.gayadi.android.ui.screens.FriendAddScreen
@@ -23,11 +26,14 @@ import com.gayadi.android.ui.screens.NearbyPlacesScreen
 import com.gayadi.android.ui.screens.ParticipantsScreen
 import com.gayadi.android.ui.screens.PlaceDetailScreen
 import com.gayadi.android.ui.screens.PlaceSearchScreen
+import com.gayadi.android.ui.screens.PlaceRecommendationViewModel
 import com.gayadi.android.ui.screens.RealtimeHomeScreen
 import com.gayadi.android.ui.screens.RealtimeHomeViewModel
 import com.gayadi.android.ui.screens.SettlementDetailsScreen
 import com.gayadi.android.ui.screens.TravelLedgerScreen
 import com.gayadi.android.ui.screens.TripCreateScreen
+import com.gayadi.android.ui.screens.AgentScreen
+import com.gayadi.android.ui.screens.AgentViewModel
 
 internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(context) {
     composable(
@@ -97,9 +103,50 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
         arguments = listOf(navArgument("tripId") { type = NavType.StringType }),
     ) { backStackEntry ->
         val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
-        val city = travelUiState.travelState.trip(tripId)?.cities?.firstOrNull().orEmpty()
+        val trip = travelUiState.travelState.trip(tripId)
+        val scheduledPlaces = travelUiState.travelState.schedulesForTrip(tripId)
+        val city = trip?.cities?.firstOrNull().orEmpty()
         val placeUiState by placeViewModel.uiState.collectAsStateWithLifecycle()
+        val recommendationViewModel: PlaceRecommendationViewModel = viewModel(
+            key = "place-recommendations-$tripId",
+            factory = PlaceRecommendationViewModel.factory(appContainer.agentGateway),
+        )
+        val recommendationUiState by recommendationViewModel.uiState.collectAsStateWithLifecycle()
+        val destination = city.ifBlank { "제주 성산" }
+        val recommendationRegionReady =
+            placeUiState.regionName == destination && !placeUiState.isLoading
+        val recommendationOrigin = placeUiState.places
+            .takeIf { recommendationRegionReady }
+            ?.firstOrNull { it.latitude != null && it.longitude != null }
+        val recommendationContextReady = recommendationRegionReady && recommendationOrigin != null
+        val recommendationProfile = sharedProfileUiState.profile?.let { profile ->
+            buildList {
+                profile.travelStyleName?.takeIf(String::isNotBlank)?.let(::add)
+                addAll(profile.strengths)
+                profile.introduction.takeIf(String::isNotBlank)?.let(::add)
+            }.joinToString(", ")
+        }.orEmpty().ifBlank { "새로운 장소를 발견하고 여유롭게 여행하는 것을 좋아해요." }
         LaunchedEffect(tripId, city) { placeViewModel.setRegion(city) }
+        LaunchedEffect(
+            tripId,
+            recommendationContextReady,
+            recommendationOrigin?.latitude,
+            recommendationOrigin?.longitude,
+            recommendationProfile,
+        ) {
+            if (!recommendationContextReady) return@LaunchedEffect
+            recommendationViewModel.recommend(
+                destination = destination,
+                profile = recommendationProfile,
+                latitude = recommendationOrigin?.latitude,
+                longitude = recommendationOrigin?.longitude,
+                keywords = emptyList(),
+                groupSize = trip?.participantIds?.size?.coerceAtLeast(1) ?: 1,
+            )
+        }
+        LaunchedEffect(recommendationUiState.recommendations) {
+            placeViewModel.applyAgentRecommendations(recommendationUiState.recommendations)
+        }
         val androidContext = LocalContext.current
         PlaceSearchScreen(
             showUsageGuide = remember(androidContext) {
@@ -109,6 +156,7 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
                 UsageGuidePreferences.markCompleted(androidContext, UsageGuidePreferences.PlaceSearch)
             },
             uiState = placeUiState,
+            recommendationUiState = recommendationUiState,
             onBack = { navController.popBackStack() },
             onQueryChange = placeViewModel::updateQuery,
             onCategorySelected = placeViewModel::selectCategory,
@@ -120,6 +168,32 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
             },
             onNearby = { navController.navigate(Routes.nearbyPlaces(tripId)) },
             onFavorites = { navController.navigate(Routes.favoritePlaces(tripId)) },
+            onRequestRecommendations = {
+                recommendationViewModel.recommend(
+                    destination = destination,
+                    profile = recommendationProfile,
+                    latitude = recommendationOrigin?.latitude,
+                    longitude = recommendationOrigin?.longitude,
+                    keywords = placeUiState.query.trim().takeIf(String::isNotBlank)?.let(::listOf).orEmpty(),
+                    groupSize = trip?.participantIds?.size?.coerceAtLeast(1) ?: 1,
+                    force = true,
+                )
+            },
+            onRecommendationClick = { recommendation ->
+                placeViewModel.applyAgentRecommendations(listOf(recommendation))
+                recommendation.placeId.toLongOrNull()
+                    ?.takeIf { it > 0 }
+                    ?.let { navController.navigate(Routes.placeDetail(tripId, recommendation.placeId)) }
+            },
+            tripName = trip?.name.orEmpty(),
+            tripDate = trip?.startDate.orEmpty(),
+            scheduledPlaceIds = scheduledPlaces.mapNotNull(TravelSchedule::placeId).toSet(),
+            scheduledPlaceNames = scheduledPlaces.map(TravelSchedule::title).toSet(),
+            onAddToSchedule = { placeId, time, memo ->
+                placeViewModel.findPlace(placeId)?.let { place ->
+                    tripViewModel.addPlaceSchedule(tripId, placeId, place.name, time, memo)
+                }
+            },
         )
     }
     composable(
@@ -134,6 +208,13 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
         val travelState = travelUiState.travelState
         val trip = travelState.trip(tripId)
         val androidContext = LocalContext.current
+        val placeUiState by placeViewModel.uiState.collectAsStateWithLifecycle()
+        val place = placeUiState.places.firstOrNull { it.id == placeId }
+            ?: placeViewModel.findPlace(placeId)
+        val hourlyUiState by placeViewModel.hourlyUiState.collectAsStateWithLifecycle()
+        LaunchedEffect(placeId, place?.regionCode, place?.districtCode) {
+            placeViewModel.loadCongestionHourly(placeId)
+        }
         PlaceDetailScreen(
             showUsageGuide = remember(androidContext) {
                 !UsageGuidePreferences.hasCompleted(androidContext, UsageGuidePreferences.PlaceDetail)
@@ -141,7 +222,7 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
             onUsageGuideFinished = {
                 UsageGuidePreferences.markCompleted(androidContext, UsageGuidePreferences.PlaceDetail)
             },
-            place = placeViewModel.findPlace(placeId),
+            place = place,
             tripName = trip?.name.orEmpty(),
             tripDate = trip?.startDate.orEmpty(),
             isScheduled = travelState.schedulesForTrip(tripId).any { it.placeId == placeId },
@@ -156,6 +237,8 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
                 tripViewModel.toggleFavorite(placeId, placeViewModel.findPlace(placeId)?.name)
             },
             onNearby = { navController.navigate(Routes.nearbyPlaces(tripId, placeId)) },
+            hourlyUiState = hourlyUiState,
+            onHourlyRetry = { placeViewModel.loadCongestionHourly(placeId) },
         )
     }
     composable(Routes.MY_TRIP) {
@@ -186,6 +269,42 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
                 }
             },
             onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+            onOpenAgent = { navController.navigate(Routes.AGENT) },
+        )
+    }
+    composable(Routes.AGENT) {
+        val activeTrip = selectedTripId
+            ?.let(travelUiState.travelState::trip)
+            ?: travelUiState.travelState.trips.firstOrNull { it.status != com.gayadi.android.domain.model.TripStatus.COMPLETED }
+        val agentViewModel: AgentViewModel = viewModel(
+            key = "agent-${activeTrip?.id ?: "empty"}",
+            factory = AgentViewModel.factory(activeTrip?.id, appContainer.agentGateway),
+        )
+        val agentUiState by agentViewModel.uiState.collectAsStateWithLifecycle()
+        val placeUiState by placeViewModel.uiState.collectAsStateWithLifecycle()
+        val city = activeTrip?.cities?.firstOrNull().orEmpty()
+        LaunchedEffect(activeTrip?.id, city) {
+            if (city.isNotBlank()) placeViewModel.setRegion(city)
+        }
+        AgentScreen(
+            tripName = activeTrip?.name,
+            uiState = agentUiState,
+            onBack = { navController.popBackStack() },
+            onAnalyze = {
+                val origin = placeUiState.places.firstOrNull {
+                    it.latitude != null && it.longitude != null
+                }
+                agentViewModel.analyze(
+                    latitude = origin?.latitude,
+                    longitude = origin?.longitude,
+                    regionCode = origin?.regionCode.orEmpty(),
+                    districtCode = origin?.districtCode.orEmpty(),
+                )
+            },
+            onRetry = agentViewModel::refresh,
+            onSelectOption = agentViewModel::selectOption,
+            onApprove = { agentViewModel.decide(it, approve = true) },
+            onReject = { agentViewModel.decide(it, approve = false) },
         )
     }
     composable(Routes.TRIP_CREATE) {
@@ -307,8 +426,10 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
             }
         }
         val settlementResult = tripViewModel.settlementForTrip(tripId)
-        val settlementErrorMessage = settlementResult.exceptionOrNull()?.let { error ->
-            error.message ?: "비용 정산 정보를 계산하지 못했어요"
+        val settlementErrorMessage = settlementResult.exceptionOrNull()
+            ?.takeUnless { it.isCoroutineCancellation() }
+            ?.let { error ->
+            error.userFacingMessage("비용 정산 정보를 계산하지 못했어요")
         }
         TravelLedgerScreen(
             tripName = travelState.trip(tripId)?.name.orEmpty(),
@@ -467,7 +588,7 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
             tripEndDate = trip?.endDate.orEmpty(),
             tripCoverImageResList = tripSummary?.coverImageResList.orEmpty(),
             kakaoMapJavaScriptKey = com.gayadi.android.BuildConfig.KAKAO_MAP_JAVASCRIPT_SDK,
-            kakaoMapBaseUrl = "https://localhost",
+            kakaoMapBaseUrl = com.gayadi.android.BuildConfig.KAKAO_MAP_BASE_URL,
             friendCharacterKeys = tripParticipants.map { it.characterKey },
             showUsageGuide = remember(androidContext) {
                 !UsageGuidePreferences.hasCompleted(androidContext, UsageGuidePreferences.TripHome)

@@ -52,8 +52,35 @@ class TravelFlowScreenTest {
             }
         }
 
-        composeRule.onNodeWithText("초대 코드로 여행 참여하기").assertIsDisplayed().performClick()
+        composeRule.onNodeWithContentDescription("초대 코드로 여행 참여")
+            .assertIsDisplayed()
+            .performClick()
+        composeRule.onNodeWithText("초대코드로 여행 참여").assertIsDisplayed()
+        composeRule.onNodeWithText("여행 초대코드").performTextInput("ABC123")
+        composeRule.onNodeWithText("참여하기").performClick()
         composeRule.runOnIdle { assertTrue(opened) }
+    }
+
+    @Test
+    fun homeRecommendationCategoryChangesDisplayedCards() {
+        composeRule.setContent {
+            GayadiTheme {
+                MyTripScreen(
+                    trips = emptyList(),
+                    onAddTrip = {},
+                    onJoinTrip = {},
+                    onOpenTripDetail = {},
+                    onDeleteTrip = {},
+                    onOpenSettings = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("인기 관광지").performClick()
+
+        composeRule.onNodeWithText("경주 역사 여행").assertIsDisplayed()
+        composeRule.onNodeWithText("서울 도심 명소").assertIsDisplayed()
+        composeRule.onNodeWithText("포항국제불빛축제").assertDoesNotExist()
     }
 
     @Test

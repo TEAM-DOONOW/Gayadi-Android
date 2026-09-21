@@ -21,4 +21,6 @@ internal data class AppNavigationContext(
     val travelUiState: TravelUiState,
     val sharedProfileViewModel: ProfileViewModel,
     val sharedProfileUiState: ProfileUiState,
+    val googleLoginViewModel: GoogleLoginViewModel,
+    val googleLoginUiState: GoogleLoginUiState,
 )

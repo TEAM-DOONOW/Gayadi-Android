@@ -1,5 +1,6 @@
 package com.gayadi.android.data.repository
 
+import com.gayadi.android.domain.error.runCatchingPreservingCancellation
 import com.gayadi.android.domain.model.InvitationStatus
 import com.gayadi.android.domain.model.LOCAL_CURRENT_USER_ID
 import com.gayadi.android.domain.model.ExpenseCategory
@@ -30,13 +31,13 @@ class FileTravelRepository(
 ) : TravelRepository {
     override suspend fun getTravelState(): Result<TravelState> = withContext(ioDispatcher) {
         mutexFor(file).withLock {
-            runCatching(::readState)
+            runCatchingPreservingCancellation(::readState)
         }
     }
 
     override suspend fun saveTravelState(state: TravelState): Result<Unit> = withContext(ioDispatcher) {
         mutexFor(file).withLock {
-            runCatching { writeState(state) }
+            runCatchingPreservingCancellation { writeState(state) }
         }
     }
 
@@ -44,7 +45,7 @@ class FileTravelRepository(
         transform: (TravelState) -> TravelState,
     ): Result<TravelState> = withContext(ioDispatcher) {
         mutexFor(file).withLock {
-            runCatching {
+            runCatchingPreservingCancellation {
                 val updated = transform(readState())
                 writeState(updated)
                 updated

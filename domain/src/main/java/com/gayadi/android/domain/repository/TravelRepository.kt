@@ -1,5 +1,7 @@
 package com.gayadi.android.domain.repository
 
+import com.gayadi.android.domain.error.rethrowCancellation
+import com.gayadi.android.domain.error.runCatchingPreservingCancellation
 import com.gayadi.android.domain.model.TravelState
 
 /** Persists the complete Android-local travel aggregate until server APIs are connected. */
@@ -15,8 +17,12 @@ interface TravelRepository {
      * compatible.
      */
     suspend fun updateTravelState(transform: (TravelState) -> TravelState): Result<TravelState> {
-        val current = getTravelState().getOrElse { return Result.failure(it) }
-        val updated = runCatching { transform(current) }.getOrElse { return Result.failure(it) }
+        val current = getTravelState().getOrElse { error ->
+            error.rethrowCancellation()
+            return Result.failure(error)
+        }
+        val updated = runCatchingPreservingCancellation { transform(current) }
+            .getOrElse { return Result.failure(it) }
         return saveTravelState(updated).map { updated }
     }
 }

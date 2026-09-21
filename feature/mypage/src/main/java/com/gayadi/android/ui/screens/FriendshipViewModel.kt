@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.gayadi.android.domain.repository.*
+import com.gayadi.android.domain.error.rethrowCancellation
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -38,7 +39,10 @@ class FriendshipViewModel(private val gateway: FriendshipGateway) : ViewModel() 
         viewModelScope.launch {
             try { action() }
             catch (e: CancellationException) { throw e }
-            catch (e: Exception) { mutable.update { it.copy(error = e.message ?: "요청을 처리하지 못했어요") } }
+            catch (e: Exception) {
+                e.rethrowCancellation()
+                mutable.update { it.copy(error = e.message ?: "요청을 처리하지 못했어요") }
+            }
             finally { mutable.update { it.copy(busy = false) } }
         }
     }

@@ -9,6 +9,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.CancellationException
+import com.gayadi.android.domain.error.rethrowCancellation
+import com.gayadi.android.domain.error.userFacingMessage
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -40,7 +43,7 @@ class BasicInfoViewModel(
                 if (!state.canSubmit) return
                 _uiState.update { it.copy(isSaving = true, saveCompleted = false, errorMessage = null) }
                 viewModelScope.launch(ioDispatcher) {
-                    runCatching { saveBasicInfo(state.nickname, state.introduction) }
+                    runCatchingPreservingCancellation { saveBasicInfo(state.nickname, state.introduction) }
                         .onSuccess {
                             _uiState.update { it.copy(isSaving = false, saveCompleted = true) }
                         }
@@ -48,7 +51,7 @@ class BasicInfoViewModel(
                             _uiState.update {
                                 it.copy(
                                     isSaving = false,
-                                    errorMessage = error.message ?: "기본 정보를 저장하지 못했습니다.",
+                                    errorMessage = error.userFacingMessage("기본 정보를 저장하지 못했습니다."),
                                 )
                             }
                         }
@@ -68,4 +71,13 @@ class BasicInfoViewModel(
             initializer { BasicInfoViewModel(saveBasicInfo) }
         }
     }
+}
+
+private inline fun <T> runCatchingPreservingCancellation(block: () -> T): Result<T> = try {
+    Result.success(block())
+} catch (cancelled: CancellationException) {
+    throw cancelled
+} catch (error: Exception) {
+    error.rethrowCancellation()
+    Result.failure(error)
 }

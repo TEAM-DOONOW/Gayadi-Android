@@ -6,7 +6,7 @@
 - 새 릴리즈는 Play Console에 마지막으로 등록된 버전을 기준으로 두 값을 각각 한 단계 올린다.
 - 원격 브랜치의 값이 실제 마지막 릴리즈보다 낮을 수 있으므로 원격 값만 보고 버전을 정하지 않는다.
 - pull, stash, reset 전에 로컬 릴리즈 설정과 마지막 산출물의 `output-metadata.json`을 확인한다.
-- 2026-09-12 릴리즈 준비 버전은 `0.0.11`, 버전 코드는 `11`이다.
+- 2026-09-16 릴리즈 준비 버전은 `0.0.21`, 버전 코드는 `21`이다.
 
 ## Google Play 타겟 API
 
@@ -26,11 +26,11 @@
 
 `prodRelease` 빌드는 Git에서 제외된 다음 파일을 사용한다.
 
-- `config/prod.properties`: API URL과 앱 SDK 키
+- `config/prod.properties`: 운영 API URL, 앱 SDK 키, Credential Manager용 Google 웹 클라이언트 ID
 - `keystore.properties`: release 키스토어 경로와 서명 정보
 - 실제 키스토어 파일
 
-필수 프로덕션 속성 이름은 `config/prod.properties.example`을 기준으로 한다. 실제 값, 비밀번호, 키스토어는 커밋하거나 빌드 로그에 출력하지 않는다. 기존 키 파일을 삭제하거나 새 키로 교체하면 Play Console에서 기존 앱 업데이트가 불가능할 수 있다.
+필수 프로덕션 속성 이름은 `.env.example`과 `config/prod.properties.example`을 기준으로 한다. 일회성 빌드 값은 `-PAPI_BASE_URL=...` 형식으로 넘길 수 있고 운영 API URL은 HTTPS 도메인이어야 한다. 실제 값, 비밀번호, 키스토어는 커밋하거나 빌드 로그에 출력하지 않는다. 기존 키 파일을 삭제하거나 새 키로 교체하면 Play Console에서 기존 앱 업데이트가 불가능할 수 있다.
 
 ## 릴리즈 서명 인증서 지문
 
@@ -49,7 +49,7 @@ apksigner verify --print-certs app/build/outputs/apk/prod/release/app-prod-relea
 
 ## Google OAuth 클라이언트
 
-패키지 이름은 `com.doonow.gayadi`이다. 앱은 디버그/릴리즈 Android 클라이언트로 서명되고, Google 토큰 요청의 `serverClientId`는 웹 클라이언트 ID를 쓴다.
+패키지 이름은 `com.doonow.gayadi`이다. `GOOGLE_CLIENT_ID`는 release Android 클라이언트, `GOOGLE_DEBUG_CLIENT_ID`는 debug Android 클라이언트이며 필요하면 각각 `-P` Gradle 속성으로 넘긴다. Google SDK가 요구하는 웹 클라이언트 ID 처리는 기존 `GOOGLE_WEB_CLIENT_ID` 흐름을 그대로 유지한다.
 
 | 빌드 | Android 클라이언트 ID | SHA-1 |
 | --- | --- | --- |
