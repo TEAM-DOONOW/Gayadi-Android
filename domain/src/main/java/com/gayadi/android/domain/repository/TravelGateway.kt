@@ -27,6 +27,10 @@ interface TravelGateway {
         settings: ParticipantSettings = ParticipantSettings(),
     ): TravelParticipant
     suspend fun removeParticipant(tripId: String, participantUserId: String)
+    suspend fun updateCurrentParticipant(
+        tripId: String,
+        settings: ParticipantSettings,
+    ): TravelParticipant
 
     suspend fun listInvitations(tripId: String, limit: Int = 30, offset: Int = 0): List<TravelInvitation>
     suspend fun createInvitation(

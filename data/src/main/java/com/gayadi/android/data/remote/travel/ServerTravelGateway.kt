@@ -73,6 +73,13 @@ class ServerTravelGateway(
             "${tripPath(tripId)}/participants/${participantUserId.serverId("participantUserId")}",
         )
 
+    override suspend fun updateCurrentParticipant(
+        tripId: String,
+        settings: ParticipantSettings,
+    ): TravelParticipant = TravelRemoteMapper.participant(
+        http.patchObject("${tripPath(tripId)}/participants/current", settings.toJson()),
+    )
+
     override suspend fun listInvitations(
         tripId: String,
         limit: Int,

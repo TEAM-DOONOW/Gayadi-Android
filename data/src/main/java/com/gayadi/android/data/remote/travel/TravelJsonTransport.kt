@@ -16,6 +16,11 @@ interface TravelJsonTransport {
         query: Map<String, String?> = emptyMap(),
     ): JSONArray
 
+    suspend fun getPublicObject(
+        path: String,
+        query: Map<String, String?> = emptyMap(),
+    ): JSONObject = getObject(path, query)
+
     suspend fun postObject(path: String, body: JSONObject): JSONObject
     suspend fun putObject(path: String, body: JSONObject): JSONObject
     suspend fun patchObject(path: String, body: JSONObject): JSONObject
@@ -40,6 +45,8 @@ internal class GayadiTravelJsonTransport(private val client: GayadiApiClient) : 
     override suspend fun getObject(path: String, query: Map<String, String?>) = JSONObject(client.request("GET", url(path, query)))
     override suspend fun getArray(path: String, query: Map<String, String?>) =
         jsonArrayFromBody(client.request("GET", url(path, query)))
+    override suspend fun getPublicObject(path: String, query: Map<String, String?>) =
+        JSONObject(client.request("GET", url(path, query), authenticated = false))
     override suspend fun postObject(path: String, body: JSONObject) = JSONObject(client.request("POST", path, body.toString()))
     override suspend fun putObject(path: String, body: JSONObject) = JSONObject(client.request("PUT", path, body.toString()))
     override suspend fun patchObject(path: String, body: JSONObject) = JSONObject(client.request("PATCH", path, body.toString()))
