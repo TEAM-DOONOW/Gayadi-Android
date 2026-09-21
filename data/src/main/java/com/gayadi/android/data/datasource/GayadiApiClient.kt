@@ -1,6 +1,7 @@
 package com.gayadi.android.data.datasource
 
 import com.gayadi.android.domain.repository.AuthRepository
+import com.gayadi.android.domain.error.rethrowCancellation
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
@@ -27,8 +28,8 @@ class GayadiApiClient internal constructor(
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
         .callTimeout(30, TimeUnit.SECONDS)
-        .retryOnConnectionFailure(false)
-        .followRedirects(false)
+        .retryOnConnectionFailure(true)
+        .followRedirects(true)
         .build(),
     )
     private val baseUrl = baseUrl.trimEnd('/')
@@ -109,5 +110,6 @@ internal suspend fun <T> apiResult(block: suspend () -> T): Result<T> = try {
 } catch (cancelled: CancellationException) {
     throw cancelled
 } catch (error: Exception) {
+    error.rethrowCancellation()
     Result.failure(error)
 }

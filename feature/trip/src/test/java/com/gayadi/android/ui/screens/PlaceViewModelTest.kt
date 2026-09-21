@@ -1,5 +1,9 @@
 package com.gayadi.android.ui.screens
 
+import com.gayadi.android.domain.model.CongestionHourlyForecast
+import com.gayadi.android.domain.model.CongestionHourlyPoint
+import com.gayadi.android.domain.repository.CongestionRepository
+import com.gayadi.android.domain.usecase.GetCongestionHourlyUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -46,6 +50,57 @@ class PlaceViewModelTest {
     }
 
     @Test
+    fun hourlyCongestionUsesPlaceRegionCodesAndPublishesForecast() {
+        val placeRepository = object : PlaceRepository {
+            override suspend fun getPlaces(regionName: String): Result<List<PlaceItem>> = Result.success(
+                listOf(
+                    PlaceItem(
+                        id = "palace-1",
+                        name = "경복궁",
+                        category = "관광명소",
+                        rating = 4.8,
+                        reviews = 100,
+                        crowdLevel = CrowdLevel.NORMAL,
+                        emoji = "🏯",
+                        description = "서울 종로구",
+                        regionCode = "11",
+                        districtCode = "11110",
+                    ),
+                ),
+            )
+        }
+        var requestedCodes: Pair<String, String>? = null
+        val congestionRepository = object : CongestionRepository {
+            override suspend fun getHourlyForecast(
+                areaCode: String,
+                districtCode: String,
+                areaName: String,
+                placeName: String,
+                targetAt: String,
+                hours: List<Int>?,
+            ): Result<CongestionHourlyForecast> {
+                requestedCodes = areaCode to districtCode
+                return Result.success(
+                    CongestionHourlyForecast(
+                        placeName = placeName,
+                        points = listOf(CongestionHourlyPoint(hour = 13, concentrationScore = 72, level = "혼잡")),
+                    ),
+                )
+            }
+        }
+        val viewModel = PlaceViewModel(
+            repository = placeRepository,
+            getCongestionHourly = GetCongestionHourlyUseCase(congestionRepository),
+        )
+
+        viewModel.loadCongestionHourly("palace-1")
+
+        assertEquals("11" to "11110", requestedCodes)
+        assertEquals("경복궁", viewModel.hourlyUiState.value.forecast?.placeName)
+        assertEquals(72, viewModel.hourlyUiState.value.forecast?.points?.single()?.concentrationScore)
+    }
+
+    @Test
     fun changingRegionLoadsTripSpecificPlacesAndResetsFilters() {
         val viewModel = PlaceViewModel()
         viewModel.selectCategory("카페")
@@ -71,5 +126,40 @@ class PlaceViewModelTest {
 
         assertEquals("광장시장", viewModel.findPlace("seoul-place-1")?.name)
         assertTrue(viewModel.uiState.value.places.all { it.description.contains("부산") })
+    }
+
+    @Test
+    fun sameRegionReloadsWhenPreviousLoadWasEmpty() {
+        val repository = object : PlaceRepository {
+            var loads = 0
+            override suspend fun getPlaces(regionName: String): Result<List<PlaceItem>> {
+                loads += 1
+                return if (loads == 1) {
+                    Result.success(emptyList())
+                } else {
+                    Result.success(
+                        listOf(
+                            PlaceItem(
+                                id = "place-reload",
+                                name = "재조회 장소",
+                                category = "관광명소",
+                                rating = 4.0,
+                                reviews = 1,
+                                crowdLevel = CrowdLevel.RELAXED,
+                                emoji = "🏞️",
+                                description = "로그인 후 다시 불러온 장소",
+                            ),
+                        ),
+                    )
+                }
+            }
+        }
+        val viewModel = PlaceViewModel(repository)
+        assertTrue(viewModel.uiState.value.places.isEmpty())
+
+        viewModel.setRegion("제주 성산")
+
+        assertEquals(2, repository.loads)
+        assertEquals(listOf("재조회 장소"), viewModel.uiState.value.places.map(PlaceItem::name))
     }
 }

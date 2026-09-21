@@ -58,6 +58,7 @@ import com.gayadi.android.feature.mypage.R
 @Composable
 fun SettingsScreen(
     uiState: ProfileUiState,
+    appVersion: String,
     onBack: () -> Unit,
     onOpenTravelProfile: () -> Unit,
     onOpenNotices: () -> Unit,
@@ -199,7 +200,9 @@ fun SettingsScreen(
             if (isAccountActionInProgress) {
                 Text("계정 요청을 처리하고 있어요", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            SettingsRow("버전 정보", trailing = { Text("1.0.0", fontSize = 14.sp, color = TextSecondary) })
+            SettingsRow("버전 정보", trailing = {
+                Text(appVersion, fontSize = 14.sp, color = TextSecondary)
+            })
 
             Spacer(modifier = Modifier.height(32.dp))
         }
@@ -228,6 +231,7 @@ private fun SettingsPreview() {
     GayadiTheme {
         SettingsScreen(
             uiState = ProfileUiState(UserProfile("가야디", "여행가")),
+            appVersion = "0.0.12",
             onBack = {},
             onOpenTravelProfile = {},
             onOpenNotices = {},

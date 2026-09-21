@@ -1,5 +1,7 @@
 package com.gayadi.android.data.repository
 
+import com.gayadi.android.domain.error.rethrowCancellation
+
 /**
  * 원격 호출 실패를 화면에 그대로 보여줄 수 있는 오류로 바꾼다.
  *
@@ -8,6 +10,7 @@ package com.gayadi.android.data.repository
  */
 internal fun <T> Result<T>.withUserFacingMessage(fallbackMessage: String): Result<T> =
     recoverCatching { error ->
+        error.rethrowCancellation()
         throw when (error) {
             is IllegalArgumentException, is IllegalStateException -> error
             else -> IllegalStateException(fallbackMessage, error)

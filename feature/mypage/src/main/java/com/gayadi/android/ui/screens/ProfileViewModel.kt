@@ -10,8 +10,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.CancellationException
+import com.gayadi.android.domain.error.rethrowCancellation
+import com.gayadi.android.domain.error.userFacingMessage
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 data class ProfileUiState(
@@ -26,19 +30,24 @@ class ProfileViewModel(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ProfileUiState())
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
+    private var reloadJob: Job? = null
 
     init {
         reload()
     }
 
     fun reload() {
+        reloadJob?.cancel()
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-        viewModelScope.launch(ioDispatcher) {
-            runCatching { getUserProfile() }.fold(
+        reloadJob = viewModelScope.launch(ioDispatcher) {
+            runCatchingPreservingCancellation { getUserProfile() }.fold(
                 onSuccess = { profile -> _uiState.update { it.copy(profile = profile, isLoading = false) } },
                 onFailure = { error ->
                     _uiState.update {
-                        it.copy(isLoading = false, errorMessage = error.message ?: "프로필을 불러오지 못했습니다.")
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = error.userFacingMessage("프로필을 불러오지 못했습니다."),
+                        )
                     }
                 },
             )
@@ -54,4 +63,13 @@ class ProfileViewModel(
             initializer { ProfileViewModel(getUserProfile) }
         }
     }
+}
+
+private inline fun <T> runCatchingPreservingCancellation(block: () -> T): Result<T> = try {
+    Result.success(block())
+} catch (cancelled: CancellationException) {
+    throw cancelled
+} catch (error: Exception) {
+    error.rethrowCancellation()
+    Result.failure(error)
 }

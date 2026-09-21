@@ -6,6 +6,8 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.gayadi.android.domain.model.InquiryCategory
 import com.gayadi.android.domain.model.InquiryDraft
 import com.gayadi.android.domain.usecase.SubmitInquiryUseCase
+import com.gayadi.android.domain.error.isCoroutineCancellation
+import com.gayadi.android.domain.error.userFacingMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -64,11 +66,13 @@ class InquiryViewModel(
                     _uiState.update { it.copy(isSubmitting = false, isSubmitted = true) }
                 },
                 onFailure = { error ->
-                    _uiState.update {
-                        it.copy(
-                            isSubmitting = false,
-                            errorMessage = error.message ?: "문의를 보내지 못했어요",
-                        )
+                    if (!error.isCoroutineCancellation()) {
+                        _uiState.update {
+                            it.copy(
+                                isSubmitting = false,
+                                errorMessage = error.userFacingMessage("문의를 보내지 못했어요"),
+                            )
+                        }
                     }
                 },
             )

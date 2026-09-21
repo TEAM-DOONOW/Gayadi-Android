@@ -3,15 +3,20 @@ package com.gayadi.android.di
 import com.gayadi.android.data.repository.InMemoryProfileRepository
 import com.gayadi.android.data.repository.FileTravelRepository
 import com.gayadi.android.data.repository.DefaultTourRepository
+import com.gayadi.android.data.datasource.ServerPlaceApiDataSource
+import com.gayadi.android.data.datasource.DiscoveryPlaceApiDataSource
 import com.gayadi.android.data.datasource.HttpTourApiDataSource
 import com.gayadi.android.data.datasource.HttpAuthApiDataSource
 import com.gayadi.android.data.datasource.HttpProfileApiDataSource
 import com.gayadi.android.data.datasource.FileProfileLocalDataSource
 import com.gayadi.android.data.datasource.RestSurveyDataSource
+import com.gayadi.android.data.datasource.RestCongestionDataSource
 import com.gayadi.android.data.datasource.RestSessionApiDataSource
 import com.gayadi.android.data.datasource.RestInquiryDataSource
 import com.gayadi.android.data.datasource.GayadiApiClient
+import com.gayadi.android.data.remote.agent.ServerAgentGateway
 import com.gayadi.android.data.repository.RestSurveySubmissionRepository
+import com.gayadi.android.data.repository.DefaultCongestionRepository
 import com.gayadi.android.domain.usecase.SubmitSurveyUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -50,6 +55,7 @@ import com.gayadi.android.domain.usecase.SubmitInquiryUseCase
 import com.gayadi.android.domain.usecase.SignInWithGoogleUseCase
 import com.gayadi.android.domain.usecase.UpdateTravelStateUseCase
 import com.gayadi.android.domain.usecase.GetTourPlacesUseCase
+import com.gayadi.android.domain.usecase.GetCongestionHourlyUseCase
 import com.gayadi.android.domain.usecase.GetNearbyTourPlacesUseCase
 import com.gayadi.android.domain.usecase.SearchTourPlacesUseCase
 import com.google.firebase.firestore.FirebaseFirestore
@@ -61,7 +67,7 @@ class AppContainer(
     profileFile: File,
     travelFile: File,
     tourApiBaseUrl: String,
-    appVersion: String = DEFAULT_APP_VERSION,
+    val appVersion: String,
 ) {
     private val firestore = FirebaseFirestore.getInstance()
     private val localProfileRepository: ProfileRepository =
@@ -78,13 +84,14 @@ class AppContainer(
     private val apiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val api = GayadiApiClient(tourApiBaseUrl, authRepository)
     private val tourRepository = DefaultTourRepository(
-        HttpTourApiDataSource(
-            tourApiBaseUrl,
-            accessToken = { authRepository.validAccessToken() },
+        DiscoveryPlaceApiDataSource(
+            discovery = HttpTourApiDataSource(tourApiBaseUrl),
+            canonical = ServerPlaceApiDataSource(api),
         ),
     )
     val friendshipGateway: com.gayadi.android.domain.repository.FriendshipGateway = com.gayadi.android.data.remote.travel.ServerFriendshipGateway(api)
     val travelGateway: com.gayadi.android.domain.repository.TravelGateway = com.gayadi.android.data.remote.travel.ServerTravelGateway(api)
+    val agentGateway: com.gayadi.android.domain.repository.AgentGateway = ServerAgentGateway(api)
     val tripSupportGateway: com.gayadi.android.domain.repository.TripSupportGateway =
         com.gayadi.android.data.remote.travel.ServerTripSupportGateway(api)
     private val surveyRepository: SurveyRepository =
@@ -164,6 +171,11 @@ class AppContainer(
     val getNearbyTourPlacesUseCase = GetNearbyTourPlacesUseCase(tourRepository)
     val searchTourPlacesUseCase = SearchTourPlacesUseCase(tourRepository)
 
+    /** Loads the hourly congestion forecast used for the place detail graph. */
+    val getCongestionHourlyUseCase = GetCongestionHourlyUseCase(
+        DefaultCongestionRepository(RestCongestionDataSource(api)),
+    )
+
     /** Revokes the current backend session before clearing account data on this device. */
     suspend fun logout(): Result<Unit> = try {
         val session = requireNotNull(authRepository.currentSession()) { "로그인 세션이 없어요." }
@@ -178,8 +190,6 @@ class AppContainer(
     }
 
     private companion object {
-        const val DEFAULT_APP_VERSION = "1.0.0"
-
         fun loadInstallationId(file: File): String {
             val existing = file.takeIf(File::exists)?.readText()?.trim().orEmpty()
             if (existing.isNotBlank()) return existing

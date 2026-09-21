@@ -1,12 +1,17 @@
 package com.gayadi.android.navigation
 
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.util.Base64
 import android.util.Log
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.GetCredentialInterruptedException
 import com.gayadi.android.BuildConfig
+import com.gayadi.android.domain.error.isCoroutineCancellation
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import java.net.HttpURLConnection
@@ -24,17 +29,38 @@ internal fun googleOauthServerClientId(webClientId: String): String {
     return web
 }
 
+internal fun googleLoginUserMessage(error: Throwable): String {
+    if (
+        error is GetCredentialCancellationException ||
+        error is GetCredentialInterruptedException ||
+        error.isCoroutineCancellation()
+    ) {
+        return GOOGLE_LOGIN_CANCELLED_MESSAGE
+    }
+    return GOOGLE_LOGIN_FAILED_MESSAGE
+}
+
+internal fun Context.findActivity(): Activity {
+    var current: Context = this
+    while (current is ContextWrapper) {
+        if (current is Activity) return current
+        current = current.baseContext
+    }
+    error("Google 로그인은 Activity 화면에서만 시작할 수 있어요.")
+}
+
 internal suspend fun requestGoogleIdToken(
     context: Context,
     webClientId: String,
 ): String {
+    val activity = context.findActivity()
     val serverClientId = googleOauthServerClientId(webClientId)
     val googleOption = GetSignInWithGoogleOption.Builder(serverClientId).build()
     val request = GetCredentialRequest.Builder()
         .addCredentialOption(googleOption)
         .build()
-    val credential = CredentialManager.create(context)
-        .getCredential(context = context, request = request)
+    val credential = CredentialManager.create(activity.applicationContext)
+        .getCredential(context = activity, request = request)
         .credential
     check(
         credential is CustomCredential &&
@@ -106,6 +132,9 @@ private fun decodeJwtJson(part: String?): JSONObject? {
     return JSONObject(String(Base64.decode(padded, Base64.URL_SAFE or Base64.NO_WRAP)))
 }
 
+internal const val GOOGLE_LOGIN_CANCELLED_MESSAGE =
+    "Google 로그인이 취소되었습니다. 다시 시도해 주세요."
+internal const val GOOGLE_LOGIN_FAILED_MESSAGE = "Google 로그인에 실패했습니다."
 private const val GOOGLE_AUTH_LOG_TAG = "GayadiGoogleAuth"
 
 private fun isConfiguredGoogleClientId(value: String): Boolean =

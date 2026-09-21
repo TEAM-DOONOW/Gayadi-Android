@@ -31,6 +31,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import com.gayadi.android.domain.error.userFacingMessage
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,6 +51,7 @@ import com.gayadi.android.ui.components.GayadiTopAppBar
 import com.gayadi.android.ui.components.UserCharacterAvatar
 import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary
+import com.gayadi.android.domain.error.rethrowCancellation
 import kotlinx.coroutines.launch
 
 @Composable
@@ -97,7 +99,10 @@ fun ParticipantsScreen(
                                     clipboard.setText(AnnotatedString(inviteCode))
                                     inviteMessage = "초대 코드를 복사했어요"
                                 },
-                                onFailure = { inviteMessage = it.message ?: "초대 코드를 등록하지 못했어요" },
+                                onFailure = {
+                                    it.rethrowCancellation()
+                                    inviteMessage = it.userFacingMessage("초대 코드를 등록하지 못했어요")
+                                },
                             )
                         }
                     },
@@ -108,7 +113,10 @@ fun ParticipantsScreen(
                                     inviteMessage = null
                                     shareTripInviteToKakao(context, tripName, cities, inviteCode)
                                 },
-                                onFailure = { inviteMessage = it.message ?: "초대 코드를 등록하지 못했어요" },
+                                onFailure = {
+                                    it.rethrowCancellation()
+                                    inviteMessage = it.userFacingMessage("초대 코드를 등록하지 못했어요")
+                                },
                             )
                         }
                     },

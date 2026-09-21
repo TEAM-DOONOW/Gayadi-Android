@@ -5,12 +5,19 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.gayadi.android.domain.model.TourPlace
+import com.gayadi.android.domain.model.AgentRecommendation
+import com.gayadi.android.domain.model.CongestionHourlyForecast
+import com.gayadi.android.domain.error.retryTransientResult
+import com.gayadi.android.domain.error.rethrowCancellation
+import com.gayadi.android.domain.error.userFacingMessage
 import com.gayadi.android.domain.usecase.GetNearbyTourPlacesUseCase
+import com.gayadi.android.domain.usecase.GetCongestionHourlyUseCase
 import com.gayadi.android.domain.usecase.GetTourPlacesUseCase
 import com.gayadi.android.domain.usecase.SearchTourPlacesUseCase
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -36,6 +43,12 @@ data class PlaceItem(
     val longitude: Double? = null,
     val latitude: Double? = null,
     val hasRealtimeDetails: Boolean = true,
+    val regionCode: String = "",
+    val districtCode: String = "",
+    val concentrationScore: Int? = null,
+    val crowdSource: String = "",
+    val crowdConfidence: String = "",
+    val crowdMessage: String = "",
 )
 
 data class PlaceUiState(
@@ -56,6 +69,12 @@ data class PlaceUiState(
 
 data class NearbyPlacesUiState(
     val places: List<PlaceItem> = emptyList(),
+    val isLoading: Boolean = false,
+    val errorMessage: String? = null,
+)
+
+data class CongestionHourlyUiState(
+    val forecast: CongestionHourlyForecast? = null,
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
 )
@@ -100,6 +119,7 @@ class TourApiPlaceRepository(
 ) : PlaceRepository {
     override suspend fun getPlaces(regionName: String): Result<List<PlaceItem>> {
         val placesByContentId = linkedMapOf<String, PrioritizedPlaceItem>()
+        var lastError: Throwable? = null
         TOUR_PLACE_REQUESTS.forEach { request ->
             val categoryPlaces = getTourPlaces(
                 contentTypeId = request.contentTypeId,
@@ -109,6 +129,7 @@ class TourApiPlaceRepository(
                 regionName = tourRegionName(regionName),
             ).getOrElse { error ->
                 if (error is CancellationException) throw error
+                lastError = error
                 emptyList()
             }
             categoryPlaces.forEach { place ->
@@ -123,6 +144,9 @@ class TourApiPlaceRepository(
                     )
                 }
             }
+        }
+        if (placesByContentId.isEmpty() && lastError != null) {
+            return Result.failure(lastError)
         }
         return Result.success(placesByContentId.values.map(PrioritizedPlaceItem::item))
     }
@@ -147,7 +171,7 @@ class TourApiPlaceRepository(
             category = placeCategory.label,
             rating = 0.0,
             reviews = 0,
-            crowdLevel = CrowdLevel.NORMAL,
+            crowdLevel = crowdLevel(),
             emoji = placeCategory.emoji,
             description = listOf(address, addressDetail)
                 .filter(String::isNotBlank)
@@ -155,7 +179,13 @@ class TourApiPlaceRepository(
             imageUrl = imageUrl,
             longitude = longitude,
             latitude = latitude,
-            hasRealtimeDetails = false,
+            hasRealtimeDetails = hasCrowdData(),
+            regionCode = regionCode,
+            districtCode = districtCode,
+            concentrationScore = concentrationScore,
+            crowdSource = crowdSource,
+            crowdConfidence = crowdConfidence,
+            crowdMessage = crowdMessage,
         )
     }
 
@@ -252,14 +282,18 @@ class TourApiPlaceRepository(
 class PlaceViewModel(
     private val repository: PlaceRepository = FakePlaceRepository(),
     private val getNearbyTourPlaces: GetNearbyTourPlacesUseCase? = null,
+    private val getCongestionHourly: GetCongestionHourlyUseCase? = null,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(PlaceUiState())
     private val knownPlaces = mutableMapOf<String, PlaceItem>()
     private val _nearbyUiState = MutableStateFlow(NearbyPlacesUiState())
     val uiState: StateFlow<PlaceUiState> = _uiState.asStateFlow()
     val nearbyUiState: StateFlow<NearbyPlacesUiState> = _nearbyUiState.asStateFlow()
+    private val _hourlyUiState = MutableStateFlow(CongestionHourlyUiState())
+    val hourlyUiState: StateFlow<CongestionHourlyUiState> = _hourlyUiState.asStateFlow()
     private var loadJob: Job? = null
     private var nearbyLoadJob: Job? = null
+    private var hourlyLoadJob: Job? = null
     private var searchJob: Job? = null
 
     init {
@@ -274,37 +308,90 @@ class PlaceViewModel(
             return
         }
         val regionName = _uiState.value.regionName
+        val expectedQuery = query.trim()
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
         searchJob = viewModelScope.launch {
             delay(250)
-            repository.searchPlaces(regionName, query.trim()).fold(
-                onSuccess = { places ->
-                    knownPlaces.putAll(places.associateBy(PlaceItem::id))
-                    _uiState.update { it.copy(places = places, isLoading = false) }
-                },
-                onFailure = { error ->
-                    _uiState.update {
-                        it.copy(isLoading = false, errorMessage = error.message ?: "장소를 검색하지 못했습니다.")
-                    }
-                },
+            applyPlaceResult(
+                retryTransientResult { repository.searchPlaces(regionName, expectedQuery) },
+                failureMessage = "장소를 검색하지 못했습니다.",
+                expectedRegion = regionName,
+                expectedQuery = expectedQuery,
             )
         }
     }
 
     fun selectCategory(category: String) = _uiState.update { it.copy(selectedCategory = category) }
 
-    fun retry() = loadPlaces()
+    fun retry() {
+        loadJob?.cancel()
+        loadPlaces()
+    }
 
     fun setRegion(regionName: String) {
         val resolvedRegion = regionName.ifBlank { "제주 성산" }
-        if (resolvedRegion == _uiState.value.regionName) return
+        val current = _uiState.value
+        if (
+            resolvedRegion == current.regionName &&
+            current.places.isNotEmpty() &&
+            current.errorMessage == null
+        ) {
+            return
+        }
+        if (resolvedRegion != current.regionName) {
+            loadJob?.cancel()
+            loadJob = null
+            searchJob?.cancel()
+            searchJob = null
+        }
         _uiState.update {
-            it.copy(regionName = resolvedRegion, query = "", selectedCategory = "전체")
+            it.copy(
+                regionName = resolvedRegion,
+                query = "",
+                selectedCategory = "전체",
+                places = if (resolvedRegion != current.regionName) emptyList() else it.places,
+                isLoading = true,
+                errorMessage = null,
+            )
         }
         loadPlaces()
     }
 
     fun findPlace(placeId: String): PlaceItem? = knownPlaces[placeId]
+
+    fun applyAgentRecommendations(recommendations: List<AgentRecommendation>) {
+        if (recommendations.isEmpty()) return
+        val current = _uiState.value.places.toMutableList()
+        recommendations.forEach { recommendation ->
+            if (recommendation.placeId.toLongOrNull() == null) return@forEach
+            val index = current.indexOfFirst { place ->
+                place.id == recommendation.placeId ||
+                    recommendation.sourcePlaceId.isNotBlank() && place.id == recommendation.sourcePlaceId ||
+                    place.name.equals(recommendation.name, ignoreCase = true)
+            }
+            val category = recommendation.category.toPlaceCategoryLabel()
+            if (index >= 0) {
+                current[index] = current[index].copy(
+                    id = recommendation.placeId,
+                    category = category.ifBlank { current[index].category },
+                )
+            } else {
+                current += PlaceItem(
+                    id = recommendation.placeId,
+                    name = recommendation.name,
+                    category = category.ifBlank { "관광명소" },
+                    rating = 0.0,
+                    reviews = 0,
+                    crowdLevel = CrowdLevel.NORMAL,
+                    emoji = "✨",
+                    description = recommendation.reason,
+                    hasRealtimeDetails = false,
+                )
+            }
+        }
+        knownPlaces.putAll(current.associateBy(PlaceItem::id))
+        _uiState.update { it.copy(places = current.distinctBy(PlaceItem::id)) }
+    }
 
     fun nearbyPlaces(originPlaceId: String?): List<PlaceItem> =
         _uiState.value.places.filterNot { it.id == originPlaceId }.sortedBy(PlaceItem::distanceMeters)
@@ -318,13 +405,15 @@ class PlaceViewModel(
         }
         _nearbyUiState.value = NearbyPlacesUiState(isLoading = true)
         nearbyLoadJob = viewModelScope.launch {
-            getNearbyTourPlaces(
-                mapX = origin.longitude.toString(),
-                mapY = origin.latitude.toString(),
-                radius = NEARBY_RADIUS_METERS,
-                arrange = "E",
-                maxPages = 1,
-            ).fold(
+            retryTransientResult {
+                getNearbyTourPlaces(
+                    mapX = origin.longitude.toString(),
+                    mapY = origin.latitude.toString(),
+                    radius = NEARBY_RADIUS_METERS,
+                    arrange = "E",
+                    maxPages = 1,
+                )
+            }.fold(
                 onSuccess = { places ->
                     val nearby = places
                         .filterNot { it.contentId == origin.id }
@@ -332,31 +421,109 @@ class PlaceViewModel(
                     _nearbyUiState.value = NearbyPlacesUiState(places = nearby)
                 },
                 onFailure = { error ->
-                    _nearbyUiState.value = NearbyPlacesUiState(
-                        errorMessage = error.message ?: "주변 장소를 불러오지 못했습니다.",
-                    )
+                    if (error is CancellationException && !isActive) throw error
+                    if (error is CancellationException) {
+                        _nearbyUiState.value = NearbyPlacesUiState(
+                            errorMessage = "주변 장소를 불러오지 못했습니다.",
+                        )
+                    } else {
+                        error.rethrowCancellation()
+                        _nearbyUiState.value = NearbyPlacesUiState(
+                            errorMessage = error.userFacingMessage("주변 장소를 불러오지 못했습니다."),
+                        )
+                    }
+                },
+            )
+        }
+    }
+
+    fun loadCongestionHourly(placeId: String) {
+        hourlyLoadJob?.cancel()
+        val place = placeId.let(knownPlaces::get)
+        val hourly = getCongestionHourly
+        if (hourly == null || place == null ||
+            !place.regionCode.matches(Regex("\\d{2}")) ||
+            !place.districtCode.matches(Regex("\\d{3}|\\d{5}"))
+        ) {
+            _hourlyUiState.value = CongestionHourlyUiState()
+            return
+        }
+        _hourlyUiState.value = CongestionHourlyUiState(isLoading = true)
+        hourlyLoadJob = viewModelScope.launch {
+            retryTransientResult {
+                hourly(
+                    areaCode = place.regionCode,
+                    districtCode = place.districtCode,
+                    areaName = _uiState.value.regionName,
+                    placeName = place.name,
+                )
+            }.fold(
+                onSuccess = { forecast ->
+                    _hourlyUiState.value = CongestionHourlyUiState(forecast = forecast)
+                },
+                onFailure = { error ->
+                    if (error is CancellationException && !isActive) throw error
+                    if (error is CancellationException) {
+                        _hourlyUiState.value = CongestionHourlyUiState(
+                            errorMessage = "시간대별 혼잡도를 불러오지 못했습니다.",
+                        )
+                    } else {
+                        error.rethrowCancellation()
+                        _hourlyUiState.value = CongestionHourlyUiState(
+                            errorMessage = error.userFacingMessage("시간대별 혼잡도를 불러오지 못했습니다."),
+                        )
+                    }
                 },
             )
         }
     }
 
     private fun loadPlaces() {
-        loadJob?.cancel()
+        if (loadJob?.isActive == true) return
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
         val regionName = _uiState.value.regionName
         loadJob = viewModelScope.launch {
-            repository.getPlaces(regionName).fold(
-                onSuccess = { places ->
-                    knownPlaces.putAll(places.associateBy(PlaceItem::id))
-                    _uiState.update { it.copy(places = places, isLoading = false) }
-                },
-                onFailure = { error ->
-                    _uiState.update {
-                        it.copy(isLoading = false, errorMessage = error.message ?: "장소를 불러오지 못했습니다.")
-                    }
-                },
+            applyPlaceResult(
+                retryTransientResult { repository.getPlaces(regionName) },
+                failureMessage = "장소를 불러오지 못했습니다.",
+                expectedRegion = regionName,
             )
         }
+    }
+
+    private fun applyPlaceResult(
+        result: Result<List<PlaceItem>>,
+        failureMessage: String,
+        expectedRegion: String,
+        expectedQuery: String? = null,
+    ) {
+        val current = _uiState.value
+        if (
+            current.regionName != expectedRegion ||
+            expectedQuery != null && current.query.trim() != expectedQuery
+        ) {
+            return
+        }
+        result.fold(
+            onSuccess = { places ->
+                knownPlaces.putAll(places.associateBy(PlaceItem::id))
+                _uiState.update { it.copy(places = places, isLoading = false, errorMessage = null) }
+            },
+            onFailure = { error ->
+                if (error is CancellationException && !viewModelScope.isActive) throw error
+                if (error is CancellationException) {
+                    _uiState.update { it.copy(isLoading = false, errorMessage = failureMessage) }
+                } else {
+                    error.rethrowCancellation()
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = error.userFacingMessage(failureMessage),
+                        )
+                    }
+                }
+            },
+        )
     }
 
     companion object {
@@ -381,9 +548,42 @@ class PlaceViewModel(
                 )
             }
         }
+
+        fun factory(
+            getTourPlaces: GetTourPlacesUseCase,
+            getNearbyTourPlaces: GetNearbyTourPlacesUseCase,
+            searchTourPlaces: SearchTourPlacesUseCase,
+            getCongestionHourly: GetCongestionHourlyUseCase,
+        ) = viewModelFactory {
+            initializer {
+                PlaceViewModel(
+                    repository = TourApiPlaceRepository(getTourPlaces, searchTourPlaces),
+                    getNearbyTourPlaces = getNearbyTourPlaces,
+                    getCongestionHourly = getCongestionHourly,
+                )
+            }
+        }
     }
 
 }
+
+private fun String.toPlaceCategoryLabel(): String = when (trim().uppercase()) {
+    "FOOD", "RESTAURANT" -> "맛집"
+    "CAFE" -> "카페"
+    "STAY", "LODGING" -> "숙소"
+    "CULTURE", "TOURIST_ATTRACTION", "ATTRACTION" -> "관광명소"
+    else -> ""
+}
+
+private fun TourPlace.crowdLevel(): CrowdLevel = when (crowdLevel.trim().uppercase()) {
+    "RELAXED" -> CrowdLevel.RELAXED
+    "CROWDED" -> CrowdLevel.CROWDED
+    else -> CrowdLevel.NORMAL
+}
+
+private fun TourPlace.hasCrowdData(): Boolean =
+    crowdLevel.isNotBlank() || concentrationScore != null ||
+        crowdEstimated || crowdProviderDataAvailable
 
 private fun TourPlace.toNearbyPlaceItem(): PlaceItem {
     val category = when (contentTypeId.trim()) {
@@ -402,14 +602,18 @@ private fun TourPlace.toNearbyPlaceItem(): PlaceItem {
         category = category,
         rating = 0.0,
         reviews = 0,
-        crowdLevel = CrowdLevel.NORMAL,
+        crowdLevel = crowdLevel(),
         emoji = emoji,
         description = listOf(address, addressDetail).filter(String::isNotBlank).joinToString(" "),
         distanceMeters = distanceMeters ?: 0,
         imageUrl = imageUrl,
         longitude = longitude,
         latitude = latitude,
-        hasRealtimeDetails = false,
+        hasRealtimeDetails = hasCrowdData(),
+        concentrationScore = concentrationScore,
+        crowdSource = crowdSource,
+        crowdConfidence = crowdConfidence,
+        crowdMessage = crowdMessage,
     )
 }
 

@@ -40,7 +40,9 @@ class TourApiTest {
                 "mapY": "35.0052",
                 "lclsSystm1": "FD",
                 "lclsSystm2": "FD05",
-                "lclsSystm3": "FD050100"
+                "lclsSystm3": "FD050100",
+                "lDongRegnCd": "46",
+                "lDongSignguCd": "170"
               }]
             }
             """.trimIndent(),
@@ -53,6 +55,45 @@ class TourApiTest {
         assertEquals("FD", places.single().lclsSystm1)
         assertEquals("FD05", places.single().lclsSystm2)
         assertEquals("FD050100", places.single().lclsSystm3)
+        assertEquals("46", places.single().lDongRegnCd)
+        assertEquals("170", places.single().lDongSignguCd)
+    }
+
+    @Test
+    fun parsesCrowdForecastFromDiscoveryResponse() {
+        val places = HttpTourApiDataSource("http://example.com").parsePlaces(
+            """
+            {"items":[{
+              "placeId":101,"contentId":"2783012","title":"경복궁",
+              "crowdLevel":"CROWDED","concentrationScore":75,
+              "crowdSource":"KTO_DISTRICT_CONCENTRATION_FORECAST",
+              "crowdEstimated":true,"crowdProviderDataAvailable":true,
+              "crowdConfidence":"LOW","crowdMessage":"평균 집중률을 적용했습니다."
+            }]}
+            """.trimIndent(),
+        )
+
+        val place = places.single()
+        assertEquals("CROWDED", place.crowdLevel)
+        assertEquals(75, place.concentrationScore)
+        assertEquals("KTO_DISTRICT_CONCENTRATION_FORECAST", place.crowdSource)
+        assertTrue(place.crowdEstimated)
+        assertTrue(place.crowdProviderDataAvailable)
+        assertEquals("LOW", place.crowdConfidence)
+        assertEquals("평균 집중률을 적용했습니다.", place.crowdMessage)
+        assertEquals("CROWDED", place.toDomain().crowdLevel)
+        assertEquals(75, place.toDomain().concentrationScore)
+    }
+
+    @Test
+    fun prefersCanonicalGayadiPlaceIdFromDiscoveryResponse() {
+        val places = HttpTourApiDataSource("http://example.com").parsePlaces(
+            """
+            {"items":[{"placeId":101,"contentId":"2783012","title":"경복궁"}]}
+            """.trimIndent(),
+        )
+
+        assertEquals("101", places.single().contentId)
     }
 
     @Test
@@ -69,12 +110,16 @@ class TourApiTest {
             lclsSystm1 = "FD",
             lclsSystm2 = "FD05",
             lclsSystm3 = "FD050100",
+            lDongRegnCd = "11",
+            lDongSignguCd = "110",
         ).toDomain()
 
         assertEquals("39", place.contentTypeId)
         assertEquals("FD", place.lclsSystm1)
         assertEquals("FD05", place.lclsSystm2)
         assertEquals("FD050100", place.lclsSystm3)
+        assertEquals("11", place.regionCode)
+        assertEquals("110", place.districtCode)
     }
 
     @Test

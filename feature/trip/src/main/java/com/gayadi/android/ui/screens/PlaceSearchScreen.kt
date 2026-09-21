@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.outlined.FavoriteBorder
@@ -52,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.gayadi.android.ui.components.GayadiTopAppBar
+import com.gayadi.android.ui.components.ScheduleOptionsBottomSheet
 import com.gayadi.android.ui.components.UsageGuideCallout
 import com.gayadi.android.ui.components.UsageGuideOverlay
 import com.gayadi.android.ui.components.UsageGuidePlacement
@@ -66,12 +68,14 @@ import com.gayadi.android.ui.theme.TagRedText
 import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary
 import com.gayadi.android.ui.theme.TextTertiary
+import com.gayadi.android.domain.model.AgentRecommendation
 
 private val placeCategories = listOf("전체", "맛집", "카페", "관광명소", "숙소")
 
 @Composable
 fun PlaceSearchScreen(
     uiState: PlaceUiState,
+    recommendationUiState: PlaceRecommendationUiState = PlaceRecommendationUiState(),
     onBack: () -> Unit,
     onQueryChange: (String) -> Unit,
     onCategorySelected: (String) -> Unit,
@@ -81,11 +85,19 @@ fun PlaceSearchScreen(
     onToggleFavorite: (String) -> Unit = {},
     onNearby: () -> Unit = {},
     onFavorites: () -> Unit = {},
+    onRequestRecommendations: () -> Unit = {},
+    onRecommendationClick: (AgentRecommendation) -> Unit = {},
+    tripName: String = "",
+    tripDate: String = "",
+    scheduledPlaceIds: Set<String> = emptySet(),
+    scheduledPlaceNames: Set<String> = emptySet(),
+    onAddToSchedule: (placeId: String, time: String, memo: String) -> Unit = { _, _, _ -> },
     showUsageGuide: Boolean = false,
     onUsageGuideFinished: () -> Unit = {},
 ) {
     val density = LocalDensity.current
     val filterDialogVisible = remember { mutableStateOf(false) }
+    var schedulePlace by remember { mutableStateOf<PlaceItem?>(null) }
     var isUsageGuideVisible by rememberSaveable { mutableStateOf(showUsageGuide) }
     val firstPlace = uiState.filteredPlaces.firstOrNull()
     var firstPlaceBounds by remember(firstPlace?.id) { mutableStateOf<Rect?>(null) }
@@ -151,8 +163,25 @@ fun PlaceSearchScreen(
                     verticalArrangement = Arrangement.spacedBy(18.dp),
                 ) {
                     item {
+                        AgentRecommendationSection(
+                            uiState = recommendationUiState,
+                            onRetry = onRequestRecommendations,
+                            onRecommendationClick = onRecommendationClick,
+                            scheduledPlaceIds = scheduledPlaceIds,
+                            scheduledPlaceNames = scheduledPlaceNames,
+                            onAddToSchedule = { recommendation ->
+                                val place = uiState.places.firstOrNull {
+                                    it.id == recommendation.placeId ||
+                                        it.name.equals(recommendation.name, ignoreCase = true)
+                                }
+                                if (place != null) schedulePlace = place
+                                else onRecommendationClick(recommendation)
+                            },
+                        )
+                    }
+                    item {
                         Text(
-                            "${uiState.regionName}에서 가볼 만한 곳을 골라봤어요",
+                            "${uiState.regionName}의 모든 장소",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
                             color = TextPrimary,
@@ -168,8 +197,10 @@ fun PlaceSearchScreen(
                                         if (place.id == firstPlace?.id) firstPlaceBounds = it.boundsInRoot()
                                     },
                                     isFavorite = place.id in favoritePlaceIds,
+                                    isScheduled = place.id in scheduledPlaceIds || place.name in scheduledPlaceNames,
                                     onClick = { onPlaceClick(place.id) },
                                     onToggleFavorite = { onToggleFavorite(place.id) },
+                                    onAddToSchedule = { schedulePlace = place },
                                 )
                             }
                             if (rowPlaces.size == 1) Spacer(Modifier.weight(1f))
@@ -232,6 +263,114 @@ fun PlaceSearchScreen(
             confirmButton = {},
         )
     }
+
+    schedulePlace?.let { place ->
+        ScheduleOptionsBottomSheet(
+            title = place.name,
+            contextText = listOf(tripName, tripDate).filter(String::isNotBlank).joinToString(" · "),
+            onDismiss = { schedulePlace = null },
+            onConfirm = { time, memo ->
+                onAddToSchedule(place.id, time, memo)
+                schedulePlace = null
+            },
+        )
+    }
+}
+
+@Composable
+private fun AgentRecommendationSection(
+    uiState: PlaceRecommendationUiState,
+    onRetry: () -> Unit,
+    onRecommendationClick: (AgentRecommendation) -> Unit,
+    scheduledPlaceIds: Set<String>,
+    scheduledPlaceNames: Set<String>,
+    onAddToSchedule: (AgentRecommendation) -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(Color(0xFFF1F6FF))
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                Icons.Default.AutoAwesome,
+                contentDescription = null,
+                tint = PrimaryBlue,
+                modifier = Modifier.size(22.dp),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                "가야디 에이전트 추천",
+                modifier = Modifier.weight(1f),
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary,
+            )
+            TextButton(onClick = onRetry, enabled = !uiState.isLoading) {
+                Text("다시 추천", color = PrimaryBlue)
+            }
+        }
+        when {
+            uiState.isLoading -> Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = PrimaryBlue)
+                Text("여행 성향과 현재 상황을 분석하고 있어요.", fontSize = 12.sp, color = TextSecondary)
+            }
+            uiState.errorMessage != null -> {
+                Text(uiState.errorMessage, fontSize = 12.sp, color = TextSecondary)
+                TextButton(onClick = onRetry) { Text("추천 다시 받기", color = PrimaryBlue) }
+            }
+            uiState.recommendations.isEmpty() -> {
+                Text("맞춤 추천을 받아 여행지 후보를 확인해 보세요.", fontSize = 12.sp, color = TextSecondary)
+            }
+            else -> {
+                uiState.reasoning.takeIf(String::isNotBlank)?.let {
+                    Text(it, fontSize = 12.sp, color = TextSecondary)
+                }
+                uiState.recommendations.forEach { recommendation ->
+                    val isScheduled = recommendation.placeId in scheduledPlaceIds ||
+                        recommendation.name in scheduledPlaceNames
+                    Column(
+                        modifier = Modifier.fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(Color.White)
+                            .clickable { onRecommendationClick(recommendation) }
+                            .padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                recommendation.name,
+                                modifier = Modifier.weight(1f),
+                                fontWeight = FontWeight.SemiBold,
+                                color = TextPrimary,
+                            )
+                            Text(
+                                "추천 ${(recommendation.score * 100).toInt().coerceIn(0, 100)}%",
+                                fontSize = 11.sp,
+                                color = PrimaryBlue,
+                            )
+                        }
+                        Text(recommendation.reason, fontSize = 12.sp, color = TextSecondary)
+                        TextButton(
+                            onClick = { onAddToSchedule(recommendation) },
+                            enabled = !isScheduled,
+                            modifier = Modifier.align(Alignment.End),
+                        ) {
+                            Text(if (isScheduled) "일정에 추가됨" else "일정 추가", color = PrimaryBlue)
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -239,8 +378,10 @@ private fun PlaceCard(
     place: PlaceItem,
     modifier: Modifier = Modifier,
     isFavorite: Boolean,
+    isScheduled: Boolean,
     onClick: () -> Unit,
     onToggleFavorite: () -> Unit,
+    onAddToSchedule: () -> Unit,
 ) {
     val (tagBackground, tagText) = when (place.crowdLevel) {
         CrowdLevel.RELAXED -> TagGreen to TagGreenText
@@ -283,6 +424,15 @@ private fun PlaceCard(
                 fontSize = 10.sp,
                 color = tagText,
             )
+        }
+        Spacer(Modifier.height(8.dp))
+        Button(
+            onClick = onAddToSchedule,
+            enabled = !isScheduled,
+            modifier = Modifier.fillMaxWidth().height(36.dp),
+            shape = RoundedCornerShape(8.dp),
+        ) {
+            Text(if (isScheduled) "추가됨" else "일정 추가", fontSize = 12.sp)
         }
     }
 }

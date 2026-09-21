@@ -337,7 +337,8 @@ class HttpTourApiDataSource(
                 val item = items.getJSONObject(index)
                 add(
                     TourPlaceDto(
-                        contentId = item.optString("contentId"),
+                        contentId = item.optNullableString("placeId")
+                            ?: item.optString("contentId"),
                         title = item.optString("title"),
                         address = item.optString("address"),
                         addressDetail = item.optString("addressDetail"),
@@ -348,7 +349,16 @@ class HttpTourApiDataSource(
                         lclsSystm1 = item.optString("lclsSystm1"),
                         lclsSystm2 = item.optString("lclsSystm2"),
                         lclsSystm3 = item.optString("lclsSystm3"),
+                        lDongRegnCd = item.optString("lDongRegnCd"),
+                        lDongSignguCd = item.optString("lDongSignguCd"),
                         distanceMeters = item.optNullableInt("dist"),
+                        crowdLevel = item.optString("crowdLevel"),
+                        concentrationScore = item.optNullableInt("concentrationScore"),
+                        crowdSource = item.optString("crowdSource"),
+                        crowdEstimated = item.optBoolean("crowdEstimated"),
+                        crowdProviderDataAvailable = item.optBoolean("crowdProviderDataAvailable"),
+                        crowdConfidence = item.optString("crowdConfidence"),
+                        crowdMessage = item.optString("crowdMessage"),
                     ),
                 )
             }

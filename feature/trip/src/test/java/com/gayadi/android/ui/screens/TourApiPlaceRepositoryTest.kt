@@ -15,7 +15,15 @@ class TourApiPlaceRepositoryTest {
         val source = RecordingTourRepository { query ->
             Result.success(
                 when {
-                    query.contentTypeId == 12 -> listOf(tourPlace("attraction", "성산일출봉", ""))
+                    query.contentTypeId == 12 -> listOf(
+                        tourPlace(
+                            "attraction",
+                            "성산일출봉",
+                            "",
+                            regionCode = "50",
+                            districtCode = "130",
+                        ),
+                    )
                     query.lclsSystm2 == "FD01" -> emptyList()
                     query.lclsSystm2 == "FD05" -> listOf(tourPlace("cafe", "성산다원", ""))
                     query.contentTypeId == 39 -> listOf(
@@ -49,6 +57,8 @@ class TourApiPlaceRepositoryTest {
             ),
             places.associate { it.id to (it.category to it.emoji) },
         )
+        assertEquals("50", places.single { it.id == "attraction" }.regionCode)
+        assertEquals("130", places.single { it.id == "attraction" }.districtCode)
     }
 
     @Test
@@ -162,6 +172,46 @@ class TourApiPlaceRepositoryTest {
     }
 
     @Test
+    fun mapsCrowdForecastToPlaceItem() = runTest {
+        val source = RecordingTourRepository { query ->
+            Result.success(
+                if (query.contentTypeId == 12) {
+                    listOf(
+                        TourPlace(
+                            contentId = "crowded",
+                            title = "붐비는 명소",
+                            address = "서울",
+                            addressDetail = "종로구",
+                            imageUrl = "",
+                            longitude = null,
+                            latitude = null,
+                            contentTypeId = "12",
+                            crowdLevel = "CROWDED",
+                            concentrationScore = 75,
+                            crowdSource = "KTO_DISTRICT_CONCENTRATION_FORECAST",
+                            crowdEstimated = true,
+                            crowdProviderDataAvailable = true,
+                            crowdConfidence = "LOW",
+                            crowdMessage = "평균 집중률을 적용했습니다.",
+                        ),
+                    )
+                } else {
+                    emptyList()
+                },
+            )
+        }
+        val repository = TourApiPlaceRepository(GetTourPlacesUseCase(source))
+
+        val place = repository.getPlaces().getOrThrow().single { it.id == "crowded" }
+
+        assertEquals(CrowdLevel.CROWDED, place.crowdLevel)
+        assertEquals(75, place.concentrationScore)
+        assertEquals("KTO_DISTRICT_CONCENTRATION_FORECAST", place.crowdSource)
+        assertEquals("평균 집중률을 적용했습니다.", place.crowdMessage)
+        assertEquals(true, place.hasRealtimeDetails)
+    }
+
+    @Test
     fun skipsFailedCategoryAndContinues() = runTest {
         val source = RecordingTourRepository { query ->
             if (query.contentTypeId == 39) {
@@ -198,6 +248,18 @@ class TourApiPlaceRepositoryTest {
             listOf(RecordedTourQuery(contentTypeId = 12), RecordedTourQuery(contentTypeId = 39)),
             source.requests,
         )
+    }
+
+    @Test
+    fun allCategoryFailuresSurfaceAsFailure() = runTest {
+        val source = RecordingTourRepository {
+            Result.failure(IllegalStateException("로그인이 필요해요."))
+        }
+        val repository = TourApiPlaceRepository(GetTourPlacesUseCase(source))
+
+        val result = repository.getPlaces()
+
+        assertEquals("로그인이 필요해요.", result.exceptionOrNull()?.message)
     }
 }
 
@@ -243,6 +305,8 @@ private fun tourPlace(
     contentTypeId: String,
     lclsSystm2: String = "",
     lclsSystm3: String = "",
+    regionCode: String = "",
+    districtCode: String = "",
 ) = TourPlace(
     contentId = contentId,
     title = title,
@@ -254,4 +318,6 @@ private fun tourPlace(
     contentTypeId = contentTypeId,
     lclsSystm2 = lclsSystm2,
     lclsSystm3 = lclsSystm3,
+    regionCode = regionCode,
+    districtCode = districtCode,
 )
