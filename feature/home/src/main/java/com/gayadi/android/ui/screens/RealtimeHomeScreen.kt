@@ -80,8 +80,6 @@ fun RealtimeHomeScreen(
     onNavigateParticipants: () -> Unit,
     onUpdateSchedule: (scheduleId: String, time: String, memo: String) -> Unit,
     onAddScheduleExpense: (scheduleId: String, time: String, memo: String) -> Unit,
-    onScheduleDirections: (scheduleId: String, time: String, memo: String) -> Unit,
-    onNavigateRoutes: () -> Unit,
 ) {
     var selectedPlan by remember { mutableStateOf<HomeTravelPlan?>(null) }
     var isUsageGuideVisible by rememberSaveable { mutableStateOf(showUsageGuide) }
@@ -227,7 +225,6 @@ fun RealtimeHomeScreen(
                     plans = travelPlans,
                     javaScriptKey = kakaoMapJavaScriptKey,
                     baseUrl = kakaoMapBaseUrl,
-                    onClick = onNavigateRoutes,
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -331,10 +328,6 @@ fun RealtimeHomeScreen(
                 selectedPlan = null
                 onAddScheduleExpense(plan.id, time, memo)
             },
-            onDirections = { time, memo ->
-                selectedPlan = null
-                onScheduleDirections(plan.id, time, memo)
-            },
             onDismiss = { selectedPlan = null },
             onConfirm = { time, memo ->
                 onUpdateSchedule(plan.id, time, memo)
@@ -356,8 +349,6 @@ private fun RealtimeHomePreview() {
             onNavigateParticipants = {},
             onUpdateSchedule = { _, _, _ -> },
             onAddScheduleExpense = { _, _, _ -> },
-            onScheduleDirections = { _, _, _ -> },
-            onNavigateRoutes = {},
         )
     }
 }

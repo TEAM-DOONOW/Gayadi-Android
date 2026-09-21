@@ -25,9 +25,6 @@ import com.gayadi.android.ui.screens.PlaceDetailScreen
 import com.gayadi.android.ui.screens.PlaceSearchScreen
 import com.gayadi.android.ui.screens.RealtimeHomeScreen
 import com.gayadi.android.ui.screens.RealtimeHomeViewModel
-import com.gayadi.android.ui.screens.RouteHubScreen
-import com.gayadi.android.ui.screens.RouteRecommendationScreen
-import com.gayadi.android.ui.screens.RouteRecommendationType
 import com.gayadi.android.ui.screens.SettlementDetailsScreen
 import com.gayadi.android.ui.screens.TravelLedgerScreen
 import com.gayadi.android.ui.screens.TripCreateScreen
@@ -407,39 +404,6 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
         )
     }
     composable(
-        route = Routes.ROUTE_HUB,
-        arguments = listOf(navArgument("tripId") { type = NavType.StringType }),
-    ) { backStackEntry ->
-        val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
-        RouteHubScreen(
-            tripName = travelUiState.travelState.trip(tripId)?.name.orEmpty(),
-            onBack = { navController.popBackStack() },
-            onSelect = { type -> navController.navigate(Routes.routeRecommendation(tripId, type.name)) },
-        )
-    }
-    composable(
-        route = Routes.ROUTE_RECOMMENDATION,
-        arguments = listOf(
-            navArgument("tripId") { type = NavType.StringType },
-            navArgument("routeType") { type = NavType.StringType },
-        ),
-    ) { backStackEntry ->
-        val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
-        val type = backStackEntry.arguments?.getString("routeType")
-            ?.let { runCatching { RouteRecommendationType.valueOf(it) }.getOrNull() }
-            ?: RouteRecommendationType.ITINERARY
-        val travelState = travelUiState.travelState
-        RouteRecommendationScreen(
-            type = type,
-            trip = travelState.trip(tripId),
-            schedules = travelState.schedulesForTrip(tripId),
-            profile = sharedProfileUiState.profile,
-            appliedOptionId = travelState.appliedRouteIds["$tripId:${type.name}"],
-            onBack = { navController.popBackStack() },
-            onApply = { tripViewModel.applyRoute(tripId, type.name, it) },
-        )
-    }
-    composable(
         route = Routes.NEARBY_PLACES,
         arguments = listOf(
             navArgument("tripId") { type = NavType.StringType },
@@ -534,13 +498,6 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
                     navController.navigate(Routes.tripExpense(tripId, scheduleId))
                 }
             },
-            onScheduleDirections = { scheduleId, time, memo ->
-                tripSchedules.firstOrNull { it.id == scheduleId }?.let { schedule ->
-                    tripViewModel.upsertSchedule(schedule.copy(time = time, memo = memo))
-                    navController.navigate(Routes.routeHub(tripId))
-                }
-            },
-            onNavigateRoutes = { navController.navigate(Routes.routeHub(tripId)) },
         )
     }
 }

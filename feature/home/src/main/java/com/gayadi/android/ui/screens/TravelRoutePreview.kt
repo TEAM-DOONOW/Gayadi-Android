@@ -12,32 +12,18 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.AltRoute
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import com.gayadi.android.ui.theme.PrimaryAction
 import com.gayadi.android.ui.theme.TextSecondary
 import org.json.JSONArray
 
@@ -47,15 +33,13 @@ internal fun TravelRoutePreview(
     plans: List<HomeTravelPlan>,
     javaScriptKey: String,
     baseUrl: String,
-    onClick: () -> Unit,
 ) {
     if (javaScriptKey.isBlank()) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(160.dp)
-                .background(Color(0xFFE9E9ED))
-                .clickable(role = Role.Button, onClick = onClick),
+                .background(Color(0xFFE9E9ED)),
             contentAlignment = Alignment.Center,
         ) {
             Text("카카오맵 키를 설정해 주세요", fontSize = 13.sp, color = TextSecondary)
@@ -198,26 +182,6 @@ internal fun TravelRoutePreview(
                 }
             },
         )
-        Button(
-            onClick = onClick,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(12.dp)
-                .height(48.dp),
-            shape = RoundedCornerShape(24.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = PrimaryAction,
-                contentColor = Color.White,
-            ),
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.AltRoute,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp),
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text("전체 동선 보기", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-        }
     }
 }
 
