@@ -2,6 +2,7 @@ package com.gayadi.android.data.datasource
 
 import com.gayadi.android.domain.model.AuthSession
 import com.gayadi.android.domain.model.AuthUser
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import kotlinx.coroutines.Dispatchers
@@ -54,7 +55,12 @@ class HttpAuthApiDataSource(
                     connection.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
                 }
                 if (statusCode !in 200..299) {
-                    throw IllegalStateException(errorMessage(statusCode, responseBody))
+                    val error = parseError(statusCode, responseBody)
+                    throw AuthTokenRequestException(
+                        statusCode = statusCode,
+                        errorCode = error.code,
+                        serverMessage = error.message,
+                    )
                 }
                 parseSession(responseBody)
             } finally {
@@ -87,18 +93,16 @@ class HttpAuthApiDataSource(
         )
     }
 
-    private fun errorMessage(statusCode: Int, body: String): String {
+    private fun parseError(statusCode: Int, body: String): AuthTokenError {
         val parsed = runCatching {
             val root = JSONObject(body)
-            val code = root.optString("code")
+            val code = root.optString("code").trim()
             val message = root.optString("message").ifBlank { root.optString("error") }
-            if (code.isNotBlank() && message.isNotBlank()) {
-                "$code: $message"
-            } else {
-                message.ifBlank { code }
-            }
-        }.getOrDefault("")
-        return parsed.ifBlank { "Google 로그인에 실패했습니다. (HTTP $statusCode)" }
+            AuthTokenError(code.takeIf(String::isNotBlank), message.trim().takeIf(String::isNotBlank))
+        }.getOrDefault(AuthTokenError(null, null))
+        return parsed.copy(
+            message = parsed.message ?: "인증 요청을 처리하지 못했습니다. (HTTP $statusCode)",
+        )
     }
 
     private companion object {
@@ -106,6 +110,23 @@ class HttpAuthApiDataSource(
         const val READ_TIMEOUT_MILLIS = 15_000
     }
 }
+
+class AuthTokenRequestException(
+    val statusCode: Int,
+    val errorCode: String?,
+    val serverMessage: String?,
+) : IOException(
+    if (statusCode == 400 || statusCode == 401 || errorCode == "AUTH_REFRESH_TOKEN_INVALID") {
+        "로그인이 만료되었어요. 다시 로그인해 주세요."
+    } else {
+        "인증 서버 요청을 처리하지 못했어요. 잠시 후 다시 시도해 주세요."
+    },
+)
+
+private data class AuthTokenError(
+    val code: String?,
+    val message: String?,
+)
 
 private fun JSONObject.optNullableString(name: String): String? =
     takeUnless { isNull(name) }?.optString(name)?.takeIf(String::isNotBlank)

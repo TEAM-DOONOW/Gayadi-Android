@@ -97,8 +97,8 @@ android {
         applicationId = "com.doonow.gayadi"
         minSdk = 26
         targetSdk = 36
-        versionCode = 23
-        versionName = "0.0.23"
+        versionCode = 24
+        versionName = "0.0.24"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField(
             "String",

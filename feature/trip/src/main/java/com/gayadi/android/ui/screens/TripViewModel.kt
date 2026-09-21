@@ -122,7 +122,12 @@ class TripViewModel(
         val auth = authRepository ?: return
         viewModelScope.launch {
             auth.observeSession().collect { session ->
-                if (session != null) loadState()
+                if (session != null) {
+                    loadState()
+                } else {
+                    loadJob?.cancel()
+                    _uiState.value = TravelUiState(isLoading = false)
+                }
             }
         }
     }
