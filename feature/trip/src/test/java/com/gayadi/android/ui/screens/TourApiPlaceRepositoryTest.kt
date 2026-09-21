@@ -172,6 +172,46 @@ class TourApiPlaceRepositoryTest {
     }
 
     @Test
+    fun mapsCrowdForecastToPlaceItem() = runTest {
+        val source = RecordingTourRepository { query ->
+            Result.success(
+                if (query.contentTypeId == 12) {
+                    listOf(
+                        TourPlace(
+                            contentId = "crowded",
+                            title = "붐비는 명소",
+                            address = "서울",
+                            addressDetail = "종로구",
+                            imageUrl = "",
+                            longitude = null,
+                            latitude = null,
+                            contentTypeId = "12",
+                            crowdLevel = "CROWDED",
+                            concentrationScore = 75,
+                            crowdSource = "KTO_DISTRICT_CONCENTRATION_FORECAST",
+                            crowdEstimated = true,
+                            crowdProviderDataAvailable = true,
+                            crowdConfidence = "LOW",
+                            crowdMessage = "평균 집중률을 적용했습니다.",
+                        ),
+                    )
+                } else {
+                    emptyList()
+                },
+            )
+        }
+        val repository = TourApiPlaceRepository(GetTourPlacesUseCase(source))
+
+        val place = repository.getPlaces().getOrThrow().single { it.id == "crowded" }
+
+        assertEquals(CrowdLevel.CROWDED, place.crowdLevel)
+        assertEquals(75, place.concentrationScore)
+        assertEquals("KTO_DISTRICT_CONCENTRATION_FORECAST", place.crowdSource)
+        assertEquals("평균 집중률을 적용했습니다.", place.crowdMessage)
+        assertEquals(true, place.hasRealtimeDetails)
+    }
+
+    @Test
     fun skipsFailedCategoryAndContinues() = runTest {
         val source = RecordingTourRepository { query ->
             if (query.contentTypeId == 39) {

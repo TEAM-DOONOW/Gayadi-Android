@@ -164,6 +164,8 @@ class ServerPlaceApiDataSource(private val client: GayadiApiClient) : TourApiDat
                 "CAFE" -> "FD05"
                 else -> ""
             },
+            crowdLevel = optString("crowdLevel"),
+            crowdProviderDataAvailable = optBoolean("crowdDataAvailable"),
         )
     }
 

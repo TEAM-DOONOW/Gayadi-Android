@@ -120,7 +120,7 @@ class ServerAgentGatewayTest {
     }
 }
 
-private class TestAuthRepository : AuthRepository {
+internal class TestAuthRepository : AuthRepository {
     override suspend fun signInWithGoogle(idToken: String): AuthSession = error("unused")
     override suspend fun refreshSession(): AuthSession = error("unused")
     override suspend fun validAccessToken(): String = "access"

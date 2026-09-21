@@ -211,6 +211,13 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
         val travelState = travelUiState.travelState
         val trip = travelState.trip(tripId)
         val androidContext = LocalContext.current
+        val placeUiState by placeViewModel.uiState.collectAsStateWithLifecycle()
+        val place = placeUiState.places.firstOrNull { it.id == placeId }
+            ?: placeViewModel.findPlace(placeId)
+        val hourlyUiState by placeViewModel.hourlyUiState.collectAsStateWithLifecycle()
+        LaunchedEffect(placeId, place?.regionCode, place?.districtCode) {
+            placeViewModel.loadCongestionHourly(placeId)
+        }
         PlaceDetailScreen(
             showUsageGuide = remember(androidContext) {
                 !UsageGuidePreferences.hasCompleted(androidContext, UsageGuidePreferences.PlaceDetail)
@@ -218,7 +225,7 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
             onUsageGuideFinished = {
                 UsageGuidePreferences.markCompleted(androidContext, UsageGuidePreferences.PlaceDetail)
             },
-            place = placeViewModel.findPlace(placeId),
+            place = place,
             tripName = trip?.name.orEmpty(),
             tripDate = trip?.startDate.orEmpty(),
             isScheduled = travelState.schedulesForTrip(tripId).any { it.placeId == placeId },
@@ -233,6 +240,8 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
                 tripViewModel.toggleFavorite(placeId, placeViewModel.findPlace(placeId)?.name)
             },
             onNearby = { navController.navigate(Routes.nearbyPlaces(tripId, placeId)) },
+            hourlyUiState = hourlyUiState,
+            onHourlyRetry = { placeViewModel.loadCongestionHourly(placeId) },
         )
     }
     composable(Routes.MY_TRIP) {

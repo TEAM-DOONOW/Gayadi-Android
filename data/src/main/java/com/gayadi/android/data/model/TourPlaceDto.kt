@@ -15,4 +15,11 @@ data class TourPlaceDto(
     val lDongRegnCd: String = "",
     val lDongSignguCd: String = "",
     val distanceMeters: Int? = null,
+    val crowdLevel: String = "",
+    val concentrationScore: Int? = null,
+    val crowdSource: String = "",
+    val crowdEstimated: Boolean = false,
+    val crowdProviderDataAvailable: Boolean = false,
+    val crowdConfidence: String = "",
+    val crowdMessage: String = "",
 )

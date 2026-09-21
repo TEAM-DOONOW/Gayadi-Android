@@ -15,4 +15,11 @@ data class TourPlace(
     val regionCode: String = "",
     val districtCode: String = "",
     val distanceMeters: Int? = null,
+    val crowdLevel: String = "",
+    val concentrationScore: Int? = null,
+    val crowdSource: String = "",
+    val crowdEstimated: Boolean = false,
+    val crowdProviderDataAvailable: Boolean = false,
+    val crowdConfidence: String = "",
+    val crowdMessage: String = "",
 )

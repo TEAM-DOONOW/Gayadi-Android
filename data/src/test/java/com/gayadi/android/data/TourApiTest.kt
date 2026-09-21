@@ -60,6 +60,32 @@ class TourApiTest {
     }
 
     @Test
+    fun parsesCrowdForecastFromDiscoveryResponse() {
+        val places = HttpTourApiDataSource("http://example.com").parsePlaces(
+            """
+            {"items":[{
+              "placeId":101,"contentId":"2783012","title":"경복궁",
+              "crowdLevel":"CROWDED","concentrationScore":75,
+              "crowdSource":"KTO_DISTRICT_CONCENTRATION_FORECAST",
+              "crowdEstimated":true,"crowdProviderDataAvailable":true,
+              "crowdConfidence":"LOW","crowdMessage":"평균 집중률을 적용했습니다."
+            }]}
+            """.trimIndent(),
+        )
+
+        val place = places.single()
+        assertEquals("CROWDED", place.crowdLevel)
+        assertEquals(75, place.concentrationScore)
+        assertEquals("KTO_DISTRICT_CONCENTRATION_FORECAST", place.crowdSource)
+        assertTrue(place.crowdEstimated)
+        assertTrue(place.crowdProviderDataAvailable)
+        assertEquals("LOW", place.crowdConfidence)
+        assertEquals("평균 집중률을 적용했습니다.", place.crowdMessage)
+        assertEquals("CROWDED", place.toDomain().crowdLevel)
+        assertEquals(75, place.toDomain().concentrationScore)
+    }
+
+    @Test
     fun prefersCanonicalGayadiPlaceIdFromDiscoveryResponse() {
         val places = HttpTourApiDataSource("http://example.com").parsePlaces(
             """

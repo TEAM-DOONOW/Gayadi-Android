@@ -18,4 +18,11 @@ fun TourPlaceDto.toDomain() = TourPlace(
     regionCode = lDongRegnCd,
     districtCode = lDongSignguCd,
     distanceMeters = distanceMeters,
+    crowdLevel = crowdLevel,
+    concentrationScore = concentrationScore,
+    crowdSource = crowdSource,
+    crowdEstimated = crowdEstimated,
+    crowdProviderDataAvailable = crowdProviderDataAvailable,
+    crowdConfidence = crowdConfidence,
+    crowdMessage = crowdMessage,
 )

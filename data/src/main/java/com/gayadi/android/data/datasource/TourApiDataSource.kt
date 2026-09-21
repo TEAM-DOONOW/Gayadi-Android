@@ -352,6 +352,13 @@ class HttpTourApiDataSource(
                         lDongRegnCd = item.optString("lDongRegnCd"),
                         lDongSignguCd = item.optString("lDongSignguCd"),
                         distanceMeters = item.optNullableInt("dist"),
+                        crowdLevel = item.optString("crowdLevel"),
+                        concentrationScore = item.optNullableInt("concentrationScore"),
+                        crowdSource = item.optString("crowdSource"),
+                        crowdEstimated = item.optBoolean("crowdEstimated"),
+                        crowdProviderDataAvailable = item.optBoolean("crowdProviderDataAvailable"),
+                        crowdConfidence = item.optString("crowdConfidence"),
+                        crowdMessage = item.optString("crowdMessage"),
                     ),
                 )
             }

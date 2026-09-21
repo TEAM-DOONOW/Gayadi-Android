@@ -10,11 +10,13 @@ import com.gayadi.android.data.datasource.HttpAuthApiDataSource
 import com.gayadi.android.data.datasource.HttpProfileApiDataSource
 import com.gayadi.android.data.datasource.FileProfileLocalDataSource
 import com.gayadi.android.data.datasource.RestSurveyDataSource
+import com.gayadi.android.data.datasource.RestCongestionDataSource
 import com.gayadi.android.data.datasource.RestSessionApiDataSource
 import com.gayadi.android.data.datasource.RestInquiryDataSource
 import com.gayadi.android.data.datasource.GayadiApiClient
 import com.gayadi.android.data.remote.agent.ServerAgentGateway
 import com.gayadi.android.data.repository.RestSurveySubmissionRepository
+import com.gayadi.android.data.repository.DefaultCongestionRepository
 import com.gayadi.android.domain.usecase.SubmitSurveyUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -53,6 +55,7 @@ import com.gayadi.android.domain.usecase.SubmitInquiryUseCase
 import com.gayadi.android.domain.usecase.SignInWithGoogleUseCase
 import com.gayadi.android.domain.usecase.UpdateTravelStateUseCase
 import com.gayadi.android.domain.usecase.GetTourPlacesUseCase
+import com.gayadi.android.domain.usecase.GetCongestionHourlyUseCase
 import com.gayadi.android.domain.usecase.GetNearbyTourPlacesUseCase
 import com.gayadi.android.domain.usecase.SearchTourPlacesUseCase
 import com.google.firebase.firestore.FirebaseFirestore
@@ -165,6 +168,11 @@ class AppContainer(
     val getTourPlacesUseCase = GetTourPlacesUseCase(tourRepository)
     val getNearbyTourPlacesUseCase = GetNearbyTourPlacesUseCase(tourRepository)
     val searchTourPlacesUseCase = SearchTourPlacesUseCase(tourRepository)
+
+    /** Loads the hourly congestion forecast used for the place detail graph. */
+    val getCongestionHourlyUseCase = GetCongestionHourlyUseCase(
+        DefaultCongestionRepository(RestCongestionDataSource(api)),
+    )
 
     /** Revokes the current backend session before clearing account data on this device. */
     suspend fun logout(): Result<Unit> = try {
