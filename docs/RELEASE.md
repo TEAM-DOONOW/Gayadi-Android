@@ -49,13 +49,16 @@ apksigner verify --print-certs app/build/outputs/apk/prod/release/app-prod-relea
 
 ## Google OAuth 클라이언트
 
-패키지 이름은 `com.doonow.gayadi`이다. `GOOGLE_CLIENT_ID`는 release Android 클라이언트, `GOOGLE_DEBUG_CLIENT_ID`는 debug Android 클라이언트이며 필요하면 각각 `-P` Gradle 속성으로 넘긴다. Credential Manager의 `serverClientId`에는 `GOOGLE_WEB_CLIENT_ID`의 Web OAuth 클라이언트 ID만 사용한다.
+앱과 서버의 OAuth 설정값은 Web OAuth 클라이언트 ID인 `GOOGLE_WEB_CLIENT_ID` 하나만 사용한다. Android OAuth 클라이언트 ID는 앱 빌드 설정이 아니다. Google Cloud Console에서 패키지 `com.doonow.gayadi`와 배포 경로별 SHA-1을 연결하는 등록 항목으로만 관리한다.
 
-| 빌드 | Android 클라이언트 ID | SHA-1 |
+| 배포 경로 | Google Cloud 등록 | SHA-1 |
 | --- | --- | --- |
 | debug | `6035741280-g9agek5bfnkprhp9ubqklb2ustbjd8ld.apps.googleusercontent.com` | `B4:5B:35:CD:37:FB:F7:E2:6E:D0:B8:3D:2E:D6:F5:B5:85:F7:52:94` |
 | release (local/upload signing) | `6035741280-jedtnq850vigud4osf3ce6223i4abbe4.apps.googleusercontent.com` | `08:CB:66:B5:60:AB:2E:5F:9A:49:B6:F2:99:FB:41:DD:34:1B:35:AD` |
-| release (Play App Signing) | `6035741280-cv8v741od57p7pkqh45er3pg2qs86664.apps.googleusercontent.com` | Play Console의 앱 서명 인증서 지문 |
+| Play App Signing (A2:1D) | `6035741280-8eidnon8bfv74u40jvvgbkrj8hov7ds6.apps.googleusercontent.com` | `A2:1D:9A:41:88:52:31:22:56:A0:FC:CE:DC:E5:F2:9C:73:B5:2F:BD` |
+| Play App Signing (70:52) | `6035741280-cv8v741od57p7pkqh45er3pg2qs86664.apps.googleusercontent.com` | `70:52:86:10:71:BF:A6:33:A3:93:26:D5:E5:B8:9B:FA:27:DC:24:F8` |
+
+Play 키 교체가 적용된 앱은 기기 조건에 따라 기존 키 또는 교체 키로 서명될 수 있으므로 두 등록을 모두 유지한다. 어느 Android 클라이언트 ID도 `GOOGLE_WEB_CLIENT_ID`나 Credential Manager의 `serverClientId`에 넣지 않는다.
 
 ## 빌드
 

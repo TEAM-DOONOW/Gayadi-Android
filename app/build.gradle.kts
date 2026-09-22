@@ -24,10 +24,6 @@ fun String.asBuildConfigString(): String =
 
 val defaultGoogleWebClientId =
     "6035741280-j8ed9ka462jcvhoc14q7hb8vl26iqk0f.apps.googleusercontent.com"
-val defaultGoogleDebugAndroidClientId =
-    "6035741280-g9agek5bfnkprhp9ubqklb2ustbjd8ld.apps.googleusercontent.com"
-val defaultGoogleReleaseAndroidClientId =
-    "6035741280-cv8v741od57p7pkqh45er3pg2qs86664.apps.googleusercontent.com"
 
 fun configuredString(value: String?): String? =
     value?.trim()?.takeIf {
@@ -47,13 +43,6 @@ fun resolvedGoogleWebClientId(raw: String): String {
     }
 }
 
-fun resolvedAndroidClientId(value: String?, key: String, fallback: String): String =
-    configuredString(value)?.also { configuredValue ->
-        check(configuredValue.endsWith(".apps.googleusercontent.com")) {
-            "$key must be a Google Android OAuth client ID."
-        }
-    } ?: fallback
-
 fun validateProductionApiBaseUrl(value: String) {
     val normalized = value.trim()
     val domain = Regex("^https://([^/:?#]+)(?::[0-9]+)?(?:/[^?#]*)?/?$")
@@ -72,31 +61,12 @@ val prodApiBaseUrl = configuredString(providers.gradleProperty("API_BASE_URL").o
 val googleWebClientIdOverride = configuredString(
     providers.gradleProperty("GOOGLE_WEB_CLIENT_ID").orNull,
 )
-val googleDebugAndroidClientId = resolvedAndroidClientId(
-    providers.gradleProperty("GOOGLE_DEBUG_CLIENT_ID").orNull,
-    "GOOGLE_DEBUG_CLIENT_ID",
-    defaultGoogleDebugAndroidClientId,
-)
-val googleReleaseAndroidClientId = resolvedAndroidClientId(
-    providers.gradleProperty("GOOGLE_CLIENT_ID").orNull,
-    "GOOGLE_CLIENT_ID",
-    defaultGoogleReleaseAndroidClientId,
-)
-check(googleDebugAndroidClientId != googleReleaseAndroidClientId) {
-    "Debug and release Google Android OAuth client IDs must be different."
-}
 val devGoogleWebClientId = resolvedGoogleWebClientId(
     googleWebClientIdOverride ?: devProperties.getProperty("GOOGLE_WEB_CLIENT_ID", ""),
 )
 val prodGoogleWebClientId = resolvedGoogleWebClientId(
     googleWebClientIdOverride ?: prodProperties.getProperty("GOOGLE_WEB_CLIENT_ID", ""),
 )
-check(devGoogleWebClientId != googleDebugAndroidClientId) {
-    "GOOGLE_WEB_CLIENT_ID must be a Web OAuth client ID, not the debug Android client ID."
-}
-check(prodGoogleWebClientId != googleReleaseAndroidClientId) {
-    "GOOGLE_WEB_CLIENT_ID must be a Web OAuth client ID, not the release Android client ID."
-}
 val keystorePropertiesFile = rootProject.file("keystore.properties")
 val keystoreProperties = Properties().apply {
     if (keystorePropertiesFile.exists()) {
@@ -112,8 +82,8 @@ android {
         applicationId = "com.doonow.gayadi"
         minSdk = 26
         targetSdk = 36
-        versionCode = 26
-        versionName = "0.0.26"
+        versionCode = 27
+        versionName = "0.0.27"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField(
             "String",
@@ -191,24 +161,12 @@ android {
     }
 
     buildTypes {
-        debug {
-            buildConfigField(
-                "String",
-                "GOOGLE_ANDROID_CLIENT_ID",
-                googleDebugAndroidClientId.asBuildConfigString(),
-            )
-        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
-            )
-            buildConfigField(
-                "String",
-                "GOOGLE_ANDROID_CLIENT_ID",
-                googleReleaseAndroidClientId.asBuildConfigString(),
             )
             if (keystorePropertiesFile.exists()) {
                 signingConfig = signingConfigs.getByName("release")
