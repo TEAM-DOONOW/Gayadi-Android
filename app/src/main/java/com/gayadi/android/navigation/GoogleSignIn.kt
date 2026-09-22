@@ -24,7 +24,7 @@ import org.json.JSONObject
 internal fun googleOauthServerClientId(webClientId: String): String {
     val web = webClientId.trim()
     check(isConfiguredGoogleClientId(web)) {
-        "GOOGLE_CLIENT_ID에 Google 웹 클라이언트 ID를 설정해 주세요."
+        "GOOGLE_WEB_CLIENT_ID에 Google 웹 클라이언트 ID를 설정해 주세요."
     }
     return web
 }

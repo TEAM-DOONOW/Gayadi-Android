@@ -49,12 +49,13 @@ apksigner verify --print-certs app/build/outputs/apk/prod/release/app-prod-relea
 
 ## Google OAuth 클라이언트
 
-패키지 이름은 `com.doonow.gayadi`이다. `GOOGLE_CLIENT_ID`는 release Android 클라이언트, `GOOGLE_DEBUG_CLIENT_ID`는 debug Android 클라이언트이며 필요하면 각각 `-P` Gradle 속성으로 넘긴다. Google SDK가 요구하는 웹 클라이언트 ID 처리는 기존 `GOOGLE_WEB_CLIENT_ID` 흐름을 그대로 유지한다.
+패키지 이름은 `com.doonow.gayadi`이다. `GOOGLE_CLIENT_ID`는 release Android 클라이언트, `GOOGLE_DEBUG_CLIENT_ID`는 debug Android 클라이언트이며 필요하면 각각 `-P` Gradle 속성으로 넘긴다. Credential Manager의 `serverClientId`에는 `GOOGLE_WEB_CLIENT_ID`의 Web OAuth 클라이언트 ID만 사용한다.
 
 | 빌드 | Android 클라이언트 ID | SHA-1 |
 | --- | --- | --- |
 | debug | `6035741280-g9agek5bfnkprhp9ubqklb2ustbjd8ld.apps.googleusercontent.com` | `B4:5B:35:CD:37:FB:F7:E2:6E:D0:B8:3D:2E:D6:F5:B5:85:F7:52:94` |
-| release | `6035741280-jedtnq850vigud4osf3ce6223i4abbe4.apps.googleusercontent.com` | `08:CB:66:B5:60:AB:2E:5F:9A:49:B6:F2:99:FB:41:DD:34:1B:35:AD` |
+| release (local/upload signing) | `6035741280-jedtnq850vigud4osf3ce6223i4abbe4.apps.googleusercontent.com` | `08:CB:66:B5:60:AB:2E:5F:9A:49:B6:F2:99:FB:41:DD:34:1B:35:AD` |
+| release (Play App Signing) | `6035741280-cv8v741od57p7pkqh45er3pg2qs86664.apps.googleusercontent.com` | Play Console의 앱 서명 인증서 지문 |
 
 ## 빌드
 
