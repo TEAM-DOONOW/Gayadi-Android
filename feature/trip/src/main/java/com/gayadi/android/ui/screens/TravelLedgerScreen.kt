@@ -1,5 +1,7 @@
 package com.gayadi.android.ui.screens
 
+import com.gayadi.android.ui.components.gayadiPatternBackground
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -114,7 +116,7 @@ fun TravelLedgerScreen(
     Box(
         Modifier
             .fillMaxSize()
-            .background(LedgerBackground)
+            .gayadiPatternBackground(topWave = true)
             .statusBarsPadding()
             .navigationBarsPadding(),
     ) {
@@ -217,7 +219,7 @@ fun TravelLedgerScreen(
 @Composable
 private fun LedgerTopBar(onBack: () -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().background(LedgerBackground).padding(start = 8.dp, end = 20.dp, top = 12.dp, bottom = 8.dp),
+        modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 20.dp, top = 12.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconButton(onClick = onBack) { Icon(Icons.Default.ChevronLeft, contentDescription = "뒤로") }

@@ -1,5 +1,7 @@
 package com.gayadi.android.ui.screens
 
+import com.gayadi.android.ui.components.gayadiPatternBackground
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -61,7 +63,7 @@ fun SettlementDetailsScreen(
             amount?.let { SettlementDetailItem(expense.id, expense.title, expense.date, it) }
         }
     }
-    Column(Modifier.fillMaxSize().background(Color(0xFFF7F7F8)).statusBarsPadding()) {
+    Column(Modifier.fillMaxSize().gayadiPatternBackground(topWave = true).statusBarsPadding()) {
         Row(
             Modifier.fillMaxWidth().padding(start = 8.dp, end = 20.dp, top = 10.dp, bottom = 10.dp),
             verticalAlignment = Alignment.CenterVertically,

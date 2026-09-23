@@ -1,5 +1,7 @@
 package com.gayadi.android.ui.screens
 
+import com.gayadi.android.ui.components.gayadiPatternBackground
+
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -32,7 +34,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -98,15 +99,7 @@ fun RealtimeHomeScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colorStops = arrayOf(
-                            0.0f to Color(0xFFF2FAFF),
-                            0.48f to Color(0xFFF8F8FA),
-                            1.0f to Color(0xFFFFF7F0),
-                        ),
-                    ),
-                ),
+                .gayadiPatternBackground(topWave = true, waveHeight = 420.dp),
         ) {
             Column(
                 modifier = Modifier

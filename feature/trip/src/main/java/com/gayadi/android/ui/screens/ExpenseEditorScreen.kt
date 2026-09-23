@@ -1,5 +1,7 @@
 package com.gayadi.android.ui.screens
 
+import com.gayadi.android.ui.components.gayadiPatternBackground
+
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -88,7 +90,6 @@ private val expenseDateFormatter = DateTimeFormatter.ofPattern("uuuu.MM.dd")
 private val expenseTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
     .withResolverStyle(ResolverStyle.STRICT)
 private val ExpenseError = Color(0xFFD94B4B)
-private val ExpenseEditorBackground = Color(0xFFF5F5F6)
 
 @Composable
 fun ExpenseEditorScreen(
@@ -187,7 +188,7 @@ fun ExpenseEditorScreen(
     Column(
         Modifier
             .fillMaxSize()
-            .background(ExpenseEditorBackground)
+            .gayadiPatternBackground(topWave = true, waveHeight = 520.dp)
             .statusBarsPadding()
             .navigationBarsPadding(),
     ) {

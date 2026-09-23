@@ -1,8 +1,12 @@
 package com.gayadi.android.ui.screens
 
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.res.imageResource
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -64,7 +68,6 @@ import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInRoot
@@ -74,11 +77,10 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.gayadi.android.ui.components.gayadiPatternBackground
 import com.gayadi.android.ui.components.UsageGuideCallout
 import com.gayadi.android.ui.components.UsageGuideOverlay
 import com.gayadi.android.ui.components.UsageGuidePlacement
@@ -141,24 +143,9 @@ fun MyTripScreen(
         trip.status == TripStatus.COMPLETED || trip.endDate.toTripDate()?.isBefore(today) == true
     }
     val visibleTrips = if (selectedTab == 0) ongoingTrips else completedTrips
-    val backgroundImage = androidx.compose.ui.graphics.ImageBitmap.imageResource(R.drawable.gayadi_background)
 
     Box(Modifier.fillMaxSize().background(Color.White)) {
-        Canvas(Modifier.fillMaxWidth().height(410.dp).background(Color(0xFFF5F5F7))) {
-            val tileSize = 460.dp.roundToPx()
-            val columns = (size.width / tileSize).toInt() + 1
-            val rows = (size.height / tileSize).toInt() + 1
-            repeat(rows) { row ->
-                repeat(columns) { column ->
-                    drawImage(
-                        image = backgroundImage,
-                        dstSize = IntSize(tileSize, tileSize),
-                        dstOffset = IntOffset(column * tileSize, row * tileSize),
-                        alpha = 0.32f,
-                    )
-                }
-            }
-        }
+        Box(Modifier.fillMaxWidth().height(410.dp).gayadiPatternBackground())
         Column(
             modifier = Modifier
                 .fillMaxSize()
