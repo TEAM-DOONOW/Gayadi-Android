@@ -22,6 +22,7 @@ class RealtimeHomeScreenTest {
 
     @Test
     fun routeButtonIsNotShown() {
+        var notificationsOpened = false
         composeRule.setContent {
             GayadiTheme {
                 RealtimeHomeScreen(
@@ -30,6 +31,7 @@ class RealtimeHomeScreenTest {
                     onNavigateMyTrip = {},
                     onNavigateMyPage = {},
                     onNavigateLedger = {},
+                    onNavigateNotifications = { notificationsOpened = true },
                     onNavigatePlaceSearch = { _ -> },
                     onNavigateParticipants = {},
                     onUpdateSchedule = { _, _, _ -> },
@@ -39,6 +41,10 @@ class RealtimeHomeScreenTest {
         }
 
         composeRule.onNodeWithText("전체 동선 보기").assertDoesNotExist()
+        composeRule.onNodeWithContentDescription("알림 확인")
+            .assertHeightIsAtLeast(48.dp)
+            .performClick()
+        assertTrue(notificationsOpened)
     }
 
     @Test
