@@ -1,5 +1,17 @@
 package com.gayadi.android.ui.screens
 
+import com.gayadi.android.domain.model.ExpenseCategory
+
+import androidx.compose.ui.test.assertIsNotSelected
+
+import androidx.compose.ui.test.assertIsSelected
+
+import androidx.compose.ui.test.ExperimentalTestApi
+
+import androidx.compose.ui.test.performMouseInput
+
+import androidx.compose.ui.test.performTouchInput
+
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertCountEquals
@@ -758,5 +770,63 @@ class TravelFlowScreenTest {
         composeRule.onNodeWithText("계산 불가").assertIsDisplayed()
         composeRule.onNodeWithText("정산 정보를 계산하지 못했어요").assertIsDisplayed()
         composeRule.onNodeWithText("결제자를 선택해 주세요.").assertIsDisplayed()
+    }
+
+    @Test
+    @OptIn(ExperimentalTestApi::class)
+    fun expenseGraphHoverAndCategorySelectionHighlightEachOther() {
+        val expense = TravelExpense(
+            id = "activity", tripId = "trip", scheduleId = "schedule", title = "액티비티",
+            amount = 3_333_333, payerId = "user", participantIds = listOf("user"),
+            date = "2026.09.23", time = "10:00", category = ExpenseCategory.ACTIVITY,
+        )
+        composeRule.setContent {
+            GayadiTheme {
+                TravelLedgerScreen(
+                    tripName = "여행",
+                    expenses = listOf(expense, expense.copy(id = "museum", amount = 30_000, category = ExpenseCategory.MUSEUM)),
+                    schedules = emptyList(), participants = emptyList(),
+                    settlementSummary = ExpenseSettlementSummary(3_363_333, emptyList(), emptyList()),
+                    onBack = {}, onAddExpense = {}, onEditExpense = { _, _ -> }, onDeleteExpense = {},
+                )
+            }
+        }
+        composeRule.onNodeWithText("통계").performClick()
+        val activityBar = composeRule.onNodeWithContentDescription("액티비티 지출 구간")
+        val museumBar = composeRule.onNodeWithContentDescription("박물관·미술관 지출 구간")
+        val activityRow = composeRule.onNodeWithContentDescription("액티비티 카테고리")
+        val museumRow = composeRule.onNodeWithContentDescription("박물관·미술관 카테고리")
+
+        activityBar.performMouseInput { enter(center) }
+        activityRow.assertIsSelected()
+        museumRow.assertIsNotSelected()
+        // Hover must resolve the narrow 0.9% segment without requiring a click.
+        museumBar.performMouseInput { moveTo(center) }
+        museumRow.assertIsSelected()
+        activityRow.assertIsNotSelected()
+        museumBar.performMouseInput { exit() }
+        museumRow.assertIsNotSelected()
+
+        museumRow.performClick()
+        museumBar.assertIsSelected()
+        activityBar.assertIsNotSelected()
+        activityBar.performMouseInput { enter(center) }
+        activityRow.assertIsSelected()
+        activityBar.performMouseInput { exit() }
+        museumRow.assertIsSelected()
+        museumBar.assertIsSelected()
+        museumRow.performClick()
+        museumBar.assertIsNotSelected()
+
+        activityBar.performTouchInput { down(center) }
+        activityRow.assertIsSelected()
+        museumBar.performTouchInput { moveTo(center) }
+        museumRow.assertIsSelected()
+        museumBar.performTouchInput { up() }
+
+        composeRule.onNodeWithContentDescription("항공 카테고리").performClick().assertIsSelected()
+        activityBar.assertIsNotSelected()
+        museumBar.assertIsNotSelected()
+        composeRule.onNodeWithContentDescription("항공 지출 구간").assertDoesNotExist()
     }
 }

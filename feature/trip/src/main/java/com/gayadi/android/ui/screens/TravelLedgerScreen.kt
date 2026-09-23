@@ -1,8 +1,8 @@
 package com.gayadi.android.ui.screens
 
 import com.gayadi.android.ui.components.gayadiPatternBackground
-
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,6 +23,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.Add
@@ -45,6 +46,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -52,8 +54,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -72,6 +82,7 @@ import com.gayadi.android.ui.components.AddSharedFundBottomSheet
 import com.gayadi.android.ui.theme.GayadiTheme
 import com.gayadi.android.ui.components.GayadiTopAppBar
 import com.gayadi.android.ui.theme.PrimaryAction
+import com.gayadi.android.ui.theme.Divider
 import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary
 import java.text.NumberFormat
@@ -276,12 +287,12 @@ private fun LedgerAmountCard(
 ) {
     Card(
         modifier = modifier.height(if (onAddSharedFund == null) 104.dp else 120.dp),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = LedgerSurface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        border = BorderStroke(1.dp, Divider),
     ) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
+            modifier = Modifier.fillMaxSize().padding(20.dp),
             verticalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(
@@ -363,9 +374,9 @@ private fun ExpenseDayGroup(
         }
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(22.dp),
+            shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = LedgerSurface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+            border = BorderStroke(1.dp, Divider),
         ) {
             Column {
                 expenses.forEachIndexed { index, expense ->
@@ -387,7 +398,7 @@ private fun ExpenseRow(expense: TravelExpense, subtitle: String, onEdit: () -> U
     var expanded by rememberSaveable(expense.id) { mutableStateOf(false) }
     val visual = remember(expense.category, expense.title) { categoryVisual(expense.category, expense.title) }
     Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onEdit).padding(start = 14.dp, top = 13.dp, bottom = 13.dp),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onEdit).padding(start = 20.dp, top = 16.dp, end = 4.dp, bottom = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(modifier = Modifier.size(46.dp).background(visual.background, CircleShape), contentAlignment = Alignment.Center) {
@@ -452,8 +463,12 @@ private fun ParticipantSettlementCard(
         balance.netAmount > 0L -> LedgerBlue
         else -> TextPrimary
     }
-    Card(colors = CardDefaults.cardColors(containerColor = LedgerSurface), shape = RoundedCornerShape(16.dp)) {
-        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = LedgerSurface),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, Divider),
+    ) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 UserCharacterAvatar(
                     characterKey = participant?.characterKey.orEmpty(),
@@ -534,30 +549,63 @@ private fun SettlementMetricBox(
 private fun StatisticsContent(total: Long, expenses: List<TravelExpense>) {
     val categoryStats = remember(expenses) {
         val totals = expenses.groupBy(::resolvedCategory).mapValues { (_, values) -> values.sumOf(TravelExpense::amount) }
-        statisticsCategoryOrder.map { category -> CategoryExpenseStat(category, totals[category] ?: 0L) }
+        statisticsCategoryOrder
+            .map { category -> CategoryExpenseStat(category, totals[category] ?: 0L) }
+            .sortedWith(
+                compareBy<CategoryExpenseStat> { it.category == ExpenseCategory.OTHER }
+                    .thenByDescending { it.amount },
+            )
+    }
+    var selectedCategory by remember(categoryStats) { mutableStateOf<ExpenseCategory?>(null) }
+    var previewCategory by remember(categoryStats) { mutableStateOf<ExpenseCategory?>(null) }
+    val highlightedCategory = previewCategory ?: selectedCategory
+    val selectCategory: (ExpenseCategory) -> Unit = { category ->
+        selectedCategory = category.takeUnless { it == selectedCategory }
     }
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Column(Modifier.fillMaxWidth()) {
-            Text("카테고리별 지출", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = LedgerBlue)
-            Spacer(Modifier.height(12.dp))
-            Text("총 지출", fontSize = 13.sp, color = TextSecondary)
-            Text(total.toWon(), fontSize = 25.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+        Text("카테고리별 지출", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = LedgerBlue)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = LedgerSurface),
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(1.dp, Divider),
+        ) {
+            Column(Modifier.fillMaxWidth().padding(20.dp)) {
+                Text("총 지출", fontSize = 13.sp, color = TextSecondary)
+                Text(total.toWon(), fontSize = 25.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                Spacer(Modifier.height(14.dp))
+                if (total > 0L) {
+                    CategoryDistributionBar(
+                        stats = categoryStats,
+                        highlightedCategory = highlightedCategory,
+                        onPreviewCategory = { previewCategory = it },
+                        onSelectCategory = selectCategory,
+                    )
+                } else {
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(28.dp)
+                            .background(Color(0xFFE3E3E6), RoundedCornerShape(9.dp)),
+                    )
+                }
+            }
         }
-
-        if (total > 0L) {
-            CategoryDistributionBar(stats = categoryStats)
-        } else {
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .height(28.dp)
-                    .background(Color(0xFFE3E3E6), RoundedCornerShape(9.dp)),
-            )
-        }
-        Card(colors = CardDefaults.cardColors(containerColor = LedgerSurface), shape = RoundedCornerShape(22.dp)) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = LedgerSurface),
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(1.dp, Divider),
+        ) {
             Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                 categoryStats.forEach { stat ->
-                    CategoryStatisticRow(stat = stat, total = total)
+                    CategoryStatisticRow(
+                        stat = stat,
+                        total = total,
+                        highlighted = stat.category == highlightedCategory,
+                        dimmed = highlightedCategory != null && stat.category != highlightedCategory,
+                        onClick = { selectCategory(stat.category) },
+                    )
                 }
             }
         }
@@ -573,37 +621,88 @@ private val statisticsCategoryOrder = listOf(
     ExpenseCategory.LODGING,
     ExpenseCategory.SHOPPING,
     ExpenseCategory.TOUR,
-    ExpenseCategory.OTHER,
     ExpenseCategory.ACTIVITY,
     ExpenseCategory.MUSEUM,
+    ExpenseCategory.OTHER,
 )
 
 @Composable
-private fun CategoryDistributionBar(stats: List<CategoryExpenseStat>) {
+private fun CategoryDistributionBar(
+    stats: List<CategoryExpenseStat>,
+    highlightedCategory: ExpenseCategory?,
+    onPreviewCategory: (ExpenseCategory?) -> Unit,
+    onSelectCategory: (ExpenseCategory) -> Unit,
+) {
+    val visibleStats = remember(stats) { stats.filter { it.amount > 0L } }
+    val previewCategory by rememberUpdatedState(onPreviewCategory)
+    val activeCategory = highlightedCategory?.takeIf { category -> visibleStats.any { it.category == category } }
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(28.dp)
-            .clip(RoundedCornerShape(9.dp)),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+            .clip(RoundedCornerShape(9.dp))
+            .pointerInput(visibleStats) {
+                val total = visibleStats.sumOf { it.amount.toDouble() }
+                try {
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event = awaitPointerEvent(PointerEventPass.Initial)
+                            val point = event.changes.firstOrNull()?.position
+                            if (event.type == PointerEventType.Exit || event.type == PointerEventType.Release ||
+                                point == null || point.x < 0f || point.x >= size.width || point.y < 0f || point.y >= size.height
+                            ) {
+                                previewCategory(null)
+                            } else {
+                                val amountAtPointer = point.x / size.width * total
+                                var cumulative = 0.0
+                                previewCategory(visibleStats.firstOrNull { stat ->
+                                    cumulative += stat.amount
+                                    amountAtPointer < cumulative
+                                }?.category)
+                            }
+                        }
+                    }
+                } finally {
+                    previewCategory(null)
+                }
+            },
     ) {
-        stats.forEach { stat ->
+        visibleStats.forEach { stat ->
+            val label = categoryLabel(stat.category)
+            val highlighted = activeCategory == stat.category
+            val color = categoryVisual(stat.category, "").background
             Box(
                 Modifier
-                    .weight(stat.amount.toFloat().coerceAtLeast(1f))
+                    .weight(stat.amount.toFloat())
                     .fillMaxHeight()
-                    .background(categoryVisual(stat.category, "").background),
+                    .background(color.copy(alpha = if (activeCategory == null || highlighted) 1f else 0.35f))
+                    .semantics {
+                        contentDescription = "$label 지출 구간"
+                        selected = highlighted
+                    }
+                    .clickable(role = Role.Button, onClickLabel = "카테고리 강조") { onSelectCategory(stat.category) },
             )
         }
     }
 }
 
 @Composable
-private fun CategoryStatisticRow(stat: CategoryExpenseStat, total: Long) {
+private fun CategoryStatisticRow(
+    stat: CategoryExpenseStat,
+    total: Long,
+    highlighted: Boolean,
+    dimmed: Boolean,
+    onClick: () -> Unit,
+) {
     val visual = categoryVisual(stat.category, "")
     val percentage = if (total <= 0L) 0.0 else stat.amount.toDouble() * 100.0 / total.toDouble()
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 11.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .alpha(if (dimmed) 0.35f else 1f)
+            .semantics { contentDescription = "${categoryLabel(stat.category)} 카테고리" }
+            .selectable(selected = highlighted, role = Role.Button, onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.size(42.dp).background(visual.background, CircleShape), contentAlignment = Alignment.Center) {
