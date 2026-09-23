@@ -1,9 +1,8 @@
 package com.gayadi.android.ui.screens
 
 import com.gayadi.android.ui.components.gayadiPatternBackground
-
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,6 +10,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -38,6 +39,8 @@ import com.gayadi.android.domain.model.ExpensePaymentSource
 import com.gayadi.android.domain.model.TravelExpense
 import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary
+import com.gayadi.android.ui.theme.Background
+import com.gayadi.android.ui.theme.Divider
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -63,7 +66,10 @@ fun SettlementDetailsScreen(
             amount?.let { SettlementDetailItem(expense.id, expense.title, expense.date, it) }
         }
     }
-    Column(Modifier.fillMaxSize().gayadiPatternBackground(topWave = true).statusBarsPadding()) {
+    val detailsByDate = remember(details) {
+        details.groupBy(SettlementDetailItem::date).toSortedMap(reverseOrder())
+    }
+    Column(Modifier.fillMaxSize().gayadiPatternBackground(topWave = true).statusBarsPadding().navigationBarsPadding()) {
         Row(
             Modifier.fillMaxWidth().padding(start = 8.dp, end = 20.dp, top = 10.dp, bottom = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -78,15 +84,22 @@ fun SettlementDetailsScreen(
                 color = TextPrimary,
             )
         }
-        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp)) {
-            Text("총 지출", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-            Spacer(Modifier.size(5.dp))
-            Text(
-                details.sumOf(SettlementDetailItem::amount).toWon(),
-                fontSize = 25.sp,
-                fontWeight = FontWeight.Bold,
-                color = TextPrimary,
-            )
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Background),
+            border = BorderStroke(1.dp, Divider),
+        ) {
+            Column(Modifier.fillMaxWidth().padding(20.dp)) {
+                Text("총 지출", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                Spacer(Modifier.size(5.dp))
+                Text(
+                    details.sumOf(SettlementDetailItem::amount).toWon(),
+                    fontSize = 25.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary,
+                )
+            }
         }
         if (details.isEmpty()) {
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -107,20 +120,39 @@ fun SettlementDetailsScreen(
                 }
             }
         } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+            Card(
+                modifier = Modifier.weight(1f, fill = false).fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Background),
+                border = BorderStroke(1.dp, Divider),
             ) {
-                items(details, key = SettlementDetailItem::id) { detail ->
-                    Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
-                        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text(detail.title, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Spacer(Modifier.size(3.dp))
-                                Text(detail.date, fontSize = 11.sp, color = TextSecondary)
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(20.dp),
+                ) {
+                    detailsByDate.entries.forEachIndexed { index, (date, dayDetails) ->
+                        item(key = "date/$date") {
+                            Text(
+                                date,
+                                modifier = Modifier.padding(top = if (index == 0) 0.dp else 24.dp, bottom = 8.dp),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = TextSecondary,
+                            )
+                        }
+                        items(dayDetails, key = { "expense/${it.id}" }) { detail ->
+                            Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    detail.title,
+                                    modifier = Modifier.weight(1f).padding(end = 12.dp),
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = TextPrimary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(detail.amount.toWon(), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
                             }
-                            Text(detail.amount.toWon(), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
                         }
                     }
                 }
