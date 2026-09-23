@@ -1,17 +1,5 @@
 package com.gayadi.android.ui.screens
 
-import com.gayadi.android.domain.model.ExpenseCategory
-
-import androidx.compose.ui.test.assertIsNotSelected
-
-import androidx.compose.ui.test.assertIsSelected
-
-import androidx.compose.ui.test.ExperimentalTestApi
-
-import androidx.compose.ui.test.performMouseInput
-
-import androidx.compose.ui.test.performTouchInput
-
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertCountEquals
@@ -22,6 +10,11 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.performMouseInput
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
@@ -29,6 +22,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.gayadi.android.domain.model.TravelSchedule
 import com.gayadi.android.domain.model.ScheduleType
 import com.gayadi.android.domain.model.ExpenseSettlementSummary
+import com.gayadi.android.domain.model.ExpenseCategory
 import com.gayadi.android.domain.model.ParticipantExpenseBalance
 import com.gayadi.android.domain.model.SettlementTransfer
 import com.gayadi.android.domain.model.TravelExpense
@@ -572,6 +566,8 @@ class TravelFlowScreenTest {
         }
 
         composeRule.onNodeWithText("지출 수정").assertIsDisplayed()
+        composeRule.onNodeWithText("박물관·미술관").performClick().assertIsSelected()
+        composeRule.onNodeWithText("관광").assertIsNotSelected()
         composeRule.onNodeWithContentDescription("지출 금액").performTextClearance()
         composeRule.onNodeWithContentDescription("지출 금액").performTextInput("42000")
         composeRule.onNodeWithContentDescription("지출 내용").performTextClearance()
@@ -582,6 +578,7 @@ class TravelFlowScreenTest {
             assertEquals("expense-1", saved?.id)
             assertEquals(42_000L, saved?.amount)
             assertEquals("저녁 식사", saved?.title)
+            assertEquals(ExpenseCategory.MUSEUM, saved?.category)
         }
     }
 
