@@ -17,6 +17,7 @@ android {
 dependencies {
     api(project(":core:designsystem"))
     implementation(project(":domain"))
+    implementation(libs.coil.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.tooling.preview)

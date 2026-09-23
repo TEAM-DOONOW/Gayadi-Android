@@ -604,7 +604,7 @@ class TripViewModelTest {
     }
 
     @Test
-    fun placeScheduleResolvesSourcePlaceIdBeforeSaving() = runTest(dispatcher) {
+    fun placeScheduleDoesNotReplaceRejectedPlaceWithSameNameOrRemoveIdentity() = runTest(dispatcher) {
         val repository = MemoryTravelRepository()
         val attemptedPlaceIds = mutableListOf<String?>()
         val gateway = java.lang.reflect.Proxy.newProxyInstance(
@@ -615,7 +615,7 @@ class TripViewModelTest {
                 "listTrips" -> listOf(sampleTrip().toExistingDomain())
                 "listParticipants", "listInvitations", "listSchedules", "listExpenses" -> emptyList<Any>()
                 "listFavoritePlaceIds" -> emptySet<String>()
-                "findPublicPlaceId" -> "canonical-7"
+                "findPublicPlaceId" -> error("Must not replace the selected place by name")
                 "createSchedule" -> {
                     val schedule = args!![1] as TravelSchedule
                     attemptedPlaceIds += schedule.placeId
@@ -658,10 +658,9 @@ class TripViewModelTest {
         )
         advanceUntilIdle()
 
-        assertEquals(listOf("tour-source-7", "canonical-7"), attemptedPlaceIds)
-        assertEquals("canonical-7", viewModel.schedulesForTrip("trip-28").single().placeId)
-        assertEquals("테스트 명소", viewModel.schedulesForTrip("trip-28").single().title)
-        assertEquals("2026.08.09", viewModel.schedulesForTrip("trip-28").single().date)
+        assertEquals(listOf("tour-source-7"), attemptedPlaceIds)
+        assertTrue(viewModel.schedulesForTrip("trip-28").isEmpty())
+        assertTrue(viewModel.uiState.value.errorMessage != null)
     }
 
     @Test

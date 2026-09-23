@@ -23,11 +23,16 @@ class GayadiApiClient internal constructor(
     private val auth: AuthRepository?,
     private val client: OkHttpClient,
 ) {
-    constructor(baseUrl: String, auth: AuthRepository? = null) : this(
+    constructor(
+        baseUrl: String,
+        auth: AuthRepository? = null,
+        readTimeoutSeconds: Long = 20,
+        callTimeoutSeconds: Long = 30,
+    ) : this(
         baseUrl, auth, OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(20, TimeUnit.SECONDS)
-        .callTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(readTimeoutSeconds, TimeUnit.SECONDS)
+        .callTimeout(callTimeoutSeconds, TimeUnit.SECONDS)
         .retryOnConnectionFailure(true)
         .followRedirects(true)
         .build(),

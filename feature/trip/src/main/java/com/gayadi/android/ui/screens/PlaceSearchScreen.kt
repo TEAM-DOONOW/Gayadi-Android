@@ -1,5 +1,19 @@
 package com.gayadi.android.ui.screens
 
+import com.gayadi.android.domain.model.RouteTransportMode
+import com.gayadi.android.domain.repository.PlaceSort
+
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.foundation.layout.navigationBarsPadding
+import com.gayadi.android.ui.theme.PrimaryAction
+import com.gayadi.android.ui.theme.Background
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -22,6 +36,21 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.LocalCafe
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Hotel
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.material.icons.filled.DirectionsCar
+import androidx.compose.material.icons.filled.DirectionsBus
+import androidx.compose.material.icons.filled.DirectionsWalk
+import androidx.compose.material.icons.filled.DirectionsBike
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
+import com.gayadi.android.domain.repository.PlaceTravelTime
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -72,6 +101,7 @@ import com.gayadi.android.domain.model.AgentRecommendation
 
 private val placeCategories = listOf("전체", "맛집", "카페", "관광명소", "숙소")
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlaceSearchScreen(
     uiState: PlaceUiState,
@@ -92,6 +122,11 @@ fun PlaceSearchScreen(
     scheduledPlaceIds: Set<String> = emptySet(),
     scheduledPlaceNames: Set<String> = emptySet(),
     onAddToSchedule: (placeId: String, time: String, memo: String) -> Unit = { _, _, _ -> },
+    onTransportModeSelected: (RouteTransportMode?) -> Unit = {},
+    insertionOptions: List<Pair<String, String>> = emptyList(),
+    beforeScheduleId: String? = null,
+    onBeforeSelected: (String?) -> Unit = {},
+    onLoadMore: () -> Unit = {},
     showUsageGuide: Boolean = false,
     onUsageGuideFinished: () -> Unit = {},
 ) {
@@ -147,6 +182,15 @@ fun PlaceSearchScreen(
                 modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(18.dp),
             ) {
+                if (!uiState.isLoading && uiState.errorMessage == null && uiState.sort == PlaceSort.TRAVEL_TIME) {
+                    val notice = if (uiState.rankingSort == PlaceSort.RECENT) {
+                        uiState.recentRankingNotice()
+                    } else null
+                    if (notice != null) item {
+                        Text(notice, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                    }
+                }
+                if (uiState.sort == PlaceSort.RECENT) {
                 item {
                     AgentRecommendationSection(
                         uiState = recommendationUiState,
@@ -156,13 +200,13 @@ fun PlaceSearchScreen(
                         scheduledPlaceNames = scheduledPlaceNames,
                         onAddToSchedule = { recommendation ->
                             val place = uiState.places.firstOrNull {
-                                it.id == recommendation.placeId ||
-                                    it.name.equals(recommendation.name, ignoreCase = true)
+                                it.id == recommendation.placeId
                             }
                             if (place != null) schedulePlace = place
                             else onRecommendationClick(recommendation)
                         },
                     )
+                }
                 }
                 when {
                     uiState.isLoading -> item {
@@ -188,7 +232,7 @@ fun PlaceSearchScreen(
                     else -> {
                         item {
                             Text(
-                            "${uiState.regionName}의 모든 장소",
+                            if (uiState.rankingSort == PlaceSort.TRAVEL_TIME) "이동시간순 장소" else "${uiState.regionName}의 모든 장소",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
                             color = TextPrimary,
@@ -213,6 +257,11 @@ fun PlaceSearchScreen(
                             if (rowPlaces.size == 1) Spacer(Modifier.weight(1f))
                         }
                     }
+                        if (uiState.hasNext || uiState.isLoadingMore) item {
+                            TextButton(onClick = onLoadMore, enabled = !uiState.isLoadingMore) {
+                                Text(if (uiState.isLoadingMore) "불러오는 중…" else "더 보기")
+                            }
+                        }
                         item { Spacer(Modifier.height(24.dp)) }
                     }
                 }
@@ -247,29 +296,52 @@ fun PlaceSearchScreen(
     }
 
     if (filterDialogVisible.value) {
-        AlertDialog(
+        ModalBottomSheet(
             onDismissRequest = { filterDialogVisible.value = false },
-            title = { Text("장소 필터") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            containerColor = Background,
+            tonalElevation = 0.dp,
+        ) {
+            Column(
+                Modifier.fillMaxWidth().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Text("장소 필터", style = MaterialTheme.typography.titleLarge, color = TextPrimary)
+                PlaceSearchControls(uiState, onTransportModeSelected)
+                Text("카테고리", style = MaterialTheme.typography.titleSmall, color = TextPrimary)
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     placeCategories.forEach { category ->
-                        TextButton(
-                            onClick = {
-                                onCategorySelected(category)
-                                filterDialogVisible.value = false
+                        FilterChip(
+                            selected = category == uiState.selectedCategory,
+                            onClick = { onCategorySelected(category) },
+                            label = { Text(category) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = when (category) {
+                                        "맛집" -> Icons.Default.Restaurant
+                                        "카페" -> Icons.Default.LocalCafe
+                                        "관광명소" -> Icons.Default.Place
+                                        "숙소" -> Icons.Default.Hotel
+                                        else -> Icons.Default.Apps
+                                    },
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                )
                             },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text(
-                                category,
-                                color = if (category == uiState.selectedCategory) PrimaryBlue else TextPrimary,
-                            )
-                        }
+                            colors = FilterChipDefaults.filterChipColors(
+                                containerColor = Background,
+                                selectedContainerColor = PrimaryAction,
+                                selectedLabelColor = Color.White,
+                                selectedLeadingIconColor = Color.White,
+                            ),
+                        )
                     }
                 }
-            },
-            confirmButton = {},
-        )
+                Button(onClick = { filterDialogVisible.value = false }, modifier = Modifier.fillMaxWidth(), shape = RectangleShape) {
+                    Text("장소 보기")
+                }
+                Spacer(Modifier.height(16.dp))
+            }
+        }
     }
 
     schedulePlace?.let { place ->
@@ -371,6 +443,7 @@ private fun AgentRecommendationSection(
                             onClick = { onAddToSchedule(recommendation) },
                             enabled = !isScheduled,
                             modifier = Modifier.align(Alignment.End),
+                            shape = RectangleShape,
                         ) {
                             Text(if (isScheduled) "일정에 추가됨" else "일정 추가", color = PrimaryBlue)
                         }
@@ -417,7 +490,16 @@ private fun PlaceCard(
             }
         }
         Spacer(Modifier.height(8.dp))
-        Text(place.name, fontWeight = FontWeight.SemiBold, color = TextPrimary, maxLines = 1)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(place.name, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold,
+                color = TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            place.travelTime?.let { TravelTimeBadge(it) }
+        }
+        place.travelTime?.let { time ->
+            time.additionalDurationMinutes?.let { additional ->
+                Text("추가 이동시간 ${additional}분", color = TextSecondary, style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
+            }
+        }
             Text(
                 if (place.reviews > 0) "${place.category} · ★ ${place.rating} · 리뷰 ${place.reviews}" else place.category,
                 fontSize = 12.sp,
@@ -438,10 +520,47 @@ private fun PlaceCard(
             onClick = onAddToSchedule,
             enabled = !isScheduled,
             modifier = Modifier.fillMaxWidth().height(36.dp),
-            shape = RoundedCornerShape(8.dp),
+            shape = RectangleShape,
         ) {
             Text(if (isScheduled) "추가됨" else "일정 추가", fontSize = 12.sp)
         }
+    }
+}
+
+@Composable
+private fun TravelTimeBadge(time: PlaceTravelTime) {
+    var showDetails by remember(time) { mutableStateOf(false) }
+    val icon = when (time.transportMode) {
+        RouteTransportMode.CAR -> Icons.Default.DirectionsCar
+        RouteTransportMode.PUBLIC_TRANSIT -> Icons.Default.DirectionsBus
+        RouteTransportMode.WALK -> Icons.Default.DirectionsWalk
+        RouteTransportMode.BICYCLE -> Icons.Default.DirectionsBike
+    }
+    Row(
+        Modifier.clickable(role = Role.Button, onClickLabel = "이동시간 안내", onClick = { showDetails = true })
+            .semantics(mergeDescendants = true) { contentDescription = time.displayLabel() }
+            .padding(vertical = 8.dp, horizontal = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp), tint = TextSecondary)
+        Text("${time.durationMinutes}분", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
+    }
+    if (showDetails) {
+        AlertDialog(
+            onDismissRequest = { showDetails = false },
+            containerColor = Background,
+            title = { Text(time.displayLabel()) },
+            text = {
+                Text(when {
+                    time.transportMode == RouteTransportMode.WALK || time.transportMode == RouteTransportMode.BICYCLE ->
+                        "직선거리를 기준으로 계산한 추정 시간이에요. 실제 경로에 따라 달라질 수 있어요."
+                    time.isEstimate -> "실제 교통 조회 결과가 아닌 추정 시간이에요."
+                    else -> "경로 조회로 계산한 예상 시간이에요. 실제 이동 상황에 따라 달라질 수 있어요."
+                })
+            },
+            confirmButton = { TextButton(onClick = { showDetails = false }) { Text("확인") } },
+        )
     }
 }
 

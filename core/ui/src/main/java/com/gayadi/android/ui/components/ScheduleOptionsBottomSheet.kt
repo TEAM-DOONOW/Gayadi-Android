@@ -18,6 +18,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.material.icons.outlined.Place
+import coil.compose.SubcomposeAsyncImage
+import coil.compose.SubcomposeAsyncImageContent
+import com.gayadi.android.ui.theme.SurfaceLight
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Notes
 import androidx.compose.material.icons.outlined.AccessTime
@@ -63,6 +73,8 @@ private val scheduleTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 fun ScheduleOptionsBottomSheet(
     title: String,
     contextText: String,
+    placeImageUrl: String = "",
+    onPlaceClick: (() -> Unit)? = null,
     initialTime: String = "10:00",
     initialMemo: String = "",
     heading: String = "여행 일정에 추가",
@@ -103,10 +115,30 @@ fun ScheduleOptionsBottomSheet(
             if (heading.isNotBlank()) {
                 Text(heading, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
             }
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(title, fontSize = 21.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                if (contextText.isNotBlank()) {
-                    Text(contextText, fontSize = 14.sp, color = TextSecondary)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(title, fontSize = 21.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                    if (contextText.isNotBlank()) {
+                        Text(contextText, fontSize = 14.sp, color = TextSecondary)
+                    }
+                }
+                if (onPlaceClick != null) {
+                    Box(
+                        Modifier.size(64.dp).clip(CircleShape).background(SurfaceLight)
+                            .clickable(role = Role.Button, onClick = onPlaceClick)
+                            .semantics { contentDescription = "$title 상세 보기" },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        SubcomposeAsyncImage(
+                            model = placeImageUrl.takeIf(String::isNotBlank),
+                            contentDescription = null,
+                            modifier = Modifier.size(64.dp),
+                            contentScale = ContentScale.Crop,
+                            loading = { Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Place, null, Modifier.size(24.dp), tint = TextSecondary) } },
+                            error = { Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Place, null, Modifier.size(24.dp), tint = TextSecondary) } },
+                            success = { SubcomposeAsyncImageContent() },
+                        )
+                    }
                 }
             }
             ScheduleOptionRow(

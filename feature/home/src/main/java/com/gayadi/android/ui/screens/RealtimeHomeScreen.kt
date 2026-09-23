@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -68,6 +69,9 @@ fun RealtimeHomeScreen(
     tripCoverImageResList: List<Int> = emptyList(),
     kakaoMapJavaScriptKey: String = "",
     kakaoMapBaseUrl: String = "https://localhost",
+    isMapLoading: Boolean = false,
+    mapErrorMessage: String? = null,
+    onRetryMap: () -> Unit = {},
     friendCharacterKeys: List<String?> = emptyList(),
     showUsageGuide: Boolean = false,
     onUsageGuideFinished: () -> Unit = {},
@@ -76,6 +80,7 @@ fun RealtimeHomeScreen(
     onNavigateMyTrip: () -> Unit,
     onNavigateMyPage: () -> Unit,
     onNavigateLedger: () -> Unit = {},
+    onNavigatePlaceDetail: (String, String) -> Unit = { _, _ -> },
     onNavigatePlaceSearch: (String) -> Unit,
     onNavigateParticipants: () -> Unit,
     onUpdateSchedule: (scheduleId: String, time: String, memo: String) -> Unit,
@@ -221,6 +226,13 @@ fun RealtimeHomeScreen(
                     Text("여행 동선", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
                 }
                 Spacer(modifier = Modifier.height(10.dp))
+                if (isMapLoading) {
+                    Text("선택한 장소를 지도에 표시하고 있어요.", style = MaterialTheme.typography.bodySmall)
+                }
+                mapErrorMessage?.let { message ->
+                    Text(message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    androidx.compose.material3.TextButton(onClick = onRetryMap) { Text("다시 시도") }
+                }
                 TravelRoutePreview(
                     plans = travelPlans,
                     javaScriptKey = kakaoMapJavaScriptKey,
@@ -320,9 +332,15 @@ fun RealtimeHomeScreen(
 
     }
 
-    selectedPlan?.let { plan ->
+    selectedPlan?.let { selected ->
+        val plan = travelPlans.firstOrNull { it.id == selected.id } ?: selected
         ScheduleOptionsBottomSheet(
             title = plan.title,
+            placeImageUrl = plan.imageUrl,
+            onPlaceClick = plan.placeId?.let { placeId -> {
+                selectedPlan = null
+                onNavigatePlaceDetail(placeId, plan.date)
+            } },
             contextText = listOf(tripTitle, plan.date).filter(String::isNotBlank).joinToString(" · "),
             initialTime = plan.time,
             initialMemo = plan.memo,

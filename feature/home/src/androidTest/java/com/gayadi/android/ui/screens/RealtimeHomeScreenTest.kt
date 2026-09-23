@@ -1,6 +1,5 @@
 package com.gayadi.android.ui.screens
 
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -40,6 +39,28 @@ class RealtimeHomeScreenTest {
         }
 
         composeRule.onNodeWithText("전체 동선 보기").assertDoesNotExist()
+    }
+
+    @Test
+    fun schedulePhotoOpensExactPlaceWithoutSavingSchedule() {
+        var opened: Pair<String, String>? = null
+        var saved = false
+        composeRule.setContent {
+            GayadiTheme {
+                RealtimeHomeScreen(
+                    uiState = RealtimeHomeUiState(), tripTitle = "서울 여행",
+                    travelPlans = listOf(HomeTravelPlan("schedule-1", "관광지", "2026.09.23", "10:00", "", false, placeId="209")),
+                    tripDays = listOf(HomeTripDay(1,"2026.09.23","9월 23일")),
+                    onNavigateMyTrip = {}, onNavigateMyPage = {}, onNavigatePlaceSearch = {}, onNavigateParticipants = {},
+                    onNavigatePlaceDetail = { id,date -> opened=id to date },
+                    onUpdateSchedule = { _,_,_ -> saved=true }, onAddScheduleExpense = { _,_,_ -> },
+                )
+            }
+        }
+        composeRule.onNodeWithText("관광지").performScrollTo().performClick()
+        composeRule.onNodeWithContentDescription("관광지 상세 보기").assertHeightIsAtLeast(48.dp).performClick()
+        assertTrue(opened == ("209" to "2026.09.23"))
+        assertTrue(!saved)
     }
 
     @Test
