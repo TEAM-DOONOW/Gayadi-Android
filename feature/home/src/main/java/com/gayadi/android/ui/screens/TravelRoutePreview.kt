@@ -27,6 +27,8 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.gayadi.android.ui.theme.TextSecondary
 import java.net.URI
 import org.json.JSONArray
+import org.json.JSONObject
+import com.gayadi.android.ui.theme.SurfaceLight
 
 @Composable
 @SuppressLint("SetJavaScriptEnabled")
@@ -48,12 +50,21 @@ internal fun TravelRoutePreview(
         return
     }
 
-    val placeNamesJson = JSONArray(plans.map { it.title })
-        .toString()
-        .replace("<", "\\u003c")
-        .replace(">", "\\u003e")
-        .replace("\u2028", "\\u2028")
-        .replace("\u2029", "\\u2029")
+    val points = routeMapPoints(plans)
+    if (points.isEmpty()) {
+        Box(Modifier.fillMaxWidth().height(160.dp).background(SurfaceLight), contentAlignment = Alignment.Center) {
+            Text(
+                if (plans.isEmpty()) "일정에 장소를 추가하면 지도로 볼 수 있어요." else "표시할 장소 위치가 없어요.",
+                color = TextSecondary,
+            )
+        }
+        return
+    }
+    val pointsJson = JSONArray(points.map { point ->
+        JSONObject().put("title", point.title).put("latitude", point.latitude)
+            .put("longitude", point.longitude).put("order", point.order).put("date", point.date)
+    }).toString().replace("<", "\\u003c").replace(">", "\\u003e")
+        .replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
     val secureBaseUrl = kakaoWebViewOrigin(baseUrl)
     val allowedBaseHost = Uri.parse(secureBaseUrl).host
     val html = """
@@ -80,49 +91,46 @@ internal fun TravelRoutePreview(
         }
         kakao.maps.load(function() {
         console.log('Gayadi Kakao SDK initialized');
+          var stops = $pointsJson;
           var container = document.getElementById('map');
           var options = {
-            center: new kakao.maps.LatLng(33.450701, 126.570667), level: 3
+            center: new kakao.maps.LatLng(stops[0].latitude, stops[0].longitude), level: 3
           };
           var map = new kakao.maps.Map(container, options);
           console.log('Gayadi Kakao map instance created');
           kakao.maps.event.addListener(map, 'tilesloaded', function() {
             console.log('Gayadi Kakao map tiles loaded');
           });
-          window.setTimeout(function() {
-            map.relayout();
-            map.setCenter(options.center);
-          }, 300);
-          var names = $placeNamesJson;
-          if (!names.length) return;
-          var places = new kakao.maps.services.Places();
-          var points = new Array(names.length);
-          var remaining = names.length;
-          names.forEach(function(name, index) {
-            places.keywordSearch(name, function(result, status) {
-              if (status === kakao.maps.services.Status.OK && result.length) {
-                var point = new kakao.maps.LatLng(Number(result[0].y), Number(result[0].x));
-                points[index] = point;
-                new kakao.maps.Marker({ map: map, position: point });
-              }
-              remaining--;
-              if (remaining === 0) {
-                var route = points.filter(Boolean);
-                if (!route.length) return;
-                if (route.length > 1) new kakao.maps.Polyline({
-                  map: map, path: route, strokeWeight: 5,
-                  strokeColor: '#343548', strokeOpacity: 0.9, strokeStyle: 'solid'
-                });
-                var bounds = new kakao.maps.LatLngBounds();
-                route.forEach(function(point) { bounds.extend(point); });
-                map.setBounds(bounds);
-              }
-            });
+          var bounds = new kakao.maps.LatLngBounds();
+          var previous = null;
+          stops.forEach(function(stop) {
+            var point = new kakao.maps.LatLng(stop.latitude, stop.longitude);
+            new kakao.maps.Marker({ map: map, position: point, title: stop.order + '. ' + stop.title });
+            var label = document.createElement('span');
+            label.textContent = String(stop.order);
+            label.style.cssText = 'display:block;background:#343548;color:white;border-radius:12px;padding:2px 6px;font:12px sans-serif';
+            new kakao.maps.CustomOverlay({ map: map, position: point, content: label, yAnchor: 3 });
+            if (previous && previous.stop.date === stop.date && previous.stop.order + 1 === stop.order) {
+              new kakao.maps.Polyline({
+                map: map, path: [previous.point, point], strokeWeight: 3,
+                strokeColor: '#343548', strokeOpacity: 0.7, strokeStyle: 'dash'
+              });
+            }
+            bounds.extend(point);
+            previous = { stop: stop, point: point };
           });
+          function fitPlaces() {
+            map.relayout();
+            if (stops.length === 1) map.setCenter(options.center);
+            else map.setBounds(bounds);
+          }
+          fitPlaces();
+          window.setTimeout(fitPlaces, 300);
+
         });
         }
         </script>
-        <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=$javaScriptKey&libraries=services&autoload=false"
+        <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=$javaScriptKey&autoload=false"
           onload="initMap()" onerror="showError()"></script>
         </body></html>
     """.trimIndent()
@@ -203,4 +211,21 @@ internal fun kakaoWebViewOrigin(baseUrl: String): String {
             append(uri.port)
         }
     }
+}
+
+internal data class RouteMapPoint(
+    val title: String,
+    val latitude: Double,
+    val longitude: Double,
+    val date: String,
+    val order: Int,
+)
+
+internal fun routeMapPoints(plans: List<HomeTravelPlan>): List<RouteMapPoint> = plans.mapIndexedNotNull { index, plan ->
+    val latitude = plan.latitude ?: return@mapIndexedNotNull null
+    val longitude = plan.longitude ?: return@mapIndexedNotNull null
+    if (!latitude.isFinite() || !longitude.isFinite() || latitude !in -90.0..90.0 || longitude !in -180.0..180.0) {
+        return@mapIndexedNotNull null
+    }
+    RouteMapPoint(plan.title, latitude, longitude, plan.date, index + 1)
 }

@@ -537,7 +537,7 @@ class TripViewModel(
             launchRemote("schedule:${schedule.id}") {
                 val request = runCatching {
                     if (schedule.id.toLongOrNull() == null) {
-                        createScheduleWithPlaceFallback(gateway, schedule)
+                        gateway.createSchedule(schedule.tripId, schedule)
                     } else {
                         gateway.updateSchedule(
                             schedule.tripId,
@@ -558,7 +558,8 @@ class TripViewModel(
                     }
                 }
                 request.fold(
-                    onSuccess = { saved ->
+                    onSuccess = { remote ->
+                        val saved = remote.copy(latitude = schedule.latitude, longitude = schedule.longitude)
                         persistRemoteMutation("일정을 저장했어요") { state ->
                             val withoutDraft = state.schedules.filterNot {
                                 it.id == schedule.id || it.id == saved.id
@@ -577,29 +578,6 @@ class TripViewModel(
         }
     }
 
-    private suspend fun createScheduleWithPlaceFallback(
-        gateway: TravelGateway,
-        schedule: TravelSchedule,
-    ): TravelSchedule {
-        val originalResult = runCatching { gateway.createSchedule(schedule.tripId, schedule) }
-        originalResult.getOrNull()?.let { return it }
-        val originalError = originalResult.exceptionOrNull() ?: error("일정을 저장하지 못했어요")
-        val sourcePlaceId = schedule.placeId
-        if (sourcePlaceId == null || !isUnknownPlaceError(originalError)) throw originalError
-
-        val resolvedPlaceId = runCatching { gateway.findPublicPlaceId(schedule.title) }.getOrNull()
-        if (!resolvedPlaceId.isNullOrBlank() && resolvedPlaceId != sourcePlaceId) {
-            val resolvedResult = runCatching {
-                gateway.createSchedule(schedule.tripId, schedule.copy(placeId = resolvedPlaceId))
-            }
-            resolvedResult.getOrNull()?.let { return it }
-            val resolvedError = resolvedResult.exceptionOrNull()
-            if (resolvedError != null && !isUnknownPlaceError(resolvedError)) throw resolvedError
-        }
-
-        return gateway.createSchedule(schedule.tripId, schedule.copy(placeId = null))
-    }
-
     fun addPlaceSchedule(
         tripId: String,
         placeId: String,
@@ -607,25 +585,59 @@ class TripViewModel(
         date: String,
         time: String,
         memo: String,
+        latitude: Double? = null,
+        longitude: Double? = null,
+        beforeScheduleId: String? = null,
     ) {
         val trip = _uiState.value.travelState.trips.find { it.id == tripId } ?: return
         if (date < trip.startDate || date > trip.endDate) {
             _uiState.update { it.copy(errorMessage = "선택한 날짜가 여행 기간에 포함되지 않아요.") }
             return
         }
-        val order = schedulesForTrip(tripId).size
-        upsertSchedule(
-            TravelSchedule(
-                id = UUID.randomUUID().toString(),
-                tripId = tripId,
-                title = title,
-                placeId = placeId,
-                date = date,
-                time = time,
-                order = order,
-                memo = memo,
-            ),
+        val draft = TravelSchedule(
+            id = UUID.randomUUID().toString(), tripId = tripId, title = title, placeId = placeId,
+            date = date, time = time, order = schedulesForTrip(tripId).size, memo = memo,
+            latitude = latitude, longitude = longitude,
         )
+        val current = schedulesForTrip(tripId)
+        if (beforeScheduleId != null && current.none { it.id == beforeScheduleId && it.date == date }) {
+            _uiState.update { it.copy(errorMessage = "추가할 위치의 일정이 바뀌었어요. 장소찾기에서 위치를 다시 선택해 주세요.") }
+            return
+        }
+        val gateway = travelGateway
+        if (gateway == null) {
+            mutate("일정을 저장했어요") { state ->
+                state.copy(schedules = state.schedules.filterNot { it.tripId == tripId } +
+                    insertPlaceSchedule(state.schedules.filter { it.tripId == tripId }, draft, beforeScheduleId))
+            }
+            return
+        }
+        launchRemote("schedule-add:$tripId") {
+            val created = runCatching { gateway.createSchedule(tripId, draft) }.getOrElse {
+                showTravelError(it)
+                return@launchRemote
+            }.copy(latitude = latitude, longitude = longitude)
+            // Keep the created item even if the separate ordering request fails: retrying must not create a duplicate.
+            persistRemoteMutation("장소를 일정에 추가했어요") { state ->
+                state.copy(schedules = state.schedules.filterNot { it.id == created.id } + created)
+            }
+            runCatching {
+                val latest = gateway.listSchedules(tripId)
+                val ordered = insertPlaceSchedule(latest.filterNot { it.id == created.id }, created, beforeScheduleId)
+                val result = if (latest.sortedBy { it.order }.map { it.id } == ordered.map { it.id }) ordered
+                    else gateway.reorderSchedules(tripId, ordered.map { it.id })
+                persistRemoteMutation("일정을 저장했어요") { state ->
+                    val known = state.schedules.associateBy { it.id }
+                    state.copy(schedules = state.schedules.filterNot { it.tripId == tripId } + result.map { schedule ->
+                        val saved = known[schedule.id]?.takeIf { it.placeId == schedule.placeId }
+                        schedule.copy(latitude = saved?.latitude, longitude = saved?.longitude)
+                    })
+                }
+            }.onFailure { error ->
+                error.rethrowCancellation()
+                _uiState.update { it.copy(errorMessage = "장소는 추가됐지만 방문 순서를 저장하지 못했어요. 일정에서 순서를 확인해 주세요.") }
+            }
+        }
     }
 
     fun deleteSchedule(scheduleId: String) {
@@ -1179,7 +1191,10 @@ class TripViewModel(
             trips = bundles.map { it.trip },
             participants = bundles.flatMap { it.participants }.distinctBy(TravelParticipant::id),
             invitations = bundles.flatMap { it.invitations },
-            schedules = bundles.flatMap { it.schedules },
+            schedules = bundles.flatMap { it.schedules }.map { schedule ->
+                val saved = accountCache.schedules.firstOrNull { it.id == schedule.id && it.placeId == schedule.placeId }
+                schedule.copy(latitude = schedule.latitude ?: saved?.latitude, longitude = schedule.longitude ?: saved?.longitude)
+            },
             favoritePlaceIds = retryTransientRequest {
                 buildSet {
                     var offset = 0

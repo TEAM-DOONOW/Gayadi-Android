@@ -5,6 +5,9 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.gayadi.android.domain.model.TourPlace
+import com.gayadi.android.domain.model.RouteTransportMode
+import com.gayadi.android.domain.repository.PlaceSort
+import com.gayadi.android.domain.repository.PlaceTravelTime
 import com.gayadi.android.domain.model.AgentRecommendation
 import com.gayadi.android.domain.model.CongestionHourlyForecast
 import com.gayadi.android.domain.error.retryTransientResult
@@ -49,6 +52,7 @@ data class PlaceItem(
     val crowdSource: String = "",
     val crowdConfidence: String = "",
     val crowdMessage: String = "",
+    val travelTime: PlaceTravelTime? = null,
 )
 
 data class PlaceUiState(
@@ -58,9 +62,17 @@ data class PlaceUiState(
     val places: List<PlaceItem> = emptyList(),
     val isLoading: Boolean = true,
     val errorMessage: String? = null,
+    val transportMode: RouteTransportMode? = null,
+    val sort: PlaceSort = PlaceSort.RECENT,
+    val rankingSort: PlaceSort = PlaceSort.RECENT,
+    val originAvailable: Boolean? = null,
+    val serverOrdered: Boolean = false,
+    val limited: Boolean = false,
+    val hasNext: Boolean = false,
+    val isLoadingMore: Boolean = false,
 ) {
     val filteredPlaces: List<PlaceItem>
-        get() = places.filter { place ->
+        get() = if (serverOrdered) places else places.filter { place ->
             (selectedCategory == "전체" || place.category == selectedCategory) &&
                 (query.isBlank() || place.name.contains(query, ignoreCase = true) ||
                     place.description.contains(query, ignoreCase = true))
@@ -323,6 +335,8 @@ class PlaceViewModel(
 
     fun selectCategory(category: String) = _uiState.update { it.copy(selectedCategory = category) }
 
+    fun selectTransportMode(mode: RouteTransportMode?) = _uiState.update { it.copy(transportMode = mode) }
+
     fun retry() {
         loadJob?.cancel()
         loadPlaces()
@@ -357,7 +371,15 @@ class PlaceViewModel(
         loadPlaces()
     }
 
+    fun rememberPlace(place: TourPlace) {
+        knownPlaces[place.contentId] = place.toNearbyPlaceItem()
+    }
+
     fun findPlace(placeId: String): PlaceItem? = knownPlaces[placeId]
+
+    fun rememberCandidates(places: List<PlaceItem>) {
+        knownPlaces.putAll(places.associateBy(PlaceItem::id))
+    }
 
     fun applyAgentRecommendations(recommendations: List<AgentRecommendation>) {
         if (recommendations.isEmpty()) return
@@ -366,8 +388,7 @@ class PlaceViewModel(
             if (recommendation.placeId.toLongOrNull() == null) return@forEach
             val index = current.indexOfFirst { place ->
                 place.id == recommendation.placeId ||
-                    recommendation.sourcePlaceId.isNotBlank() && place.id == recommendation.sourcePlaceId ||
-                    place.name.equals(recommendation.name, ignoreCase = true)
+                    recommendation.sourcePlaceId.isNotBlank() && place.id == recommendation.sourcePlaceId
             }
             val category = recommendation.category.toPlaceCategoryLabel()
             if (index >= 0) {
@@ -529,7 +550,6 @@ class PlaceViewModel(
 
     private fun restoreKnownPlaceDetails(place: PlaceItem): PlaceItem {
         val known = knownPlaces[place.id]
-            ?: knownPlaces.values.firstOrNull { it.name.equals(place.name, ignoreCase = true) }
             ?: return place
         return place.copy(
             imageUrl = place.imageUrl.ifBlank { known.imageUrl },

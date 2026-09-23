@@ -164,7 +164,7 @@ class PlaceViewModelTest {
     }
 
     @Test
-    fun searchResultRestoresImageFromPreviouslyLoadedPlace() {
+    fun searchResultDoesNotBorrowDetailsFromDifferentPlaceWithSameName() {
         val repository = object : PlaceRepository {
             override suspend fun getPlaces(regionName: String) = Result.success(
                 listOf(
@@ -204,9 +204,6 @@ class PlaceViewModelTest {
         dispatcher.scheduler.runCurrent()
 
         assertEquals("42", viewModel.uiState.value.places.single().id)
-        assertEquals(
-            "https://images.example/museum.jpg",
-            viewModel.uiState.value.places.single().imageUrl,
-        )
+        assertEquals("", viewModel.uiState.value.places.single().imageUrl)
     }
 }

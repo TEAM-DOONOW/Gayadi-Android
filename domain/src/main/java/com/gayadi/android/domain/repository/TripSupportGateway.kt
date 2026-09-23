@@ -1,6 +1,7 @@
 package com.gayadi.android.domain.repository
 
 import com.gayadi.android.domain.model.TourPlace
+import com.gayadi.android.domain.model.RouteTransportMode
 
 /** Less frequently used trip, context, and agent operations exposed by the backend. */
 interface TripSupportGateway {
@@ -9,7 +10,12 @@ interface TripSupportGateway {
     suspend fun getPlan(tripId: String): TravelPlan
     suspend fun getDashboard(tripId: String): TripDashboard
 
-    suspend fun recommendRoutes(tripId: String, type: String, userId: String? = null): List<RecommendedRoute>
+    suspend fun recommendRoutes(
+        tripId: String,
+        type: String,
+        userId: String? = null,
+        transportMode: RouteTransportMode = RouteTransportMode.PUBLIC_TRANSIT,
+    ): List<RecommendedRoute>
     suspend fun listSelectedRoutes(tripId: String): List<RecommendedRoute>
     suspend fun selectRoute(
         tripId: String,

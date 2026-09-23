@@ -209,6 +209,8 @@ class FileTravelRepositoryTest {
                 isVisited = true,
                 endTime = "11:30",
                 memo = "정문에서 만나기",
+                latitude = 33.43,
+                longitude = 126.92,
             ),
         ),
         favoritePlaceIds = setOf("place-3"),

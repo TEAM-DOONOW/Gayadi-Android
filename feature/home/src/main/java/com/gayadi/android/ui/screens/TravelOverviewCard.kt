@@ -101,7 +101,7 @@ internal fun TravelOverviewCard(
                         .padding(horizontal = 20.dp)
                         .height(10.dp)
                         .align(Alignment.TopCenter)
-                        .offset(y = 13.dp)
+                        .offset(y = 5.dp)
                         .clip(CircleShape),
                     color = PrimaryAction,
                     trackColor = Color(0xFFD9D9DE),
@@ -114,7 +114,7 @@ internal fun TravelOverviewCard(
                         .size(40.dp)
                         .offset(
                             x = progressOffset,
-                            y = (-8).dp,
+                            y = (-16).dp,
                         ),
                     contentScale = ContentScale.Fit,
                 )
