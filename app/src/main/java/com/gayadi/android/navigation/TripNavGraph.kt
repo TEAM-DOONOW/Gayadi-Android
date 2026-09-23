@@ -617,7 +617,11 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
         if (showNotifications) {
             ExpenseNotificationsBottomSheet(
                 tripId = tripId,
+                tripName = trip?.name ?: "여행",
+                tripStartDate = trip?.startDate.orEmpty(),
                 scheduleIds = tripSchedules.map { it.id },
+                notificationGateway = appContainer.notificationGateway,
+                getNotices = appContainer.getNoticesUseCase,
                 onDismiss = { showNotifications = false },
                 onOpenExpense = { scheduleId ->
                     showNotifications = false

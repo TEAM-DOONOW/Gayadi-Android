@@ -83,6 +83,7 @@ class AppContainer(
     )
     private val apiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val api = GayadiApiClient(tourApiBaseUrl, authRepository)
+    val notificationGateway = com.gayadi.android.data.remote.NotificationGateway(api)
     private val tourRepository = DefaultTourRepository(
         DiscoveryPlaceApiDataSource(
             discovery = HttpTourApiDataSource(tourApiBaseUrl),

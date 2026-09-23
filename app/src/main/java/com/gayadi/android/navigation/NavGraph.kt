@@ -17,10 +17,15 @@ import com.gayadi.android.di.AppContainer
 import com.gayadi.android.domain.error.isCoroutineCancellationMessage
 import com.gayadi.android.domain.model.UserProfile
 import com.gayadi.android.notification.ExpenseReminderScheduler
+import com.gayadi.android.notification.GayadiMessagingService
 import com.gayadi.android.notification.syncExpenseRemindersWithRetry
 import com.gayadi.android.ui.screens.PlaceViewModel
 import com.gayadi.android.ui.screens.ProfileViewModel
 import com.gayadi.android.ui.screens.TripViewModel
+import com.google.firebase.messaging.FirebaseMessaging
+import kotlin.coroutines.resume
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.suspendCancellableCoroutine
 
 @Composable
 fun GayadiNavHost(appContainer: AppContainer) {
@@ -38,6 +43,37 @@ fun GayadiNavHost(appContainer: AppContainer) {
     val authSession by appContainer.authRepository.observeSession().collectAsStateWithLifecycle(
         initialValue = appContainer.authRepository.currentSession(),
     )
+    LaunchedEffect(authSession?.user?.id) {
+        val preferences = context.getSharedPreferences(GayadiMessagingService.PREFERENCES, android.content.Context.MODE_PRIVATE)
+        val userId = authSession?.user?.id
+        val previousUserId = preferences.getLong("registered-user", -1L)
+        val messaging = FirebaseMessaging.getInstance()
+        if (userId == null || (previousUserId != -1L && previousUserId != userId)) {
+            try { suspendCancellableCoroutine<Unit> { continuation ->
+                messaging.deleteToken().addOnCompleteListener { continuation.resume(Unit) }
+            } } catch (cancelled: CancellationException) { throw cancelled } catch (_: Exception) { }
+            preferences.edit().remove("registered-user").apply()
+        }
+        if (userId != null) {
+            try {
+                val token = suspendCancellableCoroutine<String> { continuation ->
+                    messaging.token.addOnSuccessListener { continuation.resume(it) }
+                        .addOnFailureListener { continuation.cancel() }
+                }
+                appContainer.notificationGateway.registerToken(token)
+                preferences.edit().putLong("registered-user", userId)
+                    .remove(GayadiMessagingService.REFRESHED_TOKEN).apply()
+            } catch (cancelled: CancellationException) { throw cancelled } catch (_: Exception) { }
+        }
+    }
+    LaunchedEffect(authSession?.user?.id) {
+        if (authSession == null) return@LaunchedEffect
+        GayadiMessagingService.tokenUpdates.collect { token ->
+            try { appContainer.notificationGateway.registerToken(token) }
+            catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { }
+        }
+    }
     val tripViewModel: TripViewModel = viewModel(
         factory = TripViewModel.factory(
             appContainer.getTravelStateUseCase,

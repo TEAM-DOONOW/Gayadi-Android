@@ -233,6 +233,7 @@ dependencies {
     implementation(libs.google.identity.googleid)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.analytics)
+    implementation(libs.firebase.messaging)
     testImplementation(libs.junit)
     androidTestImplementation(project(":data"))
     androidTestImplementation(libs.androidx.test.ext.junit)
