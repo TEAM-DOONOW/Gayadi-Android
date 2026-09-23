@@ -618,6 +618,7 @@ class TravelFlowScreenTest {
         )
         val expenses = mutableStateOf(listOf(expense, remainingExpense))
         var deletedExpenseId: String? = null
+        var editedExpense: Pair<String, String>? = null
         composeRule.setContent {
             val currentExpenses = expenses.value
             val hasLunchExpense = currentExpenses.any { it.id == expense.id }
@@ -650,7 +651,7 @@ class TravelFlowScreenTest {
                     ),
                     onBack = {},
                     onAddExpense = {},
-                    onEditExpense = { _, _ -> },
+                    onEditExpense = { expenseId, scheduleId -> editedExpense = expenseId to scheduleId },
                     onDeleteExpense = { expenseId ->
                         deletedExpenseId = expenseId
                         expenses.value = expenses.value.filterNot { it.id == expenseId }
@@ -661,6 +662,10 @@ class TravelFlowScreenTest {
 
         composeRule.onNodeWithText("45,001").assertIsDisplayed()
         composeRule.onNodeWithText("KRW 45,001").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("점심 식사 메뉴").performClick()
+        composeRule.onNodeWithText("수정").assertIsDisplayed().performClick()
+        composeRule.runOnIdle { assertEquals(expense.id to schedule.id, editedExpense) }
+        composeRule.onNodeWithText("수정").assertDoesNotExist()
         composeRule.onNodeWithContentDescription("점심 식사 메뉴").performClick()
         composeRule.onNodeWithText("삭제").performClick()
         composeRule.onNodeWithText("비용을 삭제할까요?").assertIsDisplayed()

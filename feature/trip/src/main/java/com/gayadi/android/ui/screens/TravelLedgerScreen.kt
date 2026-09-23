@@ -30,13 +30,16 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Savings
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -393,6 +396,7 @@ private fun ExpenseDayGroup(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ExpenseRow(expense: TravelExpense, subtitle: String, onEdit: () -> Unit, onDelete: () -> Unit) {
     var expanded by rememberSaveable(expense.id) { mutableStateOf(false) }
@@ -416,11 +420,41 @@ private fun ExpenseRow(expense: TravelExpense, subtitle: String, onEdit: () -> U
             Text(subtitle, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 11.sp, color = TextSecondary)
         }
         Text(expense.amount.toWon(), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
-        Box {
-            IconButton(onClick = { expanded = true }) { Icon(Icons.Default.MoreVert, contentDescription = "${expense.title} 메뉴", tint = TextSecondary) }
-            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                DropdownMenuItem(text = { Text("수정") }, onClick = { expanded = false; onEdit() })
-                DropdownMenuItem(text = { Text("삭제", color = LedgerDanger) }, onClick = { expanded = false; onDelete() })
+        IconButton(onClick = { expanded = true }) {
+            Icon(Icons.Default.MoreVert, contentDescription = "${expense.title} 메뉴", tint = TextSecondary)
+        }
+    }
+    if (expanded) {
+        ModalBottomSheet(
+            onDismissRequest = { expanded = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = Color.White,
+            tonalElevation = 0.dp,
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        ) {
+            Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
+                Text(expense.title, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                Spacer(Modifier.height(4.dp))
+                Text(expense.amount.toWon(), fontSize = 14.sp, color = TextSecondary)
+                Spacer(Modifier.height(16.dp))
+                Row(
+                    Modifier.fillMaxWidth().height(56.dp)
+                        .clickable(role = Role.Button) { expanded = false; onEdit() },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Outlined.Edit, contentDescription = null, tint = TextPrimary, modifier = Modifier.size(22.dp))
+                    Spacer(Modifier.size(12.dp))
+                    Text("수정", fontSize = 16.sp, color = TextPrimary)
+                }
+                Row(
+                    Modifier.fillMaxWidth().height(56.dp)
+                        .clickable(role = Role.Button) { expanded = false; onDelete() },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Outlined.DeleteOutline, contentDescription = null, tint = LedgerDanger, modifier = Modifier.size(22.dp))
+                    Spacer(Modifier.size(12.dp))
+                    Text("삭제", fontSize = 16.sp, color = LedgerDanger)
+                }
             }
         }
     }
