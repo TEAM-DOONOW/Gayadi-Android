@@ -169,6 +169,12 @@ class ExpenseReminderIntegrationTest {
             assertTrue(posted.flags and Notification.FLAG_AUTO_CANCEL != 0)
             assertNotNull(posted.contentIntent)
 
+            val inbox = loadExpenseNotifications(appContext, tripId, listOf(scheduleId))
+            assertEquals(listOf(scheduleId), inbox.map { it.scheduleId })
+            assertEquals("일정이 끝났어요", inbox.single().title)
+            assertEquals("한강 산책 비용을 기록해 보세요", inbox.single().message)
+            assertTrue(loadExpenseNotifications(appContext, "$tripId-other", listOf(scheduleId)).isEmpty())
+
             val deepLinkIntent = expenseReminderDeepLinkIntent(appContext, tripId, scheduleId)
             assertEquals(Intent.ACTION_VIEW, deepLinkIntent.action)
             assertEquals(expenseReminderUri(tripId, scheduleId), deepLinkIntent.dataString)

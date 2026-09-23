@@ -7,6 +7,7 @@ val PrimaryBlueDark = Color(0xFF4A8AC4)
 val PrimaryAction = Color(0xFF343548)
 
 val Background = Color(0xFFFFFFFF)
+val PatternBackground = Color(0xFFF5F5F7)
 val SurfaceLight = Color(0xFFF5F7FA)
 val SurfaceCard = Color(0xFFF8F9FB)
 

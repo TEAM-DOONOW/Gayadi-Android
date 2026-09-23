@@ -40,6 +40,7 @@ import com.gayadi.android.ui.screens.TravelLedgerScreen
 import com.gayadi.android.ui.screens.TripCreateScreen
 import com.gayadi.android.ui.screens.AgentScreen
 import com.gayadi.android.ui.screens.AgentViewModel
+import com.gayadi.android.notification.ExpenseNotificationsBottomSheet
 
 internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(context) {
     composable(
@@ -612,6 +613,18 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
         val mapUiState by mapViewModel.uiState.collectAsStateWithLifecycle()
         LaunchedEffect(tripSchedules) { mapViewModel.load(tripSchedules.mapNotNull { it.placeId }) }
         val tripParticipants = travelState.participantsForTrip(tripId, tripViewModel.availableParticipants)
+        var showNotifications by rememberSaveable(tripId) { mutableStateOf(false) }
+        if (showNotifications) {
+            ExpenseNotificationsBottomSheet(
+                tripId = tripId,
+                scheduleIds = tripSchedules.map { it.id },
+                onDismiss = { showNotifications = false },
+                onOpenExpense = { scheduleId ->
+                    showNotifications = false
+                    navController.navigate(Routes.tripExpense(tripId, scheduleId))
+                },
+            )
+        }
         RealtimeHomeScreen(
             uiState = homeUiState,
             tripTitle = trip?.name ?: "선택한 여행",
@@ -651,6 +664,7 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
             onNavigateMyTrip = { navController.navigate(Routes.MY_TRIP) },
             onNavigateMyPage = { navController.navigate(Routes.MY_PAGE) },
             onNavigateLedger = { navController.navigate(Routes.tripLedger(tripId)) },
+            onNavigateNotifications = { showNotifications = true },
             onNavigatePlaceDetail = { placeId, date ->
                 mapUiState.places[placeId]?.let(placeViewModel::rememberPlace)
                 navController.navigate(Routes.placeDetail(tripId, placeId, date))

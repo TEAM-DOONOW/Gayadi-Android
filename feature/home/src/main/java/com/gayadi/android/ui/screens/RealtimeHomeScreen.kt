@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -19,6 +20,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,7 +37,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -47,12 +51,15 @@ import androidx.compose.ui.unit.sp
 import com.gayadi.android.feature.home.R
 import com.gayadi.android.ui.components.BottomNavBar
 import com.gayadi.android.ui.components.BottomTab
+import com.gayadi.android.ui.components.GayadiBackButton
 import com.gayadi.android.ui.components.UsageGuideCallout
 import com.gayadi.android.ui.components.UsageGuideOverlay
 import com.gayadi.android.ui.components.UsageGuidePlacement
 import com.gayadi.android.ui.theme.GayadiTheme
 import com.gayadi.android.ui.theme.PrimaryBlue
+import com.gayadi.android.ui.theme.PrimaryAction
 import com.gayadi.android.ui.theme.TextPrimary
+import com.gayadi.android.ui.components.gayadiPatternBackground
 import com.gayadi.android.ui.components.ScheduleOptionsBottomSheet
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -80,6 +87,7 @@ fun RealtimeHomeScreen(
     onNavigateMyTrip: () -> Unit,
     onNavigateMyPage: () -> Unit,
     onNavigateLedger: () -> Unit = {},
+    onNavigateNotifications: () -> Unit = {},
     onNavigatePlaceDetail: (String, String) -> Unit = { _, _ -> },
     onNavigatePlaceSearch: (String) -> Unit,
     onNavigateParticipants: () -> Unit,
@@ -98,15 +106,7 @@ fun RealtimeHomeScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colorStops = arrayOf(
-                            0.0f to Color(0xFFF2FAFF),
-                            0.48f to Color(0xFFF8F8FA),
-                            1.0f to Color(0xFFFFF7F0),
-                        ),
-                    ),
-                ),
+                .gayadiPatternBackground(topWave = true, waveHeight = 420.dp),
         ) {
             Column(
                 modifier = Modifier
@@ -114,7 +114,29 @@ fun RealtimeHomeScreen(
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 20.dp),
             ) {
-                Spacer(modifier = Modifier.height(56.dp))
+                Spacer(modifier = Modifier.height(40.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    GayadiBackButton(
+                        onClick = onNavigateMyTrip,
+                        // Align the chevron itself with the text, including its vector inset.
+                        modifier = Modifier.offset(x = (-20).dp).size(48.dp),
+                        contentDescription = "나의여행으로 돌아가기",
+                    )
+                    IconButton(onClick = onNavigateNotifications, modifier = Modifier.size(48.dp)) {
+                        Icon(
+                            Icons.Outlined.Notifications,
+                            contentDescription = "알림 확인",
+                            modifier = Modifier.size(24.dp),
+                            tint = PrimaryAction,
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
                     text = "두근두근 여행 준비",
@@ -122,7 +144,8 @@ fun RealtimeHomeScreen(
                     fontWeight = FontWeight.SemiBold,
                     color = Color(0xFF0B263B),
                 )
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(4.dp))
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -159,9 +182,7 @@ fun RealtimeHomeScreen(
                         Image(
                             painter = painterResource(imageRes),
                             contentDescription = "$tripTitle 대표 사진",
-                            modifier = Modifier
-                                .size(56.dp)
-                                .clip(CircleShape),
+                            modifier = Modifier.size(56.dp).clip(CircleShape),
                             contentScale = ContentScale.Crop,
                         )
                     }

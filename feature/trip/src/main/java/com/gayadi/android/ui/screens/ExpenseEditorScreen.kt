@@ -6,7 +6,12 @@ import androidx.activity.result.contract.ActivityResultContracts
 import android.content.Intent
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -56,6 +61,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -71,11 +78,13 @@ import com.gayadi.android.domain.model.TravelParticipant
 import com.gayadi.android.domain.model.TravelSchedule
 import com.gayadi.android.ui.components.UserCharacterAvatar
 import com.gayadi.android.ui.components.GayadiCompactTextField
+import com.gayadi.android.ui.components.gayadiPatternBackground
 import com.gayadi.android.ui.theme.GayadiTheme
 import com.gayadi.android.ui.theme.PrimaryAction
 import com.gayadi.android.ui.theme.PrimaryBlue
 import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary
+import com.gayadi.android.ui.theme.Divider
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -88,7 +97,6 @@ private val expenseDateFormatter = DateTimeFormatter.ofPattern("uuuu.MM.dd")
 private val expenseTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
     .withResolverStyle(ResolverStyle.STRICT)
 private val ExpenseError = Color(0xFFD94B4B)
-private val ExpenseEditorBackground = Color(0xFFF5F5F6)
 
 @Composable
 fun ExpenseEditorScreen(
@@ -187,7 +195,7 @@ fun ExpenseEditorScreen(
     Column(
         Modifier
             .fillMaxSize()
-            .background(ExpenseEditorBackground)
+            .gayadiPatternBackground(topWave = true, waveHeight = 520.dp)
             .statusBarsPadding()
             .navigationBarsPadding(),
     ) {
@@ -226,153 +234,178 @@ fun ExpenseEditorScreen(
         Column(
             modifier = Modifier
                 .weight(1f)
+                .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
-            SectionLabel("지출 금액")
-            GayadiCompactTextField(
-                label = "지출 금액",
-                value = amountText,
-                onValueChange = { value -> amountText = value.filter(Char::isDigit).take(18) },
-                modifier = Modifier.fillMaxWidth().background(Color.White),
-                placeholder = "0",
-                leadingContent = { Text("KRW", fontWeight = FontWeight.Bold, color = TextSecondary) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            )
-            if (submitted && amountError != null) Text(amountError, fontSize = 12.sp, color = ExpenseError)
-            Spacer(Modifier.height(6.dp))
+            Column(
+                Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                SectionLabel("지출 금액")
+                GayadiCompactTextField(
+                    label = "지출 금액",
+                    value = amountText,
+                    onValueChange = { value -> amountText = value.filter(Char::isDigit).take(18) },
+                    modifier = Modifier.fillMaxWidth().background(Color.White),
+                    placeholder = "0",
+                    leadingContent = { Text("KRW", fontWeight = FontWeight.Bold, color = TextSecondary) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                )
+                if (submitted && amountError != null) Text(amountError, fontSize = 12.sp, color = ExpenseError)
+                Spacer(Modifier.height(6.dp))
 
-            SectionLabel("카테고리")
-            ExpenseCategoryPicker(selected = category, onSelect = { category = it })
-            Spacer(Modifier.height(6.dp))
+                SectionLabel("카테고리")
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    border = BorderStroke(1.dp, Divider),
+                ) {
+                    ExpenseCategoryPicker(selected = category, onSelect = { category = it })
+                }
+            }
 
-            SectionLabel("지출 내용")
-            GayadiCompactTextField(
-                label = "지출 내용",
-                value = title,
-                onValueChange = { title = it.take(EXPENSE_TITLE_LIMIT) },
-                modifier = Modifier.fillMaxWidth().background(Color.White),
-                placeholder = "무엇에 사용했나요?",
-            )
-            if (submitted && titleError != null) Text(titleError, fontSize = 12.sp, color = ExpenseError)
-            Spacer(Modifier.height(6.dp))
+            Column(
+                Modifier.fillMaxWidth()
+                    .background(Color.White, RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
+                    .padding(horizontal = 20.dp, vertical = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                SectionLabel("지출 내용")
+                GayadiCompactTextField(
+                    label = "지출 내용",
+                    value = title,
+                    onValueChange = { title = it.take(EXPENSE_TITLE_LIMIT) },
+                    modifier = Modifier.fillMaxWidth().background(Color.White),
+                    placeholder = "무엇에 사용했나요?",
+                )
+                if (submitted && titleError != null) Text(titleError, fontSize = 12.sp, color = ExpenseError)
+                Spacer(Modifier.height(6.dp))
 
-            SectionLabel("결제한 사람")
-            if (participants.isEmpty()) {
-                Text("여행 참여자를 먼저 추가해 주세요", fontSize = 13.sp, color = ExpenseError)
-            } else {
+                SectionLabel("결제한 사람")
+                if (participants.isEmpty()) {
+                    Text("여행 참여자를 먼저 추가해 주세요", fontSize = 13.sp, color = ExpenseError)
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Color.White)
+                            .border(1.dp, Divider, RoundedCornerShape(16.dp))
+                            .padding(horizontal = 6.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        PaymentSourceRow(
+                            title = "공동경비",
+                            selected = paymentSource == ExpensePaymentSource.SHARED_FUND,
+                            icon = Icons.Default.AccountBalanceWallet,
+                            onClick = { paymentSource = ExpensePaymentSource.SHARED_FUND },
+                        )
+                        participants.forEach { participant ->
+                            ParticipantRadioRow(
+                                participant = participant,
+                                selected = paymentSource == ExpensePaymentSource.PERSONAL && payerId == participant.id,
+                                onClick = {
+                                    paymentSource = ExpensePaymentSource.PERSONAL
+                                    payerId = participant.id
+                                },
+                            )
+                        }
+                    }
+                }
+                if (submitted && payerError != null) Text(payerError, fontSize = 12.sp, color = ExpenseError)
+                Spacer(Modifier.height(6.dp))
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column {
+                        SectionLabel("함께 나눌 사람")
+                        Text(
+                            "선택한 사람끼리 동일하게 나눠요",
+                            fontSize = 11.sp,
+                            color = TextSecondary,
+                        )
+                    }
+                    Spacer(Modifier.weight(1f))
+                    Box(
+                        modifier = Modifier
+                            .background(PrimaryAction, RoundedCornerShape(16.dp))
+                            .clickable { splitParticipantIds = participantIds.toList() }
+                            .padding(horizontal = 14.dp, vertical = 7.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text("1/N", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color.White, RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color.White)
+                        .border(1.dp, Divider, RoundedCornerShape(16.dp))
                         .padding(horizontal = 6.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    PaymentSourceRow(
-                        title = "공동경비",
-                        selected = paymentSource == ExpensePaymentSource.SHARED_FUND,
-                        icon = Icons.Default.AccountBalanceWallet,
-                        onClick = { paymentSource = ExpensePaymentSource.SHARED_FUND },
-                    )
                     participants.forEach { participant ->
-                        ParticipantRadioRow(
+                        ParticipantSelectionRow(
                             participant = participant,
-                            selected = paymentSource == ExpensePaymentSource.PERSONAL && payerId == participant.id,
-                            onClick = {
-                                paymentSource = ExpensePaymentSource.PERSONAL
-                                payerId = participant.id
+                            checked = participant.id in splitParticipantIds,
+                            onCheckedChange = { checked ->
+                                splitParticipantIds = if (checked) splitParticipantIds + participant.id
+                                else splitParticipantIds - participant.id
                             },
                         )
                     }
                 }
-            }
-            if (submitted && payerError != null) Text(payerError, fontSize = 12.sp, color = ExpenseError)
-            Spacer(Modifier.height(6.dp))
+                if (submitted && splitError != null) Text(splitError, fontSize = 12.sp, color = ExpenseError)
+                Spacer(Modifier.height(6.dp))
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column {
-                    SectionLabel("함께 나눌 사람")
-                    Text(
-                        "선택한 사람끼리 동일하게 나눠요",
-                        fontSize = 11.sp,
-                        color = TextSecondary,
-                    )
-                }
-                Spacer(Modifier.weight(1f))
-                Box(
+                Column(
                     modifier = Modifier
-                        .background(PrimaryAction, RoundedCornerShape(16.dp))
-                        .clickable { splitParticipantIds = participantIds.toList() }
-                        .padding(horizontal = 14.dp, vertical = 7.dp),
-                    contentAlignment = Alignment.Center,
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color.White)
+                        .border(1.dp, Divider, RoundedCornerShape(16.dp))
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Text("1/N", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                }
-            }
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color.White, RoundedCornerShape(8.dp))
-                    .padding(horizontal = 6.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                participants.forEach { participant ->
-                    ParticipantSelectionRow(
-                        participant = participant,
-                        checked = participant.id in splitParticipantIds,
-                        onCheckedChange = { checked ->
-                            splitParticipantIds = if (checked) splitParticipantIds + participant.id
-                            else splitParticipantIds - participant.id
-                        },
+                    SectionLabel("지출 날짜")
+                    GayadiCompactTextField(
+                        label = "지출 날짜",
+                        value = date,
+                        onValueChange = { date = it.filter { character -> character.isDigit() || character == '.' }.take(10) },
+                        modifier = Modifier.fillMaxWidth().background(Color.White),
+                        placeholder = "yyyy.MM.dd",
                     )
+                    if (submitted && dateError != null) Text(dateError, fontSize = 12.sp, color = ExpenseError)
+                    SectionLabel("지출 시간")
+                    GayadiCompactTextField(
+                        label = "지출 시간",
+                        value = time,
+                        onValueChange = { time = it.filter { character -> character.isDigit() || character == ':' }.take(5) },
+                        modifier = Modifier.fillMaxWidth().background(Color.White),
+                        placeholder = "HH:mm",
+                    )
+                    if (submitted && timeError != null) Text(timeError, fontSize = 12.sp, color = ExpenseError)
+                    Text("연결된 일정  ·  ${schedule?.title ?: "없음"}", fontSize = 12.sp, color = TextSecondary)
                 }
-            }
-            if (submitted && splitError != null) Text(splitError, fontSize = 12.sp, color = ExpenseError)
-            Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(6.dp))
 
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color.White, RoundedCornerShape(8.dp))
-                    .padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                SectionLabel("지출 날짜")
-                GayadiCompactTextField(
-                    label = "지출 날짜",
-                    value = date,
-                    onValueChange = { date = it.filter { character -> character.isDigit() || character == '.' }.take(10) },
-                    modifier = Modifier.fillMaxWidth().background(Color.White),
-                    placeholder = "yyyy.MM.dd",
+                SectionLabel("영수증")
+                ReceiptAttachmentCard(
+                    receiptImageUri = receiptImageUri,
+                    onAdd = { receiptLauncher.launch(arrayOf("image/*")) },
+                    onRemove = { receiptImageUri = null },
                 )
-                if (submitted && dateError != null) Text(dateError, fontSize = 12.sp, color = ExpenseError)
-                SectionLabel("지출 시간")
-                GayadiCompactTextField(
-                    label = "지출 시간",
-                    value = time,
-                    onValueChange = { time = it.filter { character -> character.isDigit() || character == ':' }.take(5) },
-                    modifier = Modifier.fillMaxWidth().background(Color.White),
-                    placeholder = "HH:mm",
-                )
-                if (submitted && timeError != null) Text(timeError, fontSize = 12.sp, color = ExpenseError)
-                Text("연결된 일정  ·  ${schedule?.title ?: "없음"}", fontSize = 12.sp, color = TextSecondary)
+
+                errorMessage?.let { Text(it, color = ExpenseError, fontSize = 13.sp) }
+                Spacer(Modifier.height(6.dp))
             }
-            Spacer(Modifier.height(6.dp))
-
-            SectionLabel("영수증")
-            ReceiptAttachmentCard(
-                receiptImageUri = receiptImageUri,
-                onAdd = { receiptLauncher.launch(arrayOf("image/*")) },
-                onRemove = { receiptImageUri = null },
-            )
-
-            errorMessage?.let { Text(it, color = ExpenseError, fontSize = 13.sp) }
-            Spacer(Modifier.height(6.dp))
         }
 
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+            modifier = Modifier.fillMaxWidth().background(Color.White).padding(horizontal = 20.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Button(
@@ -539,22 +572,28 @@ private val expenseCategoryOptions = listOf(
 @Composable
 private fun ExpenseCategoryPicker(selected: ExpenseCategory, onSelect: (ExpenseCategory) -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).selectableGroup(),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         expenseCategoryOptions.forEach { option ->
+            val isSelected = selected == option.category
             Column(
                 modifier = Modifier
-                    .background(
-                        if (selected == option.category) option.color.copy(alpha = 0.18f) else Color.Transparent,
-                        RoundedCornerShape(0.dp),
+                    .selectable(
+                        selected = isSelected,
+                        role = Role.RadioButton,
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = { onSelect(option.category) },
                     )
-                    .clickable { onSelect(option.category) }
                     .padding(horizontal = 12.dp, vertical = 10.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Box(
-                    modifier = Modifier.size(48.dp).background(option.color, CircleShape),
+                    modifier = Modifier.size(56.dp)
+                        .border(2.dp, if (isSelected) option.color else Color.Transparent, CircleShape)
+                        .padding(4.dp)
+                        .background(option.color, CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(option.icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(26.dp))
@@ -563,7 +602,7 @@ private fun ExpenseCategoryPicker(selected: ExpenseCategory, onSelect: (ExpenseC
                 Text(
                     option.label,
                     fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
                     color = TextPrimary,
                 )
             }
@@ -619,7 +658,9 @@ private fun ReceiptAttachmentCard(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
             .background(Color.White)
+            .border(1.dp, Divider, RoundedCornerShape(16.dp))
             .clickable(onClick = onAdd)
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
