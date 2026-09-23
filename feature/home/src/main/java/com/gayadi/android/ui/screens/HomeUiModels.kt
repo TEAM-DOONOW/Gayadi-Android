@@ -7,6 +7,10 @@ data class HomeTravelPlan(
     val time: String,
     val memo: String,
     val isVisited: Boolean,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val placeId: String? = null,
+    val imageUrl: String = "",
 )
 
 data class HomeTripDay(

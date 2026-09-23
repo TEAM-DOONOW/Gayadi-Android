@@ -1,5 +1,7 @@
 package com.gayadi.android.data.remote.travel
 
+import com.gayadi.android.domain.model.RouteTransportMode
+
 import com.gayadi.android.data.datasource.GayadiApiClient
 import com.gayadi.android.domain.model.TourPlace
 import com.gayadi.android.domain.repository.ChangeProposal
@@ -55,8 +57,9 @@ class ServerTripSupportGateway(private val http: TravelJsonTransport) : TripSupp
         tripId: String,
         type: String,
         userId: String?,
+        transportMode: RouteTransportMode,
     ): List<RecommendedRoute> {
-        val body = JSONObject().put("type", type)
+        val body = JSONObject().put("type", type).put("transportMode", transportMode.name)
         userId?.let { body.put("userId", it.serverId("userId")) }
         val response = http.postObject(
             "${tripPath(tripId)}/route-recommendations",

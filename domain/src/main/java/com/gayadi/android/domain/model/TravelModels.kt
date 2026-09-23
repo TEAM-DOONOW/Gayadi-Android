@@ -49,6 +49,8 @@ data class TravelSchedule(
     val isVisited: Boolean = false,
     val endTime: String? = null,
     val memo: String = "",
+    val latitude: Double? = null,
+    val longitude: Double? = null,
 )
 
 /** One manually entered expense associated with a travel schedule. */

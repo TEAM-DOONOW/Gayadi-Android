@@ -94,6 +94,12 @@ class AppContainer(
     val agentGateway: com.gayadi.android.domain.repository.AgentGateway = ServerAgentGateway(api)
     val tripSupportGateway: com.gayadi.android.domain.repository.TripSupportGateway =
         com.gayadi.android.data.remote.travel.ServerTripSupportGateway(api)
+    val placeCandidateGateway: com.gayadi.android.domain.repository.PlaceCandidateGateway =
+        com.gayadi.android.data.remote.travel.ServerPlaceCandidateGateway(
+            // Ranking has a 30-second server budget; allow time for the response to reach the device.
+            GayadiApiClient(tourApiBaseUrl, authRepository, readTimeoutSeconds = 35, callTimeoutSeconds = 40),
+            diagnostic = { android.util.Log.d("PlaceSearch", it); Unit },
+        )
     private val surveyRepository: SurveyRepository =
         DefaultSurveyRepository(RestSurveyDataSource(api, apiScope))
     val submitSurveyUseCase = SubmitSurveyUseCase(RestSurveySubmissionRepository(api))
