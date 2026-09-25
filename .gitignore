@@ -25,6 +25,7 @@ captures/
 .cxx/
 
 # Kotlin
+.kotlin/
 *.class
 __pycache__/
 *.pyc
@@ -40,6 +41,7 @@ Thumbs.db
 *.jks
 *.keystore
 keystore.properties
+gha-creds-*.json
 
 # Environment
 .env
