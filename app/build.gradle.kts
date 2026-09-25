@@ -1,3 +1,4 @@
+import java.net.URI
 import java.util.Properties
 
 plugins {
@@ -74,6 +75,37 @@ val keystoreProperties = Properties().apply {
     }
 }
 
+val ciPlayRelease = providers.gradleProperty("CI_PLAY_RELEASE").orNull == "true"
+val versionCodeOverride = providers.gradleProperty("VERSION_CODE").orNull?.let { value ->
+    value.toIntOrNull()?.takeIf { it in 1..2_100_000_000 }
+        ?: error("VERSION_CODE must be an integer between 1 and 2100000000.")
+}
+
+if (ciPlayRelease) {
+    check(versionCodeOverride != null) { "Play CI requires an explicit VERSION_CODE." }
+    check(keystorePropertiesFile.exists()) { "Play CI requires upload signing configuration." }
+    check(rootProject.file(keystoreProperties.requiredString("storeFile")).isFile) {
+        "Play CI upload keystore is missing."
+    }
+    listOf("keyAlias", "keyPassword", "storePassword").forEach(keystoreProperties::requiredString)
+    check(rootProject.file("config/prod.properties").isFile) { "Play CI requires production configuration." }
+    validateProductionApiBaseUrl(prodApiBaseUrl)
+    check(URI(prodApiBaseUrl).host.let { it != "example.com" && !it.endsWith(".example.com") }) {
+        "Play CI cannot use the example API domain."
+    }
+    listOf("KAKAO_MAP_JAVASCRIPT_SDK", "KAKAO_NATIVE_SDK", "GOOGLE_WEB_CLIENT_ID").forEach { key ->
+        check(configuredString(prodProperties.getProperty(key)) != null) {
+            "Play CI requires a configured production property: $key"
+        }
+    }
+    check(prodProperties.requiredString("GOOGLE_WEB_CLIENT_ID").trim().endsWith(".apps.googleusercontent.com")) {
+        "Play CI requires a Google Web OAuth client ID."
+    }
+    check(prodProperties.getProperty("DEBUG_LOGGING", "false").trim() == "false") {
+        "Play CI requires DEBUG_LOGGING=false."
+    }
+}
+
 android {
     namespace = "com.gayadi.android"
     compileSdk = 36
@@ -82,7 +114,7 @@ android {
         applicationId = "com.doonow.gayadi"
         minSdk = 26
         targetSdk = 36
-        versionCode = 27
+        versionCode = versionCodeOverride ?: 27
         versionName = "0.0.27"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField(
