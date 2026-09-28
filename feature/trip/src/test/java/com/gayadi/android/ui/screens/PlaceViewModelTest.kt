@@ -17,6 +17,54 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class PlaceViewModelTest {
+    @Test
+    fun detailResolvesMissingMetadataAndLoadsRealWeatherAndDatedGraph() {
+        var weatherPlaceId: String? = null
+        var graphTargetAt: String? = null
+        val gateway = java.lang.reflect.Proxy.newProxyInstance(
+            com.gayadi.android.domain.repository.TripSupportGateway::class.java.classLoader,
+            arrayOf(com.gayadi.android.domain.repository.TripSupportGateway::class.java),
+        ) { _, method, args ->
+            when (method.name) {
+                "getPlace" -> com.gayadi.android.domain.model.TourPlace(
+                    "place-3", "섭지코지", "제주", "", "", 126.9, 33.4, regionCode = "50", districtCode = "130",
+                )
+                "getPlaceWeather" -> {
+                    weatherPlaceId = args[0] as String
+                    com.gayadi.android.domain.repository.WeatherResult("20260928", "1400", "21.5", 0,
+                        condition = "흐림", precipitationProbability = 30)
+                }
+                "getCongestion" -> com.gayadi.android.domain.repository.CongestionResult("NORMAL", 50, true, false)
+                else -> error("Unexpected call: ${method.name}")
+            }
+        } as com.gayadi.android.domain.repository.TripSupportGateway
+        val hourly = object : CongestionRepository {
+            override suspend fun getHourlyForecast(areaCode: String, districtCode: String, areaName: String,
+                placeName: String, targetAt: String, hours: List<Int>?): Result<CongestionHourlyForecast> {
+                assertEquals("50", areaCode)
+                assertEquals("130", districtCode)
+                graphTargetAt = targetAt
+                return Result.success(CongestionHourlyForecast(points = listOf(CongestionHourlyPoint(13, 72, "혼잡"))))
+            }
+        }
+        val vm = PlaceViewModel(tripSupportGateway = gateway, getCongestionHourly = GetCongestionHourlyUseCase(hourly))
+        vm.loadPlaceDetails("place-3", "2026.10.01")
+        assertEquals("place-3", weatherPlaceId)
+        assertEquals("21.5", vm.weatherUiState.value.weather?.temperature)
+        assertEquals("흐림", vm.weatherUiState.value.weather?.condition)
+        assertEquals(30, vm.weatherUiState.value.weather?.precipitationProbability)
+        assertEquals("2026-10-01T12:00+09:00", graphTargetAt)
+        assertEquals("130", vm.detailPlace.value?.districtCode)
+        assertEquals(72, vm.hourlyUiState.value.forecast?.points?.single()?.concentrationScore)
+    }
+
+    @Test
+    fun missingCoordinatesDoNotUseFakeWeatherDefaults() {
+        val vm = PlaceViewModel()
+        vm.loadWeather("place-3")
+        assertEquals(null, vm.weatherUiState.value.weather)
+        assertEquals(false, vm.weatherUiState.value.isLoading)
+    }
     private val dispatcher = UnconfinedTestDispatcher()
 
     @Before

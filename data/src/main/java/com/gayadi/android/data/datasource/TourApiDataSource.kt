@@ -1,5 +1,6 @@
 package com.gayadi.android.data.datasource
 
+import com.gayadi.android.data.mapper.toWeatherResult
 import com.gayadi.android.data.model.TourPlaceDto
 import java.net.HttpURLConnection
 import java.net.URLEncoder
@@ -359,6 +360,7 @@ class HttpTourApiDataSource(
                         crowdProviderDataAvailable = item.optBoolean("crowdProviderDataAvailable"),
                         crowdConfidence = item.optString("crowdConfidence"),
                         crowdMessage = item.optString("crowdMessage"),
+                        weatherInfo = item.optJSONObject("weather")?.toWeatherResult(),
                     ),
                 )
             }

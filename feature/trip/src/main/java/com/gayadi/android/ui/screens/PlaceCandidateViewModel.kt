@@ -155,10 +155,17 @@ private fun PlaceCandidate.toItem(): PlaceItem {
     }
     return PlaceItem(
         id = place.contentId, name = place.title, category = category, rating = 0.0, reviews = 0,
-        crowdLevel = when (place.crowdLevel) { "RELAXED" -> CrowdLevel.RELAXED; "CROWDED" -> CrowdLevel.CROWDED; else -> CrowdLevel.NORMAL },
+        crowdLevel = place.crowdLevel.toCrowdLevel(),
         emoji = when (category) { "맛집" -> "🍲"; "카페" -> "☕"; "숙소" -> "🏨"; else -> "🏞️" },
         description = listOf(place.address, place.addressDetail).filter(String::isNotBlank).joinToString(" "),
         imageUrl = place.imageUrl, latitude = place.latitude, longitude = place.longitude,
-        hasRealtimeDetails = place.crowdProviderDataAvailable, travelTime = travelTime,
+        hasRealtimeDetails = place.crowdLevel.toCrowdLevel() != CrowdLevel.UNKNOWN, travelTime = travelTime,
+        regionCode = place.regionCode, districtCode = place.districtCode,
+        concentrationScore = place.concentrationScore,
+        crowdSource = place.crowdSource, crowdConfidence = place.crowdConfidence,
+        crowdMessage = place.crowdMessage,
+        weatherInfo = place.weatherInfo,
+        crowdEstimated = place.crowdEstimated,
+        crowdProviderDataAvailable = place.crowdProviderDataAvailable,
     )
 }
