@@ -1,0 +1,169 @@
+name: Play release
+
+on:
+  push:
+    branches: [main, stg]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Serialise Play edits. A newer pending run can replace an older pending run,
+# but a running upload must not be cancelled.
+concurrency:
+  group: play-com-doonow-gayadi
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/stg'
+    uses: ./.github/workflows/android.yml
+
+  configure:
+    needs: ci
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/stg'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    # No Environment here: both branches must use the repository-level base.
+    outputs:
+      track: ${{ steps.metadata.outputs.track }}
+      environment: ${{ steps.metadata.outputs.environment }}
+      version_code: ${{ steps.metadata.outputs.version_code }}
+      release_name: ${{ steps.metadata.outputs.release_name }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Select destination and allocate shared release version
+        id: metadata
+        env:
+          PLAY_VERSION_CODE_BASE: ${{ vars.PLAY_VERSION_CODE_BASE }}
+        run: python3 scripts/ci/play_release.py metadata
+
+  release:
+    needs: configure
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: ${{ needs.configure.outputs.environment }}
+    outputs:
+      already_uploaded: ${{ steps.preflight.outputs.already_uploaded }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Authenticate to Google Play
+        id: auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          credentials_json: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/androidpublisher
+          export_environment_variables: false
+
+      - name: Check existing Play release
+        id: preflight
+        env:
+          PLAY_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          RELEASE_VERSION_CODE: ${{ needs.configure.outputs.version_code }}
+          RELEASE_NAME: ${{ needs.configure.outputs.release_name }}
+          PLAY_TRACK: ${{ needs.configure.outputs.track }}
+        run: python3 scripts/ci/play_release.py preflight
+
+      - uses: ./.github/actions/setup-android
+        if: steps.preflight.outputs.already_uploaded != 'true'
+        with:
+          cache-disabled: 'true'
+
+      - name: Prepare production configuration and upload signing
+        if: steps.preflight.outputs.already_uploaded != 'true'
+        env:
+          ANDROID_UPLOAD_KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          PROD_PROPERTIES: ${{ secrets.PROD_PROPERTIES }}
+        run: python3 scripts/ci/prepare_play_signing.py
+
+      - name: Build signed production bundle
+        if: steps.preflight.outputs.already_uploaded != 'true'
+        env:
+          ORG_GRADLE_PROJECT_VERSION_CODE: ${{ needs.configure.outputs.version_code }}
+          ORG_GRADLE_PROJECT_CI_PLAY_RELEASE: 'true'
+        run: ./gradlew --no-daemon --no-build-cache --no-configuration-cache :app:bundleProdRelease
+
+      - name: Verify bundle signature and mapping
+        if: steps.preflight.outputs.already_uploaded != 'true'
+        env:
+          LC_ALL: C
+        run: |
+          test -s app/build/outputs/mapping/prodRelease/mapping.txt
+          jarsigner -verify app/build/outputs/bundle/prodRelease/app-prod-release.aab > "$RUNNER_TEMP/gayadi-aab-verification.txt"
+          grep -q 'jar verified\.' "$RUNNER_TEMP/gayadi-aab-verification.txt"
+
+      - name: Upload to selected Play track
+        if: steps.preflight.outputs.already_uploaded != 'true'
+        uses: r0adkll/upload-google-play@eb49699984a39f23558439581660aa6f088acfd6 # v1
+        with:
+          serviceAccountJson: ${{ steps.auth.outputs.credentials_file_path }}
+          packageName: com.doonow.gayadi
+          releaseFiles: app/build/outputs/bundle/prodRelease/app-prod-release.aab
+          releaseName: ${{ needs.configure.outputs.release_name }}
+          tracks: ${{ needs.configure.outputs.track }}
+          status: completed
+          mappingFile: app/build/outputs/mapping/prodRelease/mapping.txt
+          whatsNewDirectory: distribution/whatsnew
+
+      - name: Save release bundle and mapping
+        if: ${{ !cancelled() && steps.preflight.outputs.already_uploaded == 'false' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ${{ needs.configure.outputs.track }}-release-${{ needs.configure.outputs.version_code }}
+          path: |
+            app/build/outputs/bundle/prodRelease/app-prod-release.aab
+            app/build/outputs/mapping/prodRelease/mapping.txt
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Record release result
+        if: success()
+        env:
+          VERSION_CODE: ${{ needs.configure.outputs.version_code }}
+          RELEASE_NAME: ${{ needs.configure.outputs.release_name }}
+          PLAY_TRACK: ${{ needs.configure.outputs.track }}
+          ALREADY_UPLOADED: ${{ steps.preflight.outputs.already_uploaded }}
+        run: |
+          {
+            echo '## Play release'
+            printf '\n- Version code: %s\n- Release: %s\n- Already uploaded: %s\n' "$VERSION_CODE" "$RELEASE_NAME" "$ALREADY_UPLOADED"
+            printf '\n- Track: %s\n' "$PLAY_TRACK"
+            echo '- Submitted with status completed; availability depends on Play review and publishing settings.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove temporary signing and production files
+        if: always()
+        run: |
+          rm -f -- "$RUNNER_TEMP/gayadi-upload.jks" "$RUNNER_TEMP/gayadi-aab-verification.txt" keystore.properties config/prod.properties config/dev.properties
+
+  notify:
+    name: Notify Discord
+    needs: [ci, configure, release]
+    if: ${{ always() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/stg') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment: ${{ github.ref == 'refs/heads/main' && 'play-production' || 'play-internal' }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Send deployment result
+        continue-on-error: true
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          CI_RESULT: ${{ needs.ci.result }}
+          CONFIGURE_RESULT: ${{ needs.configure.result }}
+          RELEASE_RESULT: ${{ needs.release.result }}
+          RELEASE_VERSION_CODE: ${{ needs.configure.outputs.version_code }}
+          ALREADY_UPLOADED: ${{ needs.release.outputs.already_uploaded }}
+        run: python3 scripts/ci/notify_discord.py
