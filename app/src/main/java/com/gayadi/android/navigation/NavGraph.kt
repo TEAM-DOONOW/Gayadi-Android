@@ -58,6 +58,7 @@ fun GayadiNavHost(appContainer: AppContainer) {
             appContainer.getNearbyTourPlacesUseCase,
             appContainer.searchTourPlacesUseCase,
             appContainer.getCongestionHourlyUseCase,
+            appContainer.tripSupportGateway,
         ),
     )
     val trips by tripViewModel.trips.collectAsStateWithLifecycle()

@@ -15,6 +15,27 @@ class PlaceCandidateViewModelTest {
     @Before fun setUp() { Dispatchers.setMain(dispatcher) }
     @After fun tearDown() { Dispatchers.resetMain() }
 
+    @Test fun `calendar estimate is visible in candidates even without provider data`() = runTest(dispatcher) {
+        val forecastPlace = place("9").copy(crowdLevel = "혼잡", crowdEstimated = true, crowdProviderDataAvailable = false)
+        val vm = PlaceCandidateViewModel(PlaceCandidateGateway {
+            page().copy(items = listOf(PlaceCandidate(forecastPlace, "ATTRACTION", null)))
+        }, ::place)
+        vm.configure(CandidateSearchContext("1", "2026.09.28", "1", null, null))
+        runCurrent()
+        val item = vm.uiState.value.places.single()
+        assertEquals(CrowdLevel.CROWDED, item.crowdLevel)
+        assertTrue(item.hasRealtimeDetails)
+        assertEquals("달력 기반 추정", item.crowdBasis)
+    }
+
+    @Test fun `Korean levels are preserved and missing levels are not normal`() {
+        assertEquals(CrowdLevel.CROWDED, "혼잡".toCrowdLevel())
+        assertEquals(CrowdLevel.NORMAL, "NORMAL".toCrowdLevel())
+        assertEquals(CrowdLevel.RELAXED, "여유".toCrowdLevel())
+        assertEquals(CrowdLevel.UNKNOWN, "".toCrowdLevel())
+        assertEquals(CrowdLevel.UNKNOWN, "UNAVAILABLE".toCrowdLevel())
+    }
+
     @Test fun `append and middle insertion use same day main visits only`() {
         val visits = listOf(schedule("a",0),schedule("b",1),schedule("other",2).copy(date="2026.09.23"),schedule("alt",3).copy(type=ScheduleType.ALTERNATIVE))
         val append = candidateSearchContext("1","2026.09.22","1",visits,null)

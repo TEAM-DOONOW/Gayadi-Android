@@ -42,6 +42,7 @@ interface TripSupportGateway {
     suspend fun respondToSituation(tripId: String, command: SituationCommand): SituationResult
 
     suspend fun getWeatherNow(latitude: Double, longitude: Double): WeatherResult
+    suspend fun getPlaceWeather(placeId: String): WeatherResult?
     suspend fun getUltraForecast(latitude: Double, longitude: Double): WeatherResult
     suspend fun getForecast(latitude: Double, longitude: Double): WeatherResult
     suspend fun getForecastVersion(fileType: String, baseDateTime: String): ForecastVersion
@@ -151,6 +152,9 @@ data class WeatherResult(
     val baseTime: String,
     val temperature: String?,
     val forecastSlotCount: Int,
+    val available: Boolean = true,
+    val condition: String? = null,
+    val precipitationProbability: Int? = null,
 )
 
 data class ForecastVersion(val itemCount: Int)
@@ -166,5 +170,9 @@ data class CongestionResult(
     val score: Int,
     val estimated: Boolean,
     val providerDataAvailable: Boolean,
+    val source: String = "",
+    val targetDate: String = "",
+    val confidence: String = "",
+    val message: String = "",
 )
 data class TourPage(val places: List<TourPlace>, val totalCount: Int, val nextCursor: String?)

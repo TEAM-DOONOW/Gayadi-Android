@@ -1,5 +1,6 @@
 package com.gayadi.android.data.remote.travel
 
+import com.gayadi.android.data.mapper.toWeatherResult
 import com.gayadi.android.domain.model.RouteTransportMode
 
 import com.gayadi.android.data.datasource.GayadiApiClient
@@ -183,6 +184,10 @@ class ServerTripSupportGateway(private val http: TravelJsonTransport) : TripSupp
     override suspend fun getWeatherNow(latitude: Double, longitude: Double): WeatherResult =
         weather(http.getObject("/api/v1/weather/nowcasts", coordinates(latitude, longitude)))
 
+    override suspend fun getPlaceWeather(placeId: String): WeatherResult? =
+        http.getObject("/api/v1/congestion/places/${placeId.serverId("placeId")}")
+            .optJSONObject("weather")?.toWeatherResult()
+
     override suspend fun getUltraForecast(latitude: Double, longitude: Double): WeatherResult =
         weather(http.getObject("/api/v1/weather/ultra-forecast", coordinates(latitude, longitude)))
 
@@ -213,6 +218,10 @@ class ServerTripSupportGateway(private val http: TravelJsonTransport) : TripSupp
             score = response.getInt("concentrationScore"),
             estimated = response.getBoolean("estimated"),
             providerDataAvailable = response.getBoolean("providerDataAvailable"),
+            source = response.optString("source"),
+            targetDate = response.optString("targetDate"),
+            confidence = response.optString("confidence"),
+            message = response.optString("message"),
         )
     }
 
@@ -316,12 +325,7 @@ class ServerTripSupportGateway(private val http: TravelJsonTransport) : TripSupp
         reasoning = value.optString("reasoning"),
     )
 
-    private fun weather(value: JSONObject) = WeatherResult(
-        baseDate = value.getString("baseDate"),
-        baseTime = value.getString("baseTime"),
-        temperature = value.optNullableString("temperature"),
-        forecastSlotCount = value.optJSONArray("forecast")?.length() ?: 0,
-    )
+    private fun weather(value: JSONObject) = value.toWeatherResult()
 
     private fun tourPage(value: JSONObject): TourPage {
         val items = value.getJSONArray("items")
@@ -340,6 +344,9 @@ class ServerTripSupportGateway(private val http: TravelJsonTransport) : TripSupp
         imageUrl = item.optString("imageUrl"),
         longitude = item.optDoubleOrNull("longitude"),
         latitude = item.optDoubleOrNull("latitude"),
+        regionCode = item.optNullableString("lDongRegnCd") ?: item.optNullableString("areaCode").orEmpty(),
+        districtCode = item.optNullableString("lDongSignguCd") ?: item.optNullableString("districtCode").orEmpty(),
+        weatherInfo = item.optJSONObject("weather")?.toWeatherResult(),
     )
 
     private fun tourPlace(item: JSONObject) = TourPlace(

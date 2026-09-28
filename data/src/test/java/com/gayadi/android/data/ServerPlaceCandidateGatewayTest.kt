@@ -11,6 +11,63 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ServerPlaceCandidateGatewayTest {
+    @Test fun `tour forecasts replace catalogue defaults by canonical id and preserve ranking`() = runTest {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setBody("""{"items":[
+                {"contentId":"tour-1","placeId":9,"title":"첫 장소","crowdLevel":"CROWDED",
+                 "crowdEstimated":true,"crowdProviderDataAvailable":false,"lDongRegnCd":"11","lDongSignguCd":"110"},
+                {"contentId":"tour-2","placeId":2,"title":"두 번째","crowdLevel":"RELAXED","crowdProviderDataAvailable":true}
+                ],"nextCursor":null,"totalCount":2}"""))
+            val catalogue = """{"items":[
+                {"id":2,"name":"두 번째","crowdLevel":"NORMAL","crowdDataAvailable":false},
+                {"id":9,"name":"첫 장소","crowdLevel":"NORMAL","crowdDataAvailable":false},
+                {"id":3,"name":"첫 장소","crowdLevel":"NORMAL","crowdDataAvailable":false}
+                ],"hasNext":false}"""
+            server.enqueue(MockResponse().setBody(catalogue))
+            server.enqueue(MockResponse().setBody(catalogue))
+            val gateway = ServerPlaceCandidateGateway(
+                GayadiApiClient(server.url("/").toString(), TestAuthRepository()),
+                tourDiscovery = com.gayadi.android.data.datasource.HttpTourApiDataSource(server.url("/").toString()),
+            )
+            val result = gateway.search(PlaceCandidateQuery(region = "서울"))
+            assertEquals(listOf("2", "9", "3"), result.items.map { it.place.contentId })
+            assertEquals(listOf("RELAXED", "CROWDED", ""), result.items.map { it.place.crowdLevel })
+            assertTrue(result.items[1].place.crowdEstimated)
+            assertEquals("110", result.items[1].place.districtCode)
+            assertEquals("/api/v1/tour/areas", server.takeRequest().requestUrl!!.encodedPath)
+            assertEquals("/api/v1/places", server.takeRequest().requestUrl!!.encodedPath)
+            gateway.search(PlaceCandidateQuery(region = "서울", query = "첫"))
+            assertEquals("/api/v1/places", server.takeRequest().requestUrl!!.encodedPath)
+            assertEquals(3, server.requestCount)
+        }
+    }
+
+    @Test fun `catalogue normal without evidence is not a forecast`() = runTest {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setBody("""{"items":[
+                {"id":1,"name":"장소","crowdLevel":"NORMAL","crowdDataAvailable":false}
+                ],"hasNext":false}"""))
+            val gateway = ServerPlaceCandidateGateway(GayadiApiClient(server.url("/").toString(), TestAuthRepository()))
+            assertEquals("", gateway.search(PlaceCandidateQuery()).items.single().place.crowdLevel)
+        }
+    }
+    @Test fun `calendar forecast remains available without provider data`() = runTest {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setBody("""{"items":[{"id":9,"name":"경복궁",
+                "crowdLevel":"혼잡","crowdEstimated":true,"crowdProviderDataAvailable":false,
+                "crowdSource":"CALENDAR","crowdMessage":"달력 추정","concentrationScore":72,
+                "lDongRegnCd":"11","lDongSignguCd":"110"}],"hasNext":false}"""))
+            val gateway = ServerPlaceCandidateGateway(GayadiApiClient(server.url("/").toString(), TestAuthRepository()))
+            val place = gateway.search(PlaceCandidateQuery()).items.single().place
+            assertEquals("혼잡", place.crowdLevel)
+            assertTrue(place.crowdEstimated)
+            assertFalse(place.crowdProviderDataAvailable)
+            assertEquals("달력 추정", place.crowdMessage)
+            assertEquals(72, place.concentrationScore)
+            assertEquals("11", place.regionCode)
+            assertEquals("110", place.districtCode)
+        }
+    }
     @Test fun `travel time search is authenticated read only and preserves order and signed additional minutes`() = runTest {
         MockWebServer().use { server ->
             server.enqueue(MockResponse().setBody("""{

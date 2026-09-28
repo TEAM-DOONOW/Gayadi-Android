@@ -17,6 +17,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -33,8 +34,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Restaurant
@@ -70,7 +72,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
@@ -80,7 +81,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
+import com.gayadi.android.ui.components.PlacePhoto
 import com.gayadi.android.ui.components.GayadiTopAppBar
 import com.gayadi.android.ui.components.ScheduleOptionsBottomSheet
 import com.gayadi.android.ui.components.UsageGuideCallout
@@ -97,7 +98,6 @@ import com.gayadi.android.ui.theme.TagRedText
 import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary
 import com.gayadi.android.ui.theme.TextTertiary
-import com.gayadi.android.domain.model.AgentRecommendation
 
 private val placeCategories = listOf("전체", "맛집", "카페", "관광명소", "숙소")
 
@@ -105,7 +105,6 @@ private val placeCategories = listOf("전체", "맛집", "카페", "관광명소
 @Composable
 fun PlaceSearchScreen(
     uiState: PlaceUiState,
-    recommendationUiState: PlaceRecommendationUiState = PlaceRecommendationUiState(),
     onBack: () -> Unit,
     onQueryChange: (String) -> Unit,
     onCategorySelected: (String) -> Unit,
@@ -113,10 +112,7 @@ fun PlaceSearchScreen(
     onRetry: () -> Unit,
     favoritePlaceIds: Set<String> = emptySet(),
     onToggleFavorite: (String) -> Unit = {},
-    onNearby: () -> Unit = {},
     onFavorites: () -> Unit = {},
-    onRequestRecommendations: () -> Unit = {},
-    onRecommendationClick: (AgentRecommendation) -> Unit = {},
     tripName: String = "",
     tripDate: String = "",
     scheduledPlaceIds: Set<String> = emptySet(),
@@ -190,24 +186,6 @@ fun PlaceSearchScreen(
                         Text(notice, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
                     }
                 }
-                if (uiState.sort == PlaceSort.RECENT) {
-                item {
-                    AgentRecommendationSection(
-                        uiState = recommendationUiState,
-                        onRetry = onRequestRecommendations,
-                        onRecommendationClick = onRecommendationClick,
-                        scheduledPlaceIds = scheduledPlaceIds,
-                        scheduledPlaceNames = scheduledPlaceNames,
-                        onAddToSchedule = { recommendation ->
-                            val place = uiState.places.firstOrNull {
-                                it.id == recommendation.placeId
-                            }
-                            if (place != null) schedulePlace = place
-                            else onRecommendationClick(recommendation)
-                        },
-                    )
-                }
-                }
                 when {
                     uiState.isLoading -> item {
                         Box(Modifier.fillMaxWidth().height(240.dp), contentAlignment = Alignment.Center) {
@@ -258,8 +236,25 @@ fun PlaceSearchScreen(
                         }
                     }
                         if (uiState.hasNext || uiState.isLoadingMore) item {
-                            TextButton(onClick = onLoadMore, enabled = !uiState.isLoadingMore) {
-                                Text(if (uiState.isLoadingMore) "불러오는 중…" else "더 보기")
+                            TextButton(
+                                onClick = onLoadMore,
+                                enabled = !uiState.isLoadingMore,
+                                modifier = Modifier.fillMaxWidth().height(48.dp),
+                            ) {
+                                if (uiState.isLoadingMore) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp).semantics { contentDescription = "다음 장소 불러오는 중" },
+                                        strokeWidth = 2.dp,
+                                        color = PrimaryAction,
+                                    )
+                                } else {
+                                    Icon(
+                                        Icons.Default.KeyboardArrowDown,
+                                        contentDescription = "다음 장소 보기",
+                                        modifier = Modifier.size(32.dp).graphicsLayer(scaleX = 2f),
+                                        tint = PrimaryAction,
+                                    )
+                                }
                             }
                         }
                         item { Spacer(Modifier.height(24.dp)) }
@@ -358,103 +353,6 @@ fun PlaceSearchScreen(
 }
 
 @Composable
-private fun AgentRecommendationSection(
-    uiState: PlaceRecommendationUiState,
-    onRetry: () -> Unit,
-    onRecommendationClick: (AgentRecommendation) -> Unit,
-    scheduledPlaceIds: Set<String>,
-    scheduledPlaceNames: Set<String>,
-    onAddToSchedule: (AgentRecommendation) -> Unit,
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .background(Color(0xFFF1F6FF))
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                Icons.Default.AutoAwesome,
-                contentDescription = null,
-                tint = PrimaryBlue,
-                modifier = Modifier.size(22.dp),
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(
-                "가야디 에이전트 추천",
-                modifier = Modifier.weight(1f),
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Bold,
-                color = TextPrimary,
-            )
-            TextButton(onClick = onRetry, enabled = !uiState.isLoading) {
-                Text("다시 추천", color = PrimaryBlue)
-            }
-        }
-        when {
-            uiState.isLoading -> Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = PrimaryBlue)
-                Text("여행 성향과 현재 상황을 분석하고 있어요.", fontSize = 12.sp, color = TextSecondary)
-            }
-            uiState.errorMessage != null -> {
-                Text(uiState.errorMessage, fontSize = 12.sp, color = TextSecondary)
-                TextButton(onClick = onRetry) { Text("추천 다시 받기", color = PrimaryBlue) }
-            }
-            uiState.recommendations.isEmpty() -> {
-                Text("맞춤 추천을 받아 여행지 후보를 확인해 보세요.", fontSize = 12.sp, color = TextSecondary)
-            }
-            else -> {
-                uiState.reasoning.takeIf(String::isNotBlank)?.let {
-                    Text(it, fontSize = 12.sp, color = TextSecondary)
-                }
-                uiState.recommendations.forEach { recommendation ->
-                    val isScheduled = recommendation.placeId in scheduledPlaceIds ||
-                        recommendation.name in scheduledPlaceNames
-                    Column(
-                        modifier = Modifier.fillMaxWidth()
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(Color.White)
-                            .clickable { onRecommendationClick(recommendation) }
-                            .padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                recommendation.name,
-                                modifier = Modifier.weight(1f),
-                                fontWeight = FontWeight.SemiBold,
-                                color = TextPrimary,
-                            )
-                            Text(
-                                "추천 ${(recommendation.score * 100).toInt().coerceIn(0, 100)}%",
-                                fontSize = 11.sp,
-                                color = PrimaryBlue,
-                            )
-                        }
-                        Text(recommendation.reason, fontSize = 12.sp, color = TextSecondary)
-                        TextButton(
-                            onClick = { onAddToSchedule(recommendation) },
-                            enabled = !isScheduled,
-                            modifier = Modifier.align(Alignment.End),
-                            shape = RectangleShape,
-                        ) {
-                            Text(if (isScheduled) "일정에 추가됨" else "일정 추가", color = PrimaryBlue)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun PlaceCard(
     place: PlaceItem,
     modifier: Modifier = Modifier,
@@ -468,19 +366,12 @@ private fun PlaceCard(
         CrowdLevel.RELAXED -> TagGreen to TagGreenText
         CrowdLevel.NORMAL -> TagOrange to TagOrangeText
         CrowdLevel.CROWDED -> TagRed to TagRedText
+        CrowdLevel.UNKNOWN -> com.gayadi.android.ui.theme.SurfaceCard to TextSecondary
     }
     Column(modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Box(Modifier.fillMaxWidth().height(150.dp).clip(RoundedCornerShape(18.dp)).background(Color(0xFFF0F0F0))) {
-            if (place.imageUrl.isNotBlank()) {
-                AsyncImage(
-                    model = place.imageUrl,
-                    contentDescription = "${place.name} 이미지",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                )
-            } else {
-                Text(place.emoji, fontSize = 28.sp)
-            }
+            PlacePhoto(place.imageUrl, place.name, Modifier.fillMaxSize())
+
             IconButton(onClick = onToggleFavorite, modifier = Modifier.align(Alignment.TopEnd)) {
                 Icon(
                     if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
@@ -500,21 +391,39 @@ private fun PlaceCard(
                 Text("추가 이동시간 ${additional}분", color = TextSecondary, style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
             }
         }
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             Text(
                 if (place.reviews > 0) "${place.category} · ★ ${place.rating} · 리뷰 ${place.reviews}" else place.category,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 fontSize = 12.sp,
                 color = TextSecondary,
             )
-            Text(place.description, fontSize = 11.sp, color = TextTertiary, maxLines = 1)
-        if (place.hasRealtimeDetails) {
-            Text(
-                place.crowdLevel.label,
-                modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(tagBackground)
-                    .padding(horizontal = 8.dp, vertical = 3.dp),
-                fontSize = 10.sp,
-                color = tagText,
-            )
+            if (place.crowdLevel != CrowdLevel.UNKNOWN) {
+                Text(
+                    place.crowdLevel.label,
+                    modifier = Modifier.widthIn(min = 44.dp)
+                        .clip(RoundedCornerShape(percent = 50)).background(tagBackground)
+                        .padding(horizontal = 12.dp, vertical = 2.dp)
+                        .semantics {
+                            contentDescription = "예상 ${place.crowdLevel.label}" +
+                                if (place.crowdEstimated && !place.crowdProviderDataAvailable) ", 달력 기반 추정" else ""
+                        },
+                    maxLines = 1,
+                    softWrap = false,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    fontSize = 10.sp,
+                    lineHeight = 14.sp,
+                    color = tagText,
+                )
+            }
         }
+        Text(place.description, fontSize = 11.sp, color = TextTertiary, maxLines = 1)
         Spacer(Modifier.height(8.dp))
         Button(
             onClick = onAddToSchedule,

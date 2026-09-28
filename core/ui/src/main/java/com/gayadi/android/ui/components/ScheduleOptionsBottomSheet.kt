@@ -20,13 +20,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.material.icons.outlined.Place
-import coil.compose.SubcomposeAsyncImage
-import coil.compose.SubcomposeAsyncImageContent
 import com.gayadi.android.ui.theme.SurfaceLight
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Notes
@@ -129,15 +126,7 @@ fun ScheduleOptionsBottomSheet(
                             .semantics { contentDescription = "$title 상세 보기" },
                         contentAlignment = Alignment.Center,
                     ) {
-                        SubcomposeAsyncImage(
-                            model = placeImageUrl.takeIf(String::isNotBlank),
-                            contentDescription = null,
-                            modifier = Modifier.size(64.dp),
-                            contentScale = ContentScale.Crop,
-                            loading = { Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Place, null, Modifier.size(24.dp), tint = TextSecondary) } },
-                            error = { Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Place, null, Modifier.size(24.dp), tint = TextSecondary) } },
-                            success = { SubcomposeAsyncImageContent() },
-                        )
+                        PlacePhoto(placeImageUrl, null, Modifier.size(64.dp))
                     }
                 }
             }

@@ -19,7 +19,6 @@ object Routes {
     const val SETTLEMENT_DETAILS = "settlement_details/{tripId}/{participantId}/{detailType}"
     const val TRIP_EXPENSE = "trip_expense/{tripId}/{scheduleId}?expenseId={expenseId}"
     const val UNLINKED_SCHEDULE_ID = "unlinked"
-    const val NEARBY_PLACES = "nearby_places/{tripId}?placeId={placeId}"
     const val FAVORITE_PLACES = "favorite_places/{tripId}"
     const val REALTIME_HOME = "realtime_home/{tripId}"
     const val MY_PAGE = "my_page"
@@ -51,8 +50,6 @@ object Routes {
     fun tripExpense(tripId: String, scheduleId: String, expenseId: String? = null) =
         "trip_expense/$tripId/${scheduleId.ifBlank { UNLINKED_SCHEDULE_ID }}" +
             (expenseId?.let { "?expenseId=$it" } ?: "")
-    fun nearbyPlaces(tripId: String, placeId: String? = null) =
-        if (placeId == null) "nearby_places/$tripId" else "nearby_places/$tripId?placeId=$placeId"
     fun favoritePlaces(tripId: String) = "favorite_places/$tripId"
     fun legalDocument(documentId: String) = "legal_document/$documentId"
     fun noticeDetail(noticeId: String) = "notices/$noticeId"

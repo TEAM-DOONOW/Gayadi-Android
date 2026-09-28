@@ -25,4 +25,5 @@ fun TourPlaceDto.toDomain() = TourPlace(
     crowdProviderDataAvailable = crowdProviderDataAvailable,
     crowdConfidence = crowdConfidence,
     crowdMessage = crowdMessage,
+    weatherInfo = weatherInfo,
 )
