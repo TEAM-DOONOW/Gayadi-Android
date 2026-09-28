@@ -8,6 +8,9 @@ import com.gayadi.android.domain.model.TourPlace
 import com.gayadi.android.domain.model.RouteTransportMode
 import com.gayadi.android.domain.repository.PlaceSort
 import com.gayadi.android.domain.repository.PlaceTravelTime
+import com.gayadi.android.domain.repository.CongestionCommand
+import com.gayadi.android.domain.repository.CongestionResult
+import com.gayadi.android.domain.repository.TripSupportGateway
 import com.gayadi.android.domain.model.AgentRecommendation
 import com.gayadi.android.domain.model.CongestionHourlyForecast
 import com.gayadi.android.domain.error.retryTransientResult
@@ -27,7 +30,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-enum class CrowdLevel(val label: String) { RELAXED("여유"), NORMAL("보통"), CROWDED("혼잡") }
+enum class CrowdLevel(val label: String) { RELAXED("여유"), NORMAL("보통"), CROWDED("혼잡"), UNKNOWN("정보 없음") }
+
+internal fun String.toCrowdLevel(): CrowdLevel = when (trim().uppercase()) {
+    "RELAXED", "여유" -> CrowdLevel.RELAXED
+    "NORMAL", "보통" -> CrowdLevel.NORMAL
+    "CROWDED", "혼잡" -> CrowdLevel.CROWDED
+    else -> CrowdLevel.UNKNOWN
+}
 
 data class PlaceItem(
     val id: String,
@@ -52,7 +62,30 @@ data class PlaceItem(
     val crowdSource: String = "",
     val crowdConfidence: String = "",
     val crowdMessage: String = "",
+    val weatherInfo: com.gayadi.android.domain.repository.WeatherResult? = null,
     val travelTime: PlaceTravelTime? = null,
+    val crowdEstimated: Boolean = false,
+    val crowdProviderDataAvailable: Boolean = false,
+)
+
+internal val PlaceItem.crowdBasis: String
+    get() = when {
+        crowdEstimated && !crowdProviderDataAvailable -> "달력 기반 추정"
+        crowdProviderDataAvailable -> "한국관광공사 자료 기반"
+        crowdEstimated -> "추정값"
+        else -> ""
+    }
+
+data class CongestionForecastUiState(
+    val forecast: CongestionResult? = null,
+    val isLoading: Boolean = false,
+    val errorMessage: String? = null,
+)
+
+data class PlaceWeatherUiState(
+    val weather: com.gayadi.android.domain.repository.WeatherResult? = null,
+    val isLoading: Boolean = false,
+    val errorMessage: String? = null,
 )
 
 data class PlaceUiState(
@@ -198,6 +231,9 @@ class TourApiPlaceRepository(
             crowdSource = crowdSource,
             crowdConfidence = crowdConfidence,
             crowdMessage = crowdMessage,
+            weatherInfo = weatherInfo,
+            crowdEstimated = crowdEstimated,
+            crowdProviderDataAvailable = crowdProviderDataAvailable,
         )
     }
 
@@ -295,6 +331,7 @@ class PlaceViewModel(
     private val repository: PlaceRepository = FakePlaceRepository(),
     private val getNearbyTourPlaces: GetNearbyTourPlacesUseCase? = null,
     private val getCongestionHourly: GetCongestionHourlyUseCase? = null,
+    private val tripSupportGateway: TripSupportGateway? = null,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(PlaceUiState())
     private val knownPlaces = mutableMapOf<String, PlaceItem>()
@@ -306,6 +343,15 @@ class PlaceViewModel(
     private var loadJob: Job? = null
     private var nearbyLoadJob: Job? = null
     private var hourlyLoadJob: Job? = null
+    private var forecastLoadJob: Job? = null
+    private val _forecastUiState = MutableStateFlow(CongestionForecastUiState())
+    val forecastUiState = _forecastUiState.asStateFlow()
+    private val _detailPlace = MutableStateFlow<PlaceItem?>(null)
+    val detailPlace = _detailPlace.asStateFlow()
+    private val _weatherUiState = MutableStateFlow(PlaceWeatherUiState())
+    val weatherUiState = _weatherUiState.asStateFlow()
+    private var detailLoadJob: Job? = null
+    private var weatherLoadJob: Job? = null
     private var searchJob: Job? = null
 
     init {
@@ -458,7 +504,88 @@ class PlaceViewModel(
         }
     }
 
-    fun loadCongestionHourly(placeId: String) {
+    fun loadPlaceDetails(placeId: String, date: String = "") {
+        detailLoadJob?.cancel()
+        forecastLoadJob?.cancel()
+        hourlyLoadJob?.cancel()
+        weatherLoadJob?.cancel()
+        _detailPlace.value = knownPlaces[placeId]
+        _forecastUiState.value = CongestionForecastUiState(isLoading = true)
+        _hourlyUiState.value = CongestionHourlyUiState(isLoading = true)
+        _weatherUiState.value = PlaceWeatherUiState(isLoading = true)
+        detailLoadJob = viewModelScope.launch {
+            val known = knownPlaces[placeId]
+            if (tripSupportGateway != null && (known == null || known.latitude == null || known.longitude == null ||
+                    known.regionCode.isBlank() || known.districtCode.isBlank())) {
+                try {
+                    val details = tripSupportGateway.getPlace(placeId)
+                    check(details.contentId == placeId)
+                    knownPlaces[placeId] = known?.copy(
+                        latitude = details.latitude ?: known.latitude,
+                        longitude = details.longitude ?: known.longitude,
+                        regionCode = details.regionCode.ifBlank { known.regionCode },
+                        districtCode = details.districtCode.ifBlank { known.districtCode },
+                        imageUrl = details.imageUrl.ifBlank { known.imageUrl },
+                        weatherInfo = details.weatherInfo ?: known.weatherInfo,
+                    ) ?: details.toNearbyPlaceItem()
+                } catch (error: Exception) {
+                    error.rethrowCancellation()
+                }
+            }
+            _detailPlace.value = knownPlaces[placeId]
+            loadCongestionForecast(placeId, date)
+            loadCongestionHourly(placeId, date)
+            loadWeather(placeId)
+        }
+    }
+
+    fun loadWeather(placeId: String) {
+        weatherLoadJob?.cancel()
+        _weatherUiState.value = PlaceWeatherUiState()
+        val gateway = tripSupportGateway ?: return
+        _weatherUiState.value = PlaceWeatherUiState(isLoading = true)
+        weatherLoadJob = viewModelScope.launch {
+            try {
+                _weatherUiState.value = PlaceWeatherUiState(weather = gateway.getPlaceWeather(placeId))
+            } catch (error: Exception) {
+                error.rethrowCancellation()
+                _weatherUiState.value = PlaceWeatherUiState(errorMessage = error.userFacingMessage("날씨를 불러오지 못했어요."))
+            }
+        }
+    }
+
+    fun loadCongestionForecast(placeId: String, date: String = "") {
+        forecastLoadJob?.cancel()
+        _forecastUiState.value = CongestionForecastUiState()
+        val place = knownPlaces[placeId] ?: return
+        val gateway = tripSupportGateway ?: return
+        if (!place.regionCode.matches(Regex("\\d{2}")) ||
+            !place.districtCode.matches(Regex("\\d{3}|\\d{5}"))) return
+        val targetAt = if (date.isBlank()) "" else runCatching {
+            java.time.LocalDate.parse(date.replace('.', '-'))
+                .atTime(12, 0).atOffset(java.time.ZoneOffset.ofHours(9)).toString()
+        }.getOrElse {
+            _forecastUiState.value = CongestionForecastUiState(errorMessage = "예측 날짜를 확인해 주세요.")
+            return
+        }
+        _forecastUiState.value = CongestionForecastUiState(isLoading = true)
+        forecastLoadJob = viewModelScope.launch {
+            try {
+                val forecast = gateway.getCongestion(CongestionCommand(
+                    areaCode = place.regionCode, districtCode = place.districtCode,
+                    areaName = _uiState.value.regionName, placeName = place.name, targetAt = targetAt,
+                ))
+                _forecastUiState.value = CongestionForecastUiState(forecast = forecast)
+            } catch (error: Exception) {
+                error.rethrowCancellation()
+                _forecastUiState.value = CongestionForecastUiState(
+                    errorMessage = error.userFacingMessage("예상 혼잡도를 불러오지 못했어요."),
+                )
+            }
+        }
+    }
+
+    fun loadCongestionHourly(placeId: String, date: String = "") {
         hourlyLoadJob?.cancel()
         val place = placeId.let(knownPlaces::get)
         val hourly = getCongestionHourly
@@ -470,6 +597,13 @@ class PlaceViewModel(
             return
         }
         _hourlyUiState.value = CongestionHourlyUiState(isLoading = true)
+        val targetAt = if (date.isBlank()) "" else runCatching {
+            java.time.LocalDate.parse(date.replace('.', '-')).atTime(12, 0)
+                .atOffset(java.time.ZoneOffset.ofHours(9)).toString()
+        }.getOrElse {
+            _hourlyUiState.value = CongestionHourlyUiState(errorMessage = "예측 날짜를 확인해 주세요.")
+            return
+        }
         hourlyLoadJob = viewModelScope.launch {
             retryTransientResult {
                 hourly(
@@ -477,6 +611,8 @@ class PlaceViewModel(
                     districtCode = place.districtCode,
                     areaName = _uiState.value.regionName,
                     placeName = place.name,
+                    targetAt = targetAt,
+                    hours = (0..23).toList(),
                 )
             }.fold(
                 onSuccess = { forecast ->
@@ -557,11 +693,6 @@ class PlaceViewModel(
             latitude = place.latitude ?: known.latitude,
             regionCode = place.regionCode.ifBlank { known.regionCode },
             districtCode = place.districtCode.ifBlank { known.districtCode },
-            concentrationScore = place.concentrationScore ?: known.concentrationScore,
-            crowdSource = place.crowdSource.ifBlank { known.crowdSource },
-            crowdConfidence = place.crowdConfidence.ifBlank { known.crowdConfidence },
-            crowdMessage = place.crowdMessage.ifBlank { known.crowdMessage },
-            hasRealtimeDetails = place.hasRealtimeDetails || known.hasRealtimeDetails,
         )
     }
 
@@ -593,12 +724,14 @@ class PlaceViewModel(
             getNearbyTourPlaces: GetNearbyTourPlacesUseCase,
             searchTourPlaces: SearchTourPlacesUseCase,
             getCongestionHourly: GetCongestionHourlyUseCase,
+            tripSupportGateway: TripSupportGateway? = null,
         ) = viewModelFactory {
             initializer {
                 PlaceViewModel(
                     repository = TourApiPlaceRepository(getTourPlaces, searchTourPlaces),
                     getNearbyTourPlaces = getNearbyTourPlaces,
                     getCongestionHourly = getCongestionHourly,
+                    tripSupportGateway = tripSupportGateway,
                 )
             }
         }
@@ -614,15 +747,10 @@ private fun String.toPlaceCategoryLabel(): String = when (trim().uppercase()) {
     else -> ""
 }
 
-private fun TourPlace.crowdLevel(): CrowdLevel = when (crowdLevel.trim().uppercase()) {
-    "RELAXED" -> CrowdLevel.RELAXED
-    "CROWDED" -> CrowdLevel.CROWDED
-    else -> CrowdLevel.NORMAL
-}
+private fun TourPlace.crowdLevel(): CrowdLevel = crowdLevel.toCrowdLevel()
 
 private fun TourPlace.hasCrowdData(): Boolean =
-    crowdLevel.isNotBlank() || concentrationScore != null ||
-        crowdEstimated || crowdProviderDataAvailable
+    crowdLevel.toCrowdLevel() != CrowdLevel.UNKNOWN
 
 private fun TourPlace.toNearbyPlaceItem(): PlaceItem {
     val category = when (contentTypeId.trim()) {
@@ -653,6 +781,11 @@ private fun TourPlace.toNearbyPlaceItem(): PlaceItem {
         crowdSource = crowdSource,
         crowdConfidence = crowdConfidence,
         crowdMessage = crowdMessage,
+        weatherInfo = weatherInfo,
+        crowdEstimated = crowdEstimated,
+        crowdProviderDataAvailable = crowdProviderDataAvailable,
+        regionCode = regionCode,
+        districtCode = districtCode,
     )
 }
 

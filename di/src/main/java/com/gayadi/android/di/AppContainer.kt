@@ -99,6 +99,7 @@ class AppContainer(
             // Ranking has a 30-second server budget; allow time for the response to reach the device.
             GayadiApiClient(tourApiBaseUrl, authRepository, readTimeoutSeconds = 35, callTimeoutSeconds = 40),
             diagnostic = { android.util.Log.d("PlaceSearch", it); Unit },
+            tourDiscovery = HttpTourApiDataSource(tourApiBaseUrl),
         )
     private val surveyRepository: SurveyRepository =
         DefaultSurveyRepository(RestSurveyDataSource(api, apiScope))

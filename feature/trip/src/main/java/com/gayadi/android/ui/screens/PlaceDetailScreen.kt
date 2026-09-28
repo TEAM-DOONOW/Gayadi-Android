@@ -1,68 +1,36 @@
 package com.gayadi.android.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.FavoriteBorder
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.material.icons.outlined.WbSunny
+import androidx.compose.material.icons.outlined.Cloud
+import androidx.compose.material.icons.outlined.Umbrella
+import androidx.compose.material.icons.outlined.AcUnit
+import androidx.compose.material.icons.outlined.Thermostat
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.boundsInRoot
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
-import com.gayadi.android.domain.model.CongestionHourlyForecast
-import com.gayadi.android.domain.model.CongestionHourlyPoint
+import com.gayadi.android.ui.components.PlacePhoto
 import com.gayadi.android.ui.components.GayadiTopAppBar
 import com.gayadi.android.ui.components.ScheduleOptionsBottomSheet
-import com.gayadi.android.ui.components.UsageGuideCallout
-import com.gayadi.android.ui.components.UsageGuideOverlay
-import com.gayadi.android.ui.components.UsageGuidePlacement
-import com.gayadi.android.ui.theme.GayadiTheme
-import com.gayadi.android.ui.theme.CrowdedHigh
-import com.gayadi.android.ui.theme.CrowdedLow
-import com.gayadi.android.ui.theme.CrowdedMedium
-import com.gayadi.android.ui.theme.PrimaryAction
-import com.gayadi.android.ui.theme.PrimaryBlue
-import com.gayadi.android.ui.theme.SurfaceCard
-import com.gayadi.android.ui.theme.TextPrimary
-import com.gayadi.android.ui.theme.TextSecondary
-import com.gayadi.android.ui.theme.TextTertiary
+import com.gayadi.android.ui.theme.*
 
 @Composable
 fun PlaceDetailScreen(
@@ -74,282 +42,216 @@ fun PlaceDetailScreen(
     onAddToSchedule: (time: String, memo: String) -> Unit,
     isFavorite: Boolean = false,
     onToggleFavorite: () -> Unit = {},
-    onNearby: () -> Unit = {},
     showUsageGuide: Boolean = false,
     onUsageGuideFinished: () -> Unit = {},
     hourlyUiState: CongestionHourlyUiState = CongestionHourlyUiState(),
     onHourlyRetry: () -> Unit = {},
+    forecastUiState: CongestionForecastUiState = CongestionForecastUiState(),
+    onForecastRetry: () -> Unit = {},
+    weatherUiState: PlaceWeatherUiState = PlaceWeatherUiState(),
+    onWeatherRetry: () -> Unit = {},
 ) {
-    var showScheduleOptions by rememberSaveable { mutableStateOf(false) }
-    var isUsageGuideVisible by rememberSaveable { mutableStateOf(showUsageGuide) }
-    var addButtonBounds by remember(place?.id) { mutableStateOf<Rect?>(null) }
-    var rootBounds by remember { mutableStateOf<Rect?>(null) }
-    val scrollState = rememberScrollState()
-    val finishGuide = {
-        isUsageGuideVisible = false
-        onUsageGuideFinished()
-    }
-    val openScheduleOptions = {
-        if (isUsageGuideVisible) finishGuide()
-        showScheduleOptions = true
-    }
+    var showScheduleOptions by rememberSaveable(place?.id) { mutableStateOf(false) }
+    val forecast = forecastUiState.forecast
+    val level = forecast?.level?.toCrowdLevel() ?: place?.crowdLevel ?: CrowdLevel.UNKNOWN
+    val score = forecast?.score ?: place?.concentrationScore
+    val estimated = forecast?.let { it.estimated && !it.providerDataAvailable }
+        ?: (place?.crowdEstimated == true && !place.crowdProviderDataAvailable)
 
-    if (place == null) {
-        Column(
-            Modifier.fillMaxSize().background(Color.White),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text("장소 정보를 찾을 수 없어요", color = TextSecondary)
-            Button(onClick = onBack) { Text("목록으로 돌아가기") }
-        }
-        return
-    }
-
-    val guideActive = isUsageGuideVisible && !isScheduled && !showScheduleOptions
-    LaunchedEffect(guideActive, scrollState.maxValue) {
-        if (guideActive) scrollState.animateScrollTo(scrollState.maxValue)
-    }
-    Box(Modifier.fillMaxSize().onGloballyPositioned { rootBounds = it.boundsInRoot() }) {
-        Column(Modifier.fillMaxSize().background(Color.White).verticalScroll(scrollState)) {
-            Box(Modifier.fillMaxWidth().height(220.dp).background(Color(0xFFE8DDD0)), contentAlignment = Alignment.Center) {
-                if (place.imageUrl.isNotBlank()) {
-                    AsyncImage(
-                        model = place.imageUrl,
-                        contentDescription = "${place.name} 이미지",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
-                    )
-                } else {
-                    Text(place.emoji, fontSize = 64.sp)
-                }
-                GayadiTopAppBar(
-                    title = "",
-                    onBack = onBack,
-                    modifier = Modifier.align(Alignment.TopStart),
-                    containerColor = Color.Transparent,
-                )
+    Column(Modifier.fillMaxSize().background(Background)) {
+        GayadiTopAppBar(title = "장소 정보", onBack = onBack, showDivider = true)
+        if (place == null) {
+            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Text("장소 정보 없음", color = TextSecondary)
             }
-            Column(Modifier.padding(horizontal = 20.dp)) {
-                Spacer(Modifier.height(16.dp))
+        } else {
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
+                Spacer(Modifier.height(12.dp))
+                Box(
+                    Modifier.fillMaxWidth().height(200.dp).clip(RoundedCornerShape(20.dp)).background(SurfaceLight),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    PlacePhoto(place.imageUrl, place.name, Modifier.fillMaxSize())
+                }
+                Spacer(Modifier.height(20.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(place.name, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                    Spacer(Modifier.width(8.dp))
-                    Text(place.category, fontSize = 11.sp, color = TextSecondary)
-                    Spacer(Modifier.weight(1f))
+                    Text(place.name, modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.headlineSmall, color = TextPrimary)
                     IconButton(onClick = onToggleFavorite) {
-                        Icon(
-                            if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                        Icon(if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                             contentDescription = if (isFavorite) "찜 해제" else "찜 추가",
-                            tint = if (isFavorite) Color(0xFFE84D6E) else TextSecondary,
+                            tint = if (isFavorite) TagRedText else TextSecondary)
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(place.category, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                }
+                if (place.description.isNotBlank()) {
+                    Text(place.description, modifier = Modifier.padding(top = 16.dp),
+                        style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                }
+                Spacer(Modifier.height(20.dp))
+                HorizontalDivider(color = Divider, thickness = 1.dp)
+                Spacer(Modifier.height(20.dp))
+                Text("방문 전 살펴보기", style = MaterialTheme.typography.titleSmall, color = TextPrimary)
+                Spacer(Modifier.height(16.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Icon(Icons.Filled.Groups, contentDescription = null, tint = CrowdedMedium, modifier = Modifier.size(28.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("예상 혼잡도", style = MaterialTheme.typography.bodyMedium, color = TextPrimary)
+                        Text(
+                            when {
+                                forecastUiState.isLoading -> "조회 중"
+                                forecastUiState.errorMessage != null -> "조회 실패"
+                                score != null -> "혼잡 점수 $score" + if (estimated) " · 달력 추정" else ""
+                                estimated -> "달력 추정"
+                                level == CrowdLevel.UNKNOWN -> "정보 없음"
+                                else -> "혼잡 예상"
+                            },
+                            style = MaterialTheme.typography.bodySmall, color = TextSecondary,
                         )
                     }
-                    if (place.hasRealtimeDetails) {
-                        Text(place.crowdLevel.label, fontSize = 12.sp, color = PrimaryBlue)
-                    }
+                    if (forecastUiState.errorMessage != null) {
+                        TextButton(onClick = onForecastRetry) { Text("재시도", color = PrimaryAction) }
+                    } else if (level != CrowdLevel.UNKNOWN) CrowdBadge(level)
                 }
-                Text(place.description, fontSize = 13.sp, color = TextSecondary)
-                Spacer(Modifier.height(8.dp))
-                if (place.reviews > 0) {
-                    Text("★ ${place.rating} · 리뷰 ${place.reviews}", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                }
-                if (place.hasRealtimeDetails) {
-                    Spacer(Modifier.height(24.dp))
-                    Text("실시간 혼잡도", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                    Text(
-                        "현재 ${place.crowdLevel.label}" +
-                            (place.concentrationScore?.let { " · 혼잡 점수 $it" }.orEmpty()),
-                        fontSize = 12.sp,
-                        color = TextSecondary,
-                    )
-                    Spacer(Modifier.height(10.dp))
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFEAF4FF)),
-                    ) {
-                        Column(Modifier.padding(14.dp)) {
-                            Text("현재 날씨", fontWeight = FontWeight.SemiBold)
-                            Text("${place.weather} · ${place.temperatureCelsius}℃ · 강수확률 ${place.rainProbability}%", fontSize = 12.sp, color = TextSecondary)
-                        }
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    CongestionHourlyCard(
-                        hourlyUiState = hourlyUiState,
-                        onRetry = onHourlyRetry,
-                    )
-                }
-                Spacer(Modifier.height(24.dp))
-                Button(
-                    onClick = onNearby,
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
-                ) { Text("주변 장소 보기") }
-                Spacer(Modifier.height(10.dp))
-                Button(
-                    onClick = openScheduleOptions,
-                    enabled = !isScheduled,
-                    modifier = Modifier.fillMaxWidth().height(52.dp)
-                        .onGloballyPositioned { addButtonBounds = it.boundsInRoot() },
-                    shape = RoundedCornerShape(2.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryAction),
-                ) {
-                    Text(if (isScheduled) "일정에 추가됨" else "일정에 추가", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                }
-                if (isScheduled) {
-                    Text(
-                        "선택한 여행 일정에 장소를 추가했어요",
-                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                        color = PrimaryBlue,
-                        fontSize = 12.sp,
-                    )
-                }
+                Spacer(Modifier.height(20.dp))
+                WeatherSummary(weatherUiState, onWeatherRetry)
                 Spacer(Modifier.height(32.dp))
+                Text("여유롭게 둘러볼 시간", style = MaterialTheme.typography.titleSmall, color = TextPrimary)
+                Text("시간대별 혼잡 예상", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                Spacer(Modifier.height(16.dp))
+                HourlyGraph(hourlyUiState, onHourlyRetry)
+                Spacer(Modifier.height(20.dp))
+            }
+            Row(
+                Modifier.fillMaxWidth().background(Background).navigationBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Button(
+                    onClick = { showScheduleOptions = true },
+                    enabled = !isScheduled, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RectangleShape,
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryAction, contentColor = Color.White),
+                ) {
+                    Text(if (isScheduled) "추가됨" else "일정에 추가", style = MaterialTheme.typography.labelLarge)
+                }
             }
         }
-
-        val target = addButtonBounds
-        val root = rootBounds
-        if (guideActive && !scrollState.isScrollInProgress && target != null && root != null &&
-            target.top >= root.top && target.bottom <= root.bottom
-        ) {
-            UsageGuideOverlay(
-                callouts = listOf(
-                    UsageGuideCallout(
-                        target = target.translate(-root.topLeft),
-                        text = AnnotatedString("마음에 드는 장소라면\n시간과 메모를 정해 일정에 추가하세요"),
-                        placement = UsageGuidePlacement.ABOVE,
-                    ),
-                ),
-                onDismiss = finishGuide,
-                onTargetClick = { openScheduleOptions() },
-            )
-        }
     }
-
-    if (showScheduleOptions) {
+    if (showScheduleOptions && place != null) {
         ScheduleOptionsBottomSheet(
             title = place.name,
             contextText = listOf(tripName, tripDate).filter(String::isNotBlank).joinToString(" · "),
             onDismiss = { showScheduleOptions = false },
-            onConfirm = { time, memo ->
-                onAddToSchedule(time, memo)
-                showScheduleOptions = false
-            },
+            onConfirm = { time, memo -> onAddToSchedule(time, memo); showScheduleOptions = false },
         )
     }
 }
 
 @Composable
-private fun CongestionHourlyCard(
-    hourlyUiState: CongestionHourlyUiState,
-    onRetry: () -> Unit,
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceCard),
-    ) {
-        Column(Modifier.fillMaxWidth().padding(16.dp)) {
-            Text("시간대별 혼잡 예상", fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(4.dp))
-            when {
-                hourlyUiState.isLoading -> {
-                    Row(
-                        Modifier.fillMaxWidth().padding(vertical = 24.dp),
-                        horizontalArrangement = Arrangement.Center,
-                    ) {
-                        CircularProgressIndicator()
-                    }
-                }
-                hourlyUiState.errorMessage != null -> {
-                    Text(
-                        hourlyUiState.errorMessage,
-                        fontSize = 12.sp,
-                        color = TextSecondary,
-                    )
-                    TextButton(onClick = onRetry) { Text("다시 시도") }
-                }
-                hourlyUiState.forecast == null || hourlyUiState.forecast.points.isEmpty() -> {
-                    Text(
-                        "지역 코드가 있는 장소에서 시간대별 예상을 볼 수 있어요",
-                        fontSize = 12.sp,
-                        color = TextSecondary,
-                    )
-                }
-                else -> {
-                    val forecast = hourlyUiState.forecast
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        verticalAlignment = Alignment.Bottom,
-                    ) {
-                        forecast.points.forEach { point ->
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    "${point.concentrationScore}",
-                                    fontSize = 10.sp,
-                                    color = TextTertiary,
-                                )
-                                Spacer(Modifier.height(4.dp))
-                                Box(
-                                    Modifier.width(30.dp)
-                                        .height(hourlyBarHeight(point.concentrationScore))
-                                        .background(
-                                            hourlyLevelColor(point.level),
-                                            RoundedCornerShape(4.dp),
-                                        ),
-                                )
-                                Spacer(Modifier.height(4.dp))
-                                Text("${point.hour}시", fontSize = 10.sp, color = TextTertiary)
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        forecast.message.ifBlank { "시간대별 값은 추정치이므로 실제 혼잡과 다를 수 있어요" },
-                        fontSize = 11.sp,
-                        color = TextSecondary,
-                    )
-                }
-            }
+private fun CrowdBadge(level: CrowdLevel) {
+    val colors = when (level) {
+        CrowdLevel.RELAXED -> TagGreen to TagGreenText
+        CrowdLevel.NORMAL -> TagOrange to TagOrangeText
+        CrowdLevel.CROWDED -> TagRed to TagRedText
+        CrowdLevel.UNKNOWN -> TagGray to TagGrayText
+    }
+    Text(level.label, modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(colors.first)
+        .padding(horizontal = 8.dp, vertical = 3.dp),
+        style = MaterialTheme.typography.labelSmall, color = colors.second)
+}
+
+@Composable
+private fun WeatherSummary(state: PlaceWeatherUiState, onRetry: () -> Unit) {
+    val weather = state.weather?.takeIf { it.available && !state.isLoading && state.errorMessage == null }
+    val condition = weather?.condition.orEmpty()
+    val icon = when {
+        "눈" in condition -> Icons.Outlined.AcUnit
+        "비" in condition || "소나기" in condition -> Icons.Outlined.Umbrella
+        "흐" in condition || "구름" in condition -> Icons.Outlined.Cloud
+        "맑" in condition -> Icons.Outlined.WbSunny
+        else -> Icons.Outlined.Thermostat
+    }
+    val description = listOfNotNull(
+        condition.takeIf { it.isNotBlank() },
+        weather?.precipitationProbability?.takeIf { it in 0..100 }?.let { "강수확률 $it%" },
+    ).joinToString(" · ")
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Icon(icon, contentDescription = null, tint = CrowdedMedium, modifier = Modifier.size(28.dp))
+        Column(Modifier.weight(1f)) {
+            Text("현재 날씨", style = MaterialTheme.typography.bodyMedium, color = TextPrimary)
+            Text(when {
+                state.isLoading -> "조회 중"
+                state.errorMessage != null -> "조회 실패"
+                description.isNotEmpty() -> description
+                weather?.temperature?.toDoubleOrNull() == null -> "정보 없음"
+                else -> "현재 기온"
+            }, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+        }
+        if (state.errorMessage != null) {
+            TextButton(onClick = onRetry) { Text("재시도", color = PrimaryAction) }
+        } else {
+            val temperature = weather?.temperature?.toDoubleOrNull()?.takeIf { it.isFinite() }
+            Text(temperature?.let { (if (it % 1.0 == 0.0) it.toInt().toString() else it.toString()) + "°" } ?: "—",
+                style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = PrimaryAction)
         }
     }
 }
 
-private fun hourlyLevelColor(level: String): Color = when (level.trim().uppercase()) {
-    "RELAXED" -> CrowdedLow
-    "CROWDED" -> CrowdedHigh
-    else -> CrowdedMedium
-}
-
-private fun hourlyBarHeight(score: Int): androidx.compose.ui.unit.Dp {
-    val clamped = score.coerceIn(0, 100)
-    return (6 + (58 * clamped / 100)).dp
-}
-
-@Preview(showBackground = true)
 @Composable
-private fun PlaceDetailPreview() {
-    GayadiTheme {
-        PlaceDetailScreen(
-            place = FakePlaceRepository().places().getOrThrow().first(),
-            isScheduled = false,
-            onBack = {},
-            onAddToSchedule = { _, _ -> },
-            hourlyUiState = CongestionHourlyUiState(
-                forecast = CongestionHourlyForecast(
-                    placeName = "명진전복",
-                    points = listOf(
-                        CongestionHourlyPoint(hour = 9, concentrationScore = 38, level = "RELAXED"),
-                        CongestionHourlyPoint(hour = 11, concentrationScore = 55, level = "NORMAL"),
-                        CongestionHourlyPoint(hour = 13, concentrationScore = 72, level = "CROWDED"),
-                        CongestionHourlyPoint(hour = 15, concentrationScore = 68, level = "NORMAL"),
-                        CongestionHourlyPoint(hour = 17, concentrationScore = 52, level = "NORMAL"),
-                        CongestionHourlyPoint(hour = 19, concentrationScore = 40, level = "NORMAL"),
-                    ),
-                ),
-            ),
-        )
+private fun HourlyGraph(state: CongestionHourlyUiState, onRetry: () -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        listOf(CrowdLevel.RELAXED, CrowdLevel.NORMAL, CrowdLevel.CROWDED).forEach { level ->
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Box(Modifier.size(6.dp).background(levelColor(level), RoundedCornerShape(3.dp)))
+                Text(level.label, fontSize = 10.sp, color = TextSecondary)
+            }
+        }
     }
+    val points = state.forecast?.points.orEmpty().filter { it.hour in 0..23 }.associateBy { it.hour }
+    if (state.isLoading || state.errorMessage != null || points.isEmpty()) {
+        Box(Modifier.fillMaxWidth().height(140.dp), contentAlignment = Alignment.Center) {
+            when {
+                state.isLoading -> CircularProgressIndicator(Modifier.size(24.dp), color = PrimaryAction, strokeWidth = 2.dp)
+                state.errorMessage != null -> TextButton(onClick = onRetry) { Text("조회 실패 · 재시도", color = TextSecondary) }
+                else -> TextButton(onClick = onRetry) { Text("혼잡 정보 없음 · 다시 확인", color = TextSecondary) }
+            }
+        }
+    } else {
+        Spacer(Modifier.height(24.dp))
+        Row(Modifier.fillMaxWidth().height(110.dp), horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.Bottom) {
+            (0..23).forEach { hour ->
+                val point = points[hour]
+                Box(Modifier.weight(1f).fillMaxHeight().semantics {
+                    contentDescription = if (point == null) "${hour}시 정보 없음"
+                    else "${hour}시, 혼잡 점수 ${point.concentrationScore}, ${point.level.toCrowdLevel().label}"
+                }, contentAlignment = Alignment.BottomCenter) {
+                    if (point != null) Box(Modifier.fillMaxWidth()
+                        .height((110 * point.concentrationScore.coerceIn(0, 100) / 100f).dp)
+                        .background(levelColor(point.level.toCrowdLevel()), RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp)))
+                }
+            }
+        }
+        HorizontalDivider(color = Divider)
+        Row(Modifier.fillMaxWidth().padding(top = 6.dp)) {
+            (0..7).forEach { tick ->
+                Text("${(tick * 3).toString().padStart(2, '0')}시", modifier = Modifier.weight(1f),
+                    fontSize = 10.sp, color = TextSecondary)
+            }
+        }
+        val note = listOf(
+            state.forecast?.targetDate?.takeIf(String::isNotBlank),
+            if (state.forecast?.estimated == true && !state.forecast.providerDataAvailable) "달력 기반 추정" else "혼잡 예상",
+        ).filterNotNull().joinToString(" · ")
+        Text(note, modifier = Modifier.padding(top = 12.dp), fontSize = 10.sp, color = TextTertiary)
+    }
+}
+
+private fun levelColor(level: CrowdLevel): Color = when (level) {
+    CrowdLevel.RELAXED -> CrowdedLow
+    CrowdLevel.NORMAL -> CrowdedMedium
+    CrowdLevel.CROWDED -> CrowdedHigh
+    CrowdLevel.UNKNOWN -> TextTertiary
 }

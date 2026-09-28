@@ -22,4 +22,5 @@ data class TourPlaceDto(
     val crowdProviderDataAvailable: Boolean = false,
     val crowdConfidence: String = "",
     val crowdMessage: String = "",
+    val weatherInfo: com.gayadi.android.domain.repository.WeatherResult? = null,
 )

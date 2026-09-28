@@ -1,6 +1,10 @@
 package com.gayadi.android.data.remote.travel
 
+import com.gayadi.android.data.mapper.toWeatherResult
 import com.gayadi.android.data.datasource.GayadiApiClient
+import com.gayadi.android.data.datasource.TourApiDataSource
+import com.gayadi.android.data.mapper.toDomain
+import com.gayadi.android.domain.error.rethrowCancellation
 import com.gayadi.android.domain.model.RouteTransportMode
 import com.gayadi.android.domain.model.TourPlace
 import com.gayadi.android.domain.repository.*
@@ -9,10 +13,40 @@ import org.json.JSONObject
 class ServerPlaceCandidateGateway(
     private val http: TravelJsonTransport,
     private val diagnostic: (String) -> Unit = {},
+    private val tourDiscovery: TourApiDataSource? = null,
 ) : PlaceCandidateGateway {
-    constructor(client: GayadiApiClient, diagnostic: (String) -> Unit = {}) : this(GayadiTravelJsonTransport(client), diagnostic)
+    constructor(client: GayadiApiClient, diagnostic: (String) -> Unit = {}, tourDiscovery: TourApiDataSource? = null) :
+        this(GayadiTravelJsonTransport(client), diagnostic, tourDiscovery)
+
+    private val forecasts = mutableMapOf<Pair<String, Int>, Pair<Long, Map<String, TourPlace>>>()
+
+    private suspend fun discoverForecasts(query: PlaceCandidateQuery): Map<String, TourPlace> {
+        val discovery = tourDiscovery ?: return emptyMap()
+        if (query.region.isBlank()) return emptyMap()
+        val contentType = when (query.category) {
+            "RESTAURANT", "CAFE" -> 39
+            "ACCOMMODATION" -> 32
+            else -> 12
+        }
+        val key = query.region to contentType
+        val cached = forecasts[key]
+        if (cached != null && System.nanoTime() - cached.first < 300_000_000_000L) return cached.second
+        return try {
+            // Discovery supplies current forecast metadata and canonical placeId values.
+            val places = discovery.getPlaces(
+                pageSize = 20, contentTypeId = contentType, maxPages = 3, regionName = query.region,
+            ).map { it.toDomain() }.associateBy { it.contentId }
+            forecasts[key] = System.nanoTime() to places
+            places
+        } catch (error: Exception) {
+            error.rethrowCancellation()
+            // A failed forecast lookup must not block searching or change the server ranking.
+            emptyMap()
+        }
+    }
 
     override suspend fun search(query: PlaceCandidateQuery): PlaceCandidatePage {
+        val tourForecasts = discoverForecasts(query)
         val params = buildMap<String, String?> {
             put("query", query.query.trim().takeIf(String::isNotEmpty))
             put("region", query.region.takeIf(String::isNotBlank))
@@ -39,7 +73,22 @@ class ServerPlaceCandidateGateway(
             ?: PlaceSort.RECENT
         val items = response.getJSONArray("items")
         return PlaceCandidatePage(
-            items = List(items.length()) { index -> candidate(items.getJSONObject(index)) },
+            items = List(items.length()) { index ->
+                val candidate = candidate(items.getJSONObject(index))
+                val forecast = tourForecasts[candidate.place.contentId]
+                if (forecast == null) candidate else candidate.copy(place = candidate.place.copy(
+                    crowdLevel = forecast.crowdLevel,
+                    concentrationScore = forecast.concentrationScore,
+                    crowdSource = forecast.crowdSource,
+                    crowdEstimated = forecast.crowdEstimated,
+                    crowdProviderDataAvailable = forecast.crowdProviderDataAvailable,
+                    crowdConfidence = forecast.crowdConfidence,
+                    crowdMessage = forecast.crowdMessage,
+                    weatherInfo = candidate.place.weatherInfo ?: forecast.weatherInfo,
+                    regionCode = forecast.regionCode.ifBlank { candidate.place.regionCode },
+                    districtCode = forecast.districtCode.ifBlank { candidate.place.districtCode },
+                ))
+            },
             sort = sort,
             evaluatedCandidates = ranking?.optInt("evaluatedCandidates") ?: 0,
             limited = ranking?.optBoolean("limited") ?: false,
@@ -66,8 +115,21 @@ class ServerPlaceCandidateGateway(
                 imageUrl = item.optionalString("imageUrl").orEmpty(),
                 latitude = item.optionalString("latitude")?.toDoubleOrNull(),
                 longitude = item.optionalString("longitude")?.toDoubleOrNull(),
-                crowdLevel = item.optionalString("crowdLevel").orEmpty(),
-                crowdProviderDataAvailable = item.optBoolean("crowdDataAvailable"),
+                // Canonical catalogue rows may have NORMAL as a placeholder with no data.
+                crowdLevel = item.optionalString("crowdLevel").orEmpty().takeIf {
+                    item.optBoolean("crowdEstimated") ||
+                        item.optBoolean("crowdProviderDataAvailable", item.optBoolean("crowdDataAvailable")) ||
+                        item.optionalString("crowdSource") != null
+                }.orEmpty(),
+                regionCode = item.optionalString("lDongRegnCd") ?: item.optionalString("areaCode").orEmpty(),
+                districtCode = item.optionalString("lDongSignguCd") ?: item.optionalString("districtCode").orEmpty(),
+                concentrationScore = item.optionalString("concentrationScore")?.toIntOrNull(),
+                crowdSource = item.optionalString("crowdSource").orEmpty(),
+                crowdEstimated = item.optBoolean("crowdEstimated"),
+                crowdProviderDataAvailable = item.optBoolean("crowdProviderDataAvailable", item.optBoolean("crowdDataAvailable")),
+                crowdConfidence = item.optionalString("crowdConfidence").orEmpty(),
+                crowdMessage = item.optionalString("crowdMessage").orEmpty(),
+                weatherInfo = item.optJSONObject("weather")?.toWeatherResult(),
             ),
             categoryCode = item.optionalString("categoryCode").orEmpty(),
             travelTime = travelTime,

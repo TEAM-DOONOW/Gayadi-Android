@@ -1,5 +1,6 @@
 package com.gayadi.android.data.datasource
 
+import com.gayadi.android.data.mapper.toWeatherResult
 import com.gayadi.android.data.model.TourPlaceDto
 import java.net.URLEncoder
 import kotlin.math.atan2
@@ -165,7 +166,15 @@ class ServerPlaceApiDataSource(private val client: GayadiApiClient) : TourApiDat
                 else -> ""
             },
             crowdLevel = optString("crowdLevel"),
-            crowdProviderDataAvailable = optBoolean("crowdDataAvailable"),
+            lDongRegnCd = optNullableValue("lDongRegnCd") ?: optNullableValue("areaCode").orEmpty(),
+            lDongSignguCd = optNullableValue("lDongSignguCd") ?: optNullableValue("districtCode").orEmpty(),
+            concentrationScore = optNullableValue("concentrationScore")?.toIntOrNull(),
+            crowdSource = optNullableValue("crowdSource").orEmpty(),
+            crowdEstimated = optBoolean("crowdEstimated"),
+            crowdProviderDataAvailable = optBoolean("crowdProviderDataAvailable", optBoolean("crowdDataAvailable")),
+            crowdConfidence = optNullableValue("crowdConfidence").orEmpty(),
+            crowdMessage = optNullableValue("crowdMessage").orEmpty(),
+            weatherInfo = this.optJSONObject("weather")?.toWeatherResult(),
         )
     }
 
