@@ -1,6 +1,7 @@
 package com.gayadi.android.ui.screens
 
 import com.gayadi.android.domain.model.RouteTransportMode
+import com.gayadi.android.domain.model.AgentRecommendation
 import com.gayadi.android.domain.repository.PlaceSort
 
 import androidx.compose.foundation.horizontalScroll
@@ -34,6 +35,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.ui.graphics.graphicsLayer
@@ -56,6 +58,13 @@ import com.gayadi.android.domain.repository.PlaceTravelTime
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.foundation.border
+import androidx.compose.foundation.selection.toggleable
+import com.gayadi.android.ui.theme.Divider
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -105,6 +114,7 @@ private val placeCategories = listOf("전체", "맛집", "카페", "관광명소
 @Composable
 fun PlaceSearchScreen(
     uiState: PlaceUiState,
+    recommendationUiState: PlaceRecommendationUiState = PlaceRecommendationUiState(),
     onBack: () -> Unit,
     onQueryChange: (String) -> Unit,
     onCategorySelected: (String) -> Unit,
@@ -113,6 +123,16 @@ fun PlaceSearchScreen(
     favoritePlaceIds: Set<String> = emptySet(),
     onToggleFavorite: (String) -> Unit = {},
     onFavorites: () -> Unit = {},
+    onRequestRecommendations: () -> Unit = {},
+    onRecommendationClick: (AgentRecommendation) -> Unit = {},
+    replaceTargetName: String? = null,
+    onReplaceWithPlace: (PlaceItem) -> Unit = {},
+    linkMode: Boolean = true,
+    onLinkModeChange: (Boolean) -> Unit = {},
+    replaceTargetOptions: List<Pair<String, String>> = emptyList(),
+    replaceTargetId: String? = null,
+    onReplaceTargetSelected: (String?) -> Unit = {},
+    isLinkedReplacement: (PlaceItem) -> Boolean = { true },
     tripName: String = "",
     tripDate: String = "",
     scheduledPlaceIds: Set<String> = emptySet(),
@@ -129,6 +149,10 @@ fun PlaceSearchScreen(
     val density = LocalDensity.current
     val filterDialogVisible = remember { mutableStateOf(false) }
     var schedulePlace by remember { mutableStateOf<PlaceItem?>(null) }
+    var replacementPlace by remember { mutableStateOf<PlaceItem?>(null) }
+    val recommendedPlaces = recommendationUiState.recommendedPlaces
+    val recommendedIds = recommendedPlaces.map { it.place.id }.toSet()
+    val listedPlaces = uiState.filteredPlaces.filterNot { it.id in recommendedIds }
     var isUsageGuideVisible by rememberSaveable { mutableStateOf(showUsageGuide) }
     val firstPlace = uiState.filteredPlaces.firstOrNull()
     var firstPlaceBounds by remember(firstPlace?.id) { mutableStateOf<Rect?>(null) }
@@ -186,6 +210,39 @@ fun PlaceSearchScreen(
                         Text(notice, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
                     }
                 }
+                item {
+                    LinkModeControls(
+                        linkMode = linkMode,
+                        onLinkModeChange = onLinkModeChange,
+                        targetOptions = replaceTargetOptions,
+                        selectedTargetId = replaceTargetId,
+                        onTargetSelected = onReplaceTargetSelected,
+                    )
+                }
+                item {
+                    RecommendationHeader(recommendationUiState, onRetry = onRequestRecommendations)
+                }
+                items(recommendedPlaces.chunked(2), key = { row -> "rec-" + row.joinToString { it.place.id } }) { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        row.forEach { recommended ->
+                            val place = recommended.place
+                            PlaceCard(
+                                place,
+                                modifier = Modifier.weight(1f),
+                                isFavorite = place.id in favoritePlaceIds,
+                                isScheduled = place.id in scheduledPlaceIds || place.name in scheduledPlaceNames,
+                                onClick = { onRecommendationClick(recommended.recommendation) },
+                                onToggleFavorite = { onToggleFavorite(place.id) },
+                                onAddToSchedule = { schedulePlace = place },
+                                recommendationReason = recommended.recommendation.reason,
+                                addLabel = "일정에 추가",
+                                replaceEnabled = replaceTargetName != null,
+                                onReplace = { replacementPlace = place },
+                            )
+                        }
+                        if (row.size == 1) Spacer(Modifier.weight(1f))
+                    }
+                }
                 when {
                     uiState.isLoading -> item {
                         Box(Modifier.fillMaxWidth().height(240.dp), contentAlignment = Alignment.Center) {
@@ -202,7 +259,7 @@ fun PlaceSearchScreen(
                             Button(onClick = onRetry) { Text("다시 시도") }
                         }
                     }
-                    uiState.filteredPlaces.isEmpty() -> item {
+                    listedPlaces.isEmpty() -> item {
                         Box(Modifier.fillMaxWidth().height(240.dp), contentAlignment = Alignment.Center) {
                             Text("조건에 맞는 장소가 없어요", color = TextSecondary)
                         }
@@ -217,7 +274,7 @@ fun PlaceSearchScreen(
                             modifier = Modifier.padding(top = 10.dp),
                         )
                     }
-                    items(uiState.filteredPlaces.chunked(2)) { rowPlaces ->
+                    items(listedPlaces.chunked(2)) { rowPlaces ->
                         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                             rowPlaces.forEach { place ->
                                 PlaceCard(
@@ -230,6 +287,8 @@ fun PlaceSearchScreen(
                                     onClick = { onPlaceClick(place.id) },
                                     onToggleFavorite = { onToggleFavorite(place.id) },
                                     onAddToSchedule = { schedulePlace = place },
+                                    replaceEnabled = replaceTargetName != null,
+                                    onReplace = if (replaceTargetName != null) ({ replacementPlace = place }) else null,
                                 )
                             }
                             if (rowPlaces.size == 1) Spacer(Modifier.weight(1f))
@@ -339,6 +398,31 @@ fun PlaceSearchScreen(
         }
     }
 
+    replacementPlace?.let { place ->
+        val unlinked = linkMode && !isLinkedReplacement(place)
+        AlertDialog(
+            onDismissRequest = { replacementPlace = null },
+            containerColor = Background,
+            title = { Text(if (unlinked) "기존 여행지와 연계되지 않아요" else "이 장소로 변경할까요?") },
+            text = {
+                Text(
+                    if (unlinked) {
+                        "${place.name}은(는) 앞뒤 일정과 떨어져 있어 동선이 길어질 수 있어요. 그래도 고르시겠어요?"
+                    } else {
+                        "${replaceTargetName.orEmpty()} 일정을 ${place.name}(으)로 바꿔요. 시간과 메모는 그대로 유지돼요."
+                    },
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onReplaceWithPlace(place)
+                    replacementPlace = null
+                }) { Text(if (unlinked) "그래도 변경" else "변경") }
+            },
+            dismissButton = { TextButton(onClick = { replacementPlace = null }) { Text("취소") } },
+        )
+    }
+
     schedulePlace?.let { place ->
         ScheduleOptionsBottomSheet(
             title = place.name,
@@ -353,6 +437,99 @@ fun PlaceSearchScreen(
 }
 
 @Composable
+private fun LinkModeControls(
+    linkMode: Boolean,
+    onLinkModeChange: (Boolean) -> Unit,
+    targetOptions: List<Pair<String, String>>,
+    selectedTargetId: String?,
+    onTargetSelected: (String?) -> Unit,
+) {
+    Column(
+        Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .border(1.dp, Divider, RoundedCornerShape(12.dp))
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Row(
+            Modifier.fillMaxWidth().toggleable(value = linkMode, role = Role.Switch, onValueChange = onLinkModeChange),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("여행지 연계", style = MaterialTheme.typography.titleSmall, color = TextPrimary)
+                Text(
+                    if (linkMode) "앞뒤 일정과 이어지는 장소를 추천해요" else "동선과 상관없이 자유롭게 골라요",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary,
+                )
+            }
+            Switch(
+                checked = linkMode,
+                onCheckedChange = null,
+                colors = SwitchDefaults.colors(checkedTrackColor = PrimaryAction),
+            )
+        }
+        if (targetOptions.isNotEmpty()) {
+            Text("바꿀 일정", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                targetOptions.forEachIndexed { index, (id, title) ->
+                    val selected = id == selectedTargetId
+                    FilterChip(
+                        selected = selected,
+                        onClick = { onTargetSelected(if (selected) null else id) },
+                        label = { Text("${index + 1}. $title", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = Background,
+                            selectedContainerColor = PrimaryAction,
+                            selectedLabelColor = Color.White,
+                        ),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecommendationHeader(uiState: PlaceRecommendationUiState, onRetry: () -> Unit) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(
+                uiState.headline.ifBlank { "가야디 추천 장소" },
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.titleLarge,
+                color = TextPrimary,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            TextButton(onClick = onRetry, enabled = !uiState.isLoading) {
+                Text(if (uiState.hasRequested) "다시 추천" else "추천 받기", color = PrimaryBlue)
+            }
+        }
+        when {
+            uiState.isLoading -> Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = PrimaryBlue)
+                Text("여행 성향과 동선을 보고 추천하고 있어요", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+            }
+            uiState.errorMessage != null ->
+                Text(uiState.errorMessage, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+            uiState.hasRequested && uiState.recommendedPlaces.isEmpty() ->
+                Text("지금은 추천할 장소를 찾지 못했어요", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+            !uiState.hasRequested ->
+                Text("장소를 일정에 추가하면 그 장소 기준으로 다음 장소를 추천해 드려요", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+            else -> uiState.reasoning.takeIf(String::isNotBlank)?.let {
+                Text(it, style = MaterialTheme.typography.bodySmall, color = TextSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
+}
+
+@Composable
 private fun PlaceCard(
     place: PlaceItem,
     modifier: Modifier = Modifier,
@@ -361,6 +538,10 @@ private fun PlaceCard(
     onClick: () -> Unit,
     onToggleFavorite: () -> Unit,
     onAddToSchedule: () -> Unit,
+    recommendationReason: String? = null,
+    addLabel: String = "일정 추가",
+    replaceEnabled: Boolean = false,
+    onReplace: (() -> Unit)? = null,
 ) {
     val (tagBackground, tagText) = when (place.crowdLevel) {
         CrowdLevel.RELAXED -> TagGreen to TagGreenText
@@ -370,8 +551,20 @@ private fun PlaceCard(
     }
     Column(modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Box(Modifier.fillMaxWidth().height(150.dp).clip(RoundedCornerShape(18.dp)).background(Color(0xFFF0F0F0))) {
-            PlacePhoto(place.imageUrl, place.name, Modifier.fillMaxSize())
-
+            PlacePhoto(place.imageUrl, "${place.name} 이미지", Modifier.fillMaxSize())
+            if (recommendationReason != null) {
+                Row(
+                    Modifier.align(Alignment.TopStart).padding(8.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(PrimaryAction)
+                        .padding(horizontal = 8.dp, vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = Color.White, modifier = Modifier.size(12.dp))
+                    Text("추천", style = MaterialTheme.typography.labelSmall, color = Color.White)
+                }
+            }
             IconButton(onClick = onToggleFavorite, modifier = Modifier.align(Alignment.TopEnd)) {
                 Icon(
                     if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
@@ -423,6 +616,15 @@ private fun PlaceCard(
                 )
             }
         }
+        recommendationReason?.takeIf(String::isNotBlank)?.let { reason ->
+            Text(
+                reason,
+                style = MaterialTheme.typography.bodySmall,
+                color = TextSecondary,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
         Text(place.description, fontSize = 11.sp, color = TextTertiary, maxLines = 1)
         Spacer(Modifier.height(8.dp))
         Button(
@@ -431,7 +633,19 @@ private fun PlaceCard(
             modifier = Modifier.fillMaxWidth().height(36.dp),
             shape = RectangleShape,
         ) {
-            Text(if (isScheduled) "추가됨" else "일정 추가", fontSize = 12.sp)
+            Text(if (isScheduled) "추가됨" else addLabel, fontSize = 12.sp)
+        }
+        if (onReplace != null) {
+            Spacer(Modifier.height(6.dp))
+            OutlinedButton(
+                onClick = onReplace,
+                enabled = replaceEnabled && !isScheduled,
+                modifier = Modifier.fillMaxWidth().height(36.dp),
+                shape = RectangleShape,
+                contentPadding = PaddingValues(horizontal = 4.dp),
+            ) {
+                Text("이 장소로 변경", fontSize = 12.sp, color = if (replaceEnabled && !isScheduled) PrimaryAction else TextTertiary)
+            }
         }
     }
 }

@@ -23,6 +23,7 @@
 | 고객지원 | `POST /api/v1/inquiries` |
 | 공지·약관 | `GET /api/v1/notices`, `GET /api/v1/notices/{id}`, `GET /api/v1/legal-documents/{id}` |
 | 장소 | `GET /api/v1/places`, `GET /api/v1/users/current/favorite-places` |
+| 홈 순위 | `GET /api/v1/rankings?type=ATTRACTION\|FESTIVAL\|REGION\|RESTAURANT&region=...&limit=10` |
 | 여행 | `GET/POST /api/v1/trips`, `GET/PATCH/DELETE /api/v1/trips/{tripId}`, `PATCH .../status` |
 | 참여·날짜 | `GET/PUT/DELETE .../participants`, `POST /api/v1/trip-memberships`, `GET/PUT .../date-coordination` |
 | 일정 | `GET/POST .../schedules`, `PATCH/DELETE .../schedules/{scheduleId}`, `PATCH .../schedule-orders` |
@@ -32,10 +33,11 @@
 | 사용자 초대 | `GET/POST .../invitations`, `PATCH .../invitations/{id}` |
 | 자동 일정·홈 | `GET/POST .../plans`, `GET .../dashboard` |
 | 경로 | `POST .../route-recommendations`, `GET/PUT/DELETE .../route-selections` |
+| 여행루트 | `POST .../itinerary-recommendations`, `PUT .../itinerary-selections/{date}` |
 | 여행별 성향 | `POST .../survey-responses`, `GET .../personality-profile` |
 | 현장 상황 | `POST .../event-observations`, `GET/PATCH .../change-proposals` |
 | Agent | `POST /api/v1/recommendations/places`, `POST .../situation-responses` |
-| 날씨·혼잡 | `GET /api/v1/weather/*`, `GET /api/v1/congestion/forecast` |
+| 날씨·혼잡 | 장소 화면은 `GET /api/v1/congestion/forecast`에 지역 코드, `hours`, `lat`, `lon`을 한 번 보냅니다. 시간대는 응답 `points`입니다. `weather`가 없으면 저장된 장소 번호로 `GET /api/v1/congestion/places/{placeId}`를 보완합니다. `GET /api/v1/weather/*`는 기상청 원본입니다. |
 | 관광정보 | `GET /api/v1/tour/areas`, `/locations`, `/keywords`, `/festivals`, `/stays` |
 
 `...`는 `/api/v1/trips/{tripId}`를 뜻한다. 상세 요청·응답은 서버 Swagger와
@@ -64,6 +66,27 @@
 - 보호 API는 `Authorization: Bearer {accessToken}`을 사용한다.
 - 오류 분기는 HTTP 상태와 서버의 안정적인 `code`를 기준으로 한다. 사용자 입력값이나 서버 원문은 로그에 남기지 않는다.
 - `401`은 자동 갱신을 한 번만 시도하고, 다시 실패하면 로그인 만료로 처리한다.
+
+### 홈 카테고리 순위
+
+- 나의여행 홈 칩별로 `GET /api/v1/rankings`를 Bearer 인증으로 호출한다. 인기 관광지는 `type=ATTRACTION&region=서울`, 축제·인기 지역·찜 많은 맛집은 지역 없이 전국 기준(`FESTIVAL`, `REGION`, `RESTAURANT`)이다.
+- 관광지·인기 지역은 한국관광 데이터랩, 축제는 TourAPI 행사 정보(진행 중·임박순), 맛집은 가야디 사용자 찜 수 기준이다. 리뷰 기반 순위는 없다.
+- 응답의 `providerDataAvailable=false`는 제공기관 순위 대신 대체 목록(또는 빈 목록)이라는 뜻이다. 앱은 목록을 그대로 보여주고 짧게 안내한다.
+- 첫 요청은 서버가 여러 공공 API를 조합할 수 있어 읽기 35초·전체 40초 제한을 쓴다. 칩별 결과는 화면 수명 동안 캐시하고 오류에는 `다시 시도`를 제공한다.
+
+### 장소찾기 인라인 추천과 여행지 연계
+
+- AI 추천(`POST /api/v1/recommendations/places`)은 장소 목록 안의 카드로 표시한다. 추천 응답에 이미지가 없으므로 각 `placeId`의 `GET /api/v1/places/{placeId}`로 이미지·주소·좌표를 채우고, 실패한 항목은 기본 카드로 보여준다.
+- 추천 기준점은 여행지 연계 설정을 따른다. 연계를 켜면 마지막으로 추가한 장소(없으면 같은 날 마지막 방문지)를, 바꿀 일정을 고르면 그 일정의 앞뒤 방문지 중간 지점(한쪽만 있으면 그 방문지)을 `latitude/longitude`로 보낸다. 연계를 끄면 목록 첫 후보 좌표로 지역 전체를 추천한다.
+- 연계 모드에서 바꿀 일정을 고르면 이동시간순 검색은 그 일정을 제외한 앞뒤 방문지를 `origin`/`next` 좌표로 보낸다.
+- `이 장소로 변경`은 `PATCH .../schedules/{scheduleId}`로 `placeId`와 `title`만 바꾸고 시간·메모는 유지한다. 앞뒤 방문지와의 거리가 기존 거리의 1.5배(최소 5km)를 넘으면 연계 모드에서만 확인을 받는다.
+
+### 엄격한 여행루트 데모
+
+- `POST /api/v1/trips/{tripId}/itinerary-recommendations`는 `date`, `startTime`, `endTime`, `transportMode`, `variation`으로 하루 전체 루트를 추천한다. 서버는 여행 지역의 공개 장소 중 좌표가 있는 후보를 사용한다.
+- 응답 `stops`는 서버가 확정한 순서로 주며, 각 항목에 `arrivalTime`, `departureTime`, `stayMinutes`, `travelMinutesFromPrevious`, `distanceMetersFromPrevious`가 있다. 현재 데모는 직선거리와 이동수단별 평균 속도로 계산하므로 `estimated=true`이다.
+- `variation`을 증가시켜 재요청하면 기존 장소 하나만 바꾸지 않고 루트 전체를 다시 구성한다.
+- `PUT /api/v1/trips/{tripId}/itinerary-selections/{date}`는 보고 있는 `placeId` 순서를 `expectedPlaceIds`로 함께 보낸다. 서버가 동일한 요청을 다시 계산했을 때 순서가 달라졌으면 `ROUTE_CALCULATION_CHANGED`로 적용을 멈춘다. 같으면 해당 날짜의 `MAIN` 일정을 하나의 트랜잭션으로 교체한다. 삭제된 일정에 연결된 비용은 기존 DB 정책대로 일정 연결만 해제된다.
 
 ## 에뮬레이터 검증
 

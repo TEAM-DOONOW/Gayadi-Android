@@ -10,6 +10,7 @@ object Routes {
     const val FRIEND_ADD_WITH_CODE = "friend_add?inviteCode={inviteCode}"
     const val PLACE_SEARCH = "place_search/{tripId}?date={date}"
     const val PLACE_DETAIL = "place_detail/{tripId}/{placeId}?date={date}&beforeScheduleId={beforeScheduleId}"
+    const val ITINERARY_ROUTE = "itinerary_route/{tripId}?date={date}"
     const val MY_TRIP = "my_trip"
     const val TRIP_CREATE = "trip_create"
     const val TRIP_EDIT = "trip_edit/{tripId}"
@@ -39,6 +40,8 @@ object Routes {
         )
         return "place_detail/$tripId/$placeId" + if (params.isEmpty()) "" else "?" + params.joinToString("&")
     }
+    fun itineraryRoute(tripId: String, date: String) =
+        "itinerary_route/$tripId?date=${android.net.Uri.encode(date)}"
     fun surveyResult(resultCode: String) = "survey_result/$resultCode"
     fun realtimeHome(tripId: String) = "realtime_home/$tripId"
     fun tripEdit(tripId: String) = "trip_edit/$tripId"

@@ -14,24 +14,31 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Route
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.gayadi.android.ui.theme.Border
 import com.gayadi.android.ui.theme.PrimaryAction
 import com.gayadi.android.ui.theme.PrimaryBlue
+import com.gayadi.android.ui.theme.SurfaceLight
 import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary
 
@@ -40,6 +47,7 @@ internal fun TripDaySection(
     day: HomeTripDay,
     plans: List<HomeTravelPlan>,
     onAddPlace: () -> Unit,
+    onRecommendRoute: () -> Unit,
     onPlanClick: (HomeTravelPlan) -> Unit,
     onAddPlaceBoundsChanged: ((Rect) -> Unit)? = null,
     highlightedPlanId: String? = null,
@@ -76,27 +84,67 @@ internal fun TripDaySection(
             Spacer(modifier = Modifier.height(8.dp))
         }
     }
-    Spacer(modifier = Modifier.height(24.dp))
-    OutlinedButton(
-        onClick = onAddPlace,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(36.dp)
-            .then(
-                if (onAddPlaceBoundsChanged != null) {
-                    Modifier.onGloballyPositioned { onAddPlaceBoundsChanged(it.boundsInRoot()) }
-                } else {
-                    Modifier
-                },
-            ),
-        shape = RoundedCornerShape(0.dp),
-        border = BorderStroke(1.dp, PrimaryAction),
-        colors = ButtonDefaults.outlinedButtonColors(
-            containerColor = Color.White,
-            contentColor = PrimaryAction,
-        ),
+    Spacer(modifier = Modifier.height(10.dp))
+    Row(Modifier.fillMaxWidth()) {
+        CompactPlanningButton(
+            text = "하나씩 고르기",
+            icon = Icons.Outlined.Add,
+            onClick = onAddPlace,
+            modifier = Modifier
+                .weight(1f)
+                .then(
+                    if (onAddPlaceBoundsChanged != null) {
+                        Modifier.onGloballyPositioned { onAddPlaceBoundsChanged(it.boundsInRoot()) }
+                    } else {
+                        Modifier
+                    },
+                ),
+        )
+        Spacer(Modifier.width(8.dp))
+        CompactPlanningButton(
+            text = "모두 추천받기",
+            icon = Icons.Outlined.Route,
+            onClick = onRecommendRoute,
+            emphasized = true,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun CompactPlanningButton(
+    text: String,
+    icon: ImageVector,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    emphasized: Boolean = false,
+) {
+    val containerColor = if (emphasized) PrimaryAction else SurfaceLight
+    val contentColor = if (emphasized) Color.White else TextPrimary
+    Box(
+        modifier = modifier
+            .height(48.dp)
+            .semantics(mergeDescendants = true) {}
+            .clickable(role = Role.Button, onClick = onClick),
+        contentAlignment = Alignment.Center,
     ) {
-        Text("장소 추가", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        Surface(
+            modifier = Modifier.fillMaxWidth().height(38.dp),
+            shape = RoundedCornerShape(10.dp),
+            color = containerColor,
+            contentColor = contentColor,
+            border = if (emphasized) null else BorderStroke(1.dp, Border),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(icon, contentDescription = null, modifier = Modifier.size(15.dp))
+                Spacer(Modifier.width(5.dp))
+                Text(text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
     }
 }
 

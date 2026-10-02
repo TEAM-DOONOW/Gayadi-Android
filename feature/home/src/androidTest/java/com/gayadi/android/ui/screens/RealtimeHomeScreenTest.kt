@@ -94,13 +94,41 @@ class RealtimeHomeScreenTest {
         composeRule.onNodeWithContentDescription("함께하는 친구 3명 보기")
             .assertHasClickAction()
             .performClick()
-        composeRule.onNodeWithText("장소 추가")
+        composeRule.onNodeWithText("하나씩 고르기")
             .performScrollTo()
             .assertHeightIsAtLeast(48.dp)
             .performClick()
 
         assertTrue(participantsOpened)
         assertTrue(selectedDate == "2026.08.21")
+    }
+
+    @Test
+    fun planningMethodsAreAlwaysVisibleAndExplained() {
+        composeRule.setContent {
+            GayadiTheme {
+                RealtimeHomeScreen(
+                    uiState = RealtimeHomeUiState(),
+                    tripTitle = "제주 여행",
+                    tripDays = listOf(HomeTripDay(1, "2026.08.21", "8월 21일")),
+                    onNavigateMyTrip = {},
+                    onNavigateMyPage = {},
+                    onNavigatePlaceSearch = {},
+                    onNavigateParticipants = {},
+                    onUpdateSchedule = { _, _, _ -> },
+                    onAddScheduleExpense = { _, _, _ -> },
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("하나씩 고르기").assertExists()
+        composeRule.onNodeWithText("모두 추천받기").assertExists()
+        composeRule.onNodeWithContentDescription("여행 계획 방법 도움말").performScrollTo().performClick()
+        composeRule.onNodeWithText("어떻게 계획할까요?").assertExists()
+        composeRule.onNodeWithText("하나씩 고르기: 고른 장소를 기준으로 다음 후보를 이동시간순으로 추천해요.")
+            .assertExists()
+        composeRule.onNodeWithContentDescription("여행루트 도움말 닫기").performClick()
+        composeRule.onNodeWithText("어떻게 계획할까요?").assertDoesNotExist()
     }
 
 }

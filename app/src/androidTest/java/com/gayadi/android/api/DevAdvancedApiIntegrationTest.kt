@@ -131,7 +131,8 @@ class DevAdvancedApiIntegrationTest {
             listOf("DEPARTURE", "ITINERARY", "HOME").forEach { type ->
                 val userId = ownerId.takeIf { type != "ITINERARY" }
                 val recommendations = support.recommendRoutes(trip.id, type, userId)
-                assertEquals(2, recommendations.size)
+                // 자동차·대중교통·도보·자전거 네 가지 이동수단 후보를 저장합니다(서버 #62).
+                assertEquals(4, recommendations.size)
                 assertTrue(recommendations.all { it.id.isNotBlank() && it.stops.size >= 2 })
                 val selected = support.selectRoute(trip.id, type, recommendations.first().optionId, userId)
                 assertTrue(selected.selected)

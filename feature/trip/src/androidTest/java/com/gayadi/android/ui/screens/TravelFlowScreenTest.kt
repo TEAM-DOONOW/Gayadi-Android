@@ -1,5 +1,8 @@
 package com.gayadi.android.ui.screens
 
+import com.gayadi.android.domain.model.RankingType
+import com.gayadi.android.domain.model.RankingList
+import com.gayadi.android.domain.model.RankingItem
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertCountEquals
@@ -68,7 +71,8 @@ class TravelFlowScreenTest {
     }
 
     @Test
-    fun homeRecommendationCategoryChangesDisplayedCards() {
+    fun homeRankingShowsServerItemsAndReportsCategorySelection() {
+        var selected: HomeRankingCategory? = null
         composeRule.setContent {
             GayadiTheme {
                 MyTripScreen(
@@ -78,15 +82,24 @@ class TravelFlowScreenTest {
                     onOpenTripDetail = {},
                     onDeleteTrip = {},
                     onOpenSettings = {},
+                    rankingUiState = HomeRankingUiState(
+                        rankings = RankingList(
+                            type = RankingType.ATTRACTION,
+                            region = "서울",
+                            basePeriod = "2026-07",
+                            providerDataAvailable = true,
+                            items = listOf(RankingItem(1, "경복궁", "서울 종로구 · 궁", metricLabel = "방문 순위 1위")),
+                        ),
+                    ),
+                    onRankingCategorySelected = { selected = it },
                 )
             }
         }
 
-        composeRule.onNodeWithText("인기 관광지").performClick()
-
-        composeRule.onNodeWithText("경주 역사 여행").assertIsDisplayed()
-        composeRule.onNodeWithText("서울 도심 명소").assertIsDisplayed()
-        composeRule.onNodeWithText("포항국제불빛축제").assertDoesNotExist()
+        composeRule.onNodeWithText("서울 인기 관광 TOP 10").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("경복궁").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("축제·행사").performClick()
+        composeRule.runOnIdle { assertEquals(RankingType.FESTIVAL, selected?.type) }
     }
 
     @Test

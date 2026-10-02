@@ -1,6 +1,9 @@
 package com.gayadi.android.data.remote.travel
 
 import com.gayadi.android.data.mapper.toWeatherResult
+import com.gayadi.android.domain.model.CongestionHourlyForecast
+import com.gayadi.android.domain.model.CongestionHourlyPoint
+import com.gayadi.android.domain.model.PlaceCongestionContext
 import com.gayadi.android.domain.model.RouteTransportMode
 
 import com.gayadi.android.data.datasource.GayadiApiClient
@@ -16,6 +19,8 @@ import com.gayadi.android.domain.repository.PlaceRecommendationCommand
 import com.gayadi.android.domain.repository.PlaceRecommendations
 import com.gayadi.android.domain.repository.RecommendedPlace
 import com.gayadi.android.domain.repository.RecommendedRoute
+import com.gayadi.android.domain.repository.RecommendedItinerary
+import com.gayadi.android.domain.repository.RecommendedItineraryStop
 import com.gayadi.android.domain.repository.SituationCommand
 import com.gayadi.android.domain.repository.SituationResult
 import com.gayadi.android.domain.repository.SurveyAnswer
@@ -89,6 +94,35 @@ class ServerTripSupportGateway(private val http: TravelJsonTransport) : TripSupp
 
     override suspend fun clearSelectedRoute(tripId: String, type: String) =
         http.delete("${tripPath(tripId)}/route-selections/${type.pathSegment("type")}")
+
+    override suspend fun recommendItinerary(
+        tripId: String,
+        date: String,
+        startTime: String,
+        endTime: String,
+        transportMode: RouteTransportMode,
+        variation: Int,
+    ): RecommendedItinerary = itinerary(
+        http.postObject(
+            "${tripPath(tripId)}/itinerary-recommendations",
+            itineraryRequest(date, startTime, endTime, transportMode, variation),
+        ),
+    )
+
+    override suspend fun applyItinerary(
+        tripId: String,
+        date: String,
+        startTime: String,
+        endTime: String,
+        transportMode: RouteTransportMode,
+        variation: Int,
+        expectedPlaceIds: List<String>,
+    ): RecommendedItinerary = itinerary(
+        http.putObject(
+            "${tripPath(tripId)}/itinerary-selections/${date.itineraryDateSegment()}",
+            itinerarySelection(startTime, endTime, transportMode, variation, expectedPlaceIds),
+        ),
+    )
 
     override suspend fun submitTripSurvey(
         tripId: String,
@@ -188,6 +222,50 @@ class ServerTripSupportGateway(private val http: TravelJsonTransport) : TripSupp
         http.getObject("/api/v1/congestion/places/${placeId.serverId("placeId")}")
             .optJSONObject("weather")?.toWeatherResult()
 
+    override suspend fun getPlaceContext(placeId: String): PlaceCongestionContext {
+        val response = http.getObject("/api/v1/congestion/places/${placeId.serverId("placeId")}")
+        val congestion = response.optJSONObject("congestion")
+        val points = congestion?.optJSONArray("hourly")?.objects().orEmpty().mapNotNull { point ->
+            val score = point.optIntOrNull("score") ?: return@mapNotNull null
+            CongestionHourlyPoint(
+                hour = point.getInt("hour"),
+                concentrationScore = score,
+                level = point.optCleanString("level"),
+            )
+        }
+        val hourly = congestion?.takeIf { points.isNotEmpty() }?.let {
+            CongestionHourlyForecast(
+                placeName = response.optJSONObject("place")?.optCleanString("name").orEmpty(),
+                targetDate = it.optCleanString("targetDate"),
+                baseLevel = it.optCleanString("currentLevel"),
+                baseScore = it.optIntOrNull("currentScore"),
+                source = it.optCleanString("hourlySource"),
+                estimated = true,
+                providerDataAvailable = true,
+                message = it.optCleanString("message"),
+                points = points,
+            )
+        }
+        val daily = congestion?.let {
+            val score = it.optIntOrNull("currentScore") ?: return@let null
+            CongestionResult(
+                level = it.optCleanString("currentLevel"),
+                score = score,
+                estimated = it.optCleanString("dataType") != "REALTIME",
+                providerDataAvailable = it.optCleanString("source") != "CALENDAR_HEURISTIC",
+                source = it.optCleanString("source"),
+                targetDate = it.optCleanString("targetDate"),
+                message = it.optCleanString("message"),
+                points = points,
+            )
+        }
+        return PlaceCongestionContext(
+            weather = response.optJSONObject("weather")?.toWeatherResult(),
+            hourly = hourly,
+            daily = daily,
+        )
+    }
+
     override suspend fun getUltraForecast(latitude: Double, longitude: Double): WeatherResult =
         weather(http.getObject("/api/v1/weather/ultra-forecast", coordinates(latitude, longitude)))
 
@@ -203,16 +281,30 @@ class ServerTripSupportGateway(private val http: TravelJsonTransport) : TripSupp
     }
 
     override suspend fun getCongestion(command: CongestionCommand): CongestionResult {
-        val response = http.getObject(
-            "/api/v1/congestion/forecast",
-            mapOf(
-                "areaCode" to command.areaCode,
-                "districtCode" to command.districtCode,
-                "areaName" to command.areaName,
-                "placeName" to command.placeName,
-                "targetAt" to command.targetAt,
-            ),
-        )
+        val query = buildMap {
+            put("areaCode", command.areaCode)
+            put("districtCode", command.districtCode)
+            put("areaName", command.areaName)
+            put("placeName", command.placeName)
+            put("targetAt", command.targetAt)
+            command.latitude?.let { put("lat", it.toString()) }
+            command.longitude?.let { put("lon", it.toString()) }
+            if (command.hours.isNotEmpty()) put("hours", command.hours.joinToString(","))
+        }
+        val response = http.getObject("/api/v1/congestion/forecast", query)
+        val points = buildList {
+            val items = response.optJSONArray("points") ?: return@buildList
+            repeat(items.length()) { index ->
+                val item = items.getJSONObject(index)
+                add(
+                    CongestionHourlyPoint(
+                        hour = item.optInt("hour"),
+                        concentrationScore = item.optInt("concentrationScore"),
+                        level = item.optString("level"),
+                    ),
+                )
+            }
+        }
         return CongestionResult(
             level = response.getString("level"),
             score = response.getInt("concentrationScore"),
@@ -222,6 +314,8 @@ class ServerTripSupportGateway(private val http: TravelJsonTransport) : TripSupp
             targetDate = response.optString("targetDate"),
             confidence = response.optString("confidence"),
             message = response.optString("message"),
+            points = points,
+            weather = response.optJSONObject("weather")?.toWeatherResult(),
         )
     }
 
@@ -242,13 +336,14 @@ class ServerTripSupportGateway(private val http: TravelJsonTransport) : TripSupp
         mapOf(
             "mapX" to longitude.toString(), "mapY" to latitude.toString(),
             "radius" to radiusMeters.toString(), "pageSize" to pageSize.toString(),
+            "arrange" to "E",
         ),
     ))
 
     override suspend fun searchTourPlaces(keyword: String, pageSize: Int): TourPage = tourPage(
         http.getObject(
             "/api/v1/tour/keywords",
-            mapOf("keyword" to keyword, "pageSize" to pageSize.toString()),
+            mapOf("keyword" to keyword, "pageSize" to pageSize.toString(), "arrange" to "C"),
         ),
     )
 
@@ -262,11 +357,15 @@ class ServerTripSupportGateway(private val http: TravelJsonTransport) : TripSupp
             "eventStartDate" to startDate,
             "eventEndDate" to endDate,
             "pageSize" to pageSize.toString(),
+            "arrange" to "C",
         ),
     ))
 
     override suspend fun getTourStays(pageSize: Int): TourPage = tourPage(
-        http.getObject("/api/v1/tour/stays", mapOf("pageSize" to pageSize.toString())),
+        http.getObject(
+            "/api/v1/tour/stays",
+            mapOf("pageSize" to pageSize.toString(), "arrange" to "C"),
+        ),
     )
 
     private fun plan(value: JSONObject): TravelPlan {
@@ -297,6 +396,34 @@ class ServerTripSupportGateway(private val http: TravelJsonTransport) : TripSupp
             selected = value.optString("status") == "SELECTED",
         )
     }
+
+    private fun itinerary(value: JSONObject) = RecommendedItinerary(
+        date = value.getString("date"),
+        startTime = value.getString("startTime"),
+        endTime = value.getString("endTime"),
+        transportMode = RouteTransportMode.valueOf(value.getString("transportMode")),
+        variation = value.getInt("variation"),
+        estimated = value.getBoolean("estimated"),
+        totalTravelMinutes = value.getInt("totalTravelMinutes"),
+        totalStayMinutes = value.getInt("totalStayMinutes"),
+        summary = value.getString("summary"),
+        stops = value.getJSONArray("stops").objects().map { stop ->
+            RecommendedItineraryStop(
+                order = stop.getInt("order"),
+                placeId = stop.getLong("placeId").toString(),
+                name = stop.getString("name"),
+                category = stop.getString("category"),
+                imageUrl = stop.optCleanString("imageUrl"),
+                latitude = stop.optDoubleOrNull("latitude"),
+                longitude = stop.optDoubleOrNull("longitude"),
+                arrivalTime = stop.getString("arrivalTime"),
+                departureTime = stop.getString("departureTime"),
+                stayMinutes = stop.getInt("stayMinutes"),
+                travelMinutesFromPrevious = stop.getInt("travelMinutesFromPrevious"),
+                distanceMetersFromPrevious = stop.getInt("distanceMetersFromPrevious"),
+            )
+        },
+    )
 
     private fun proposal(value: JSONObject): ChangeProposal = ChangeProposal(
         id = value.getLong("id").toString(),
@@ -381,6 +508,43 @@ private fun PlaceRecommendationCommand.toJson() = JSONObject()
     .put("limit", limit)
     .put("externalProcessingConsent", externalProcessingConsent)
 
+private fun itineraryRequest(
+    date: String,
+    startTime: String,
+    endTime: String,
+    transportMode: RouteTransportMode,
+    variation: Int,
+) = JSONObject()
+    .put("date", date)
+    .put("startTime", startTime)
+    .put("endTime", endTime)
+    .put("transportMode", transportMode.name)
+    .put("variation", variation)
+
+/** 미리 본 루트의 장소 순서를 함께 보내 서버가 같은 결과일 때만 일정을 바꾸게 합니다. */
+private fun itinerarySelection(
+    startTime: String,
+    endTime: String,
+    transportMode: RouteTransportMode,
+    variation: Int,
+    expectedPlaceIds: List<String>,
+): JSONObject {
+    require(expectedPlaceIds.isNotEmpty()) { "expectedPlaceIds must not be empty" }
+    return JSONObject()
+        .put("startTime", startTime)
+        .put("endTime", endTime)
+        .put("transportMode", transportMode.name)
+        .put("variation", variation)
+        .put("expectedPlaceIds", JSONArray(expectedPlaceIds.map { it.serverId("expectedPlaceId") }))
+}
+
+/** 경로 조각에는 yyyy-MM-dd만 씁니다. 앱 날짜 표기 yyyy.MM.dd도 받습니다. */
+private fun String.itineraryDateSegment(): String {
+    val normalized = trim().replace('.', '-')
+    require(normalized.matches(Regex("\\d{4}-\\d{2}-\\d{2}"))) { "date is invalid" }
+    return normalized
+}
+
 private fun SituationCommand.toJson() = JSONObject()
     .put("latitude", latitude)
     .put("longitude", longitude)
@@ -410,5 +574,12 @@ private fun JSONObject.optNullableString(key: String): String? =
 
 private fun JSONObject.optDoubleOrNull(key: String): Double? =
     if (!has(key) || isNull(key)) null else getDouble(key)
+
+private fun JSONObject.optIntOrNull(key: String): Int? =
+    if (!has(key) || isNull(key)) null else getInt(key)
+
+/** org.json의 optString은 JSON null을 "null" 문자열로 바꾸므로 빈 문자열로 정리합니다. */
+private fun JSONObject.optCleanString(key: String): String =
+    optNullableString(key)?.trim().orEmpty()
 
 private fun JSONArray.objects(): List<JSONObject> = List(length(), ::getJSONObject)

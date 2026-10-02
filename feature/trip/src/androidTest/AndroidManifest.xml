@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 장소 이미지(Coil) 요청이 권한 예외로 테스트를 중단시키지 않도록 테스트 APK에도 인터넷 권한을 둔다. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+</manifest>
