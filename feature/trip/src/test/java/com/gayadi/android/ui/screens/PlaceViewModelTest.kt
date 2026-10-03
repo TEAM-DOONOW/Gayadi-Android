@@ -59,6 +59,56 @@ class PlaceViewModelTest {
     }
 
     @Test
+    fun detailUsesOneForecastResponseForWeatherAndHourlyGraph() {
+        var hourlyCalls = 0
+        var weatherCalls = 0
+        val gateway = java.lang.reflect.Proxy.newProxyInstance(
+            com.gayadi.android.domain.repository.TripSupportGateway::class.java.classLoader,
+            arrayOf(com.gayadi.android.domain.repository.TripSupportGateway::class.java),
+        ) { _, method, args ->
+            when (method.name) {
+                "getPlace" -> com.gayadi.android.domain.model.TourPlace(
+                    "place-3", "섭지코지", "제주", "", "", 126.9, 33.4, regionCode = "50", districtCode = "130",
+                )
+                "getPlaceWeather" -> {
+                    weatherCalls += 1
+                    null
+                }
+                "getCongestion" -> {
+                    val command = args[0] as com.gayadi.android.domain.repository.CongestionCommand
+                    assertEquals(33.4, command.latitude)
+                    assertEquals(126.9, command.longitude)
+                    assertEquals(24, command.hours.size)
+                    com.gayadi.android.domain.repository.CongestionResult(
+                        "CROWDED", 75, true, true,
+                        points = listOf(CongestionHourlyPoint(13, 86, "CROWDED")),
+                        weather = com.gayadi.android.domain.repository.WeatherResult(
+                            "", "", "23", 0, condition = "맑음", precipitationProbability = 10,
+                        ),
+                    )
+                }
+                else -> error("Unexpected call: ${method.name}")
+            }
+        } as com.gayadi.android.domain.repository.TripSupportGateway
+        val hourly = object : CongestionRepository {
+            override suspend fun getHourlyForecast(
+                areaCode: String, districtCode: String, areaName: String, placeName: String,
+                targetAt: String, hours: List<Int>?,
+            ): Result<CongestionHourlyForecast> {
+                hourlyCalls += 1
+                return Result.success(CongestionHourlyForecast())
+            }
+        }
+        val vm = PlaceViewModel(tripSupportGateway = gateway, getCongestionHourly = GetCongestionHourlyUseCase(hourly))
+        vm.loadPlaceDetails("place-3", "2026.10.01")
+        assertEquals(0, weatherCalls)
+        assertEquals(0, hourlyCalls)
+        assertEquals("맑음", vm.weatherUiState.value.weather?.condition)
+        assertEquals(86, vm.hourlyUiState.value.forecast?.points?.single()?.concentrationScore)
+        assertEquals(75, vm.forecastUiState.value.forecast?.score)
+    }
+
+    @Test
     fun missingCoordinatesDoNotUseFakeWeatherDefaults() {
         val vm = PlaceViewModel()
         vm.loadWeather("place-3")

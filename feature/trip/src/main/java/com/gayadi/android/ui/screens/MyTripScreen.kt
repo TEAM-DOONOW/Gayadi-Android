@@ -1,5 +1,21 @@
 package com.gayadi.android.ui.screens
 
+import com.gayadi.android.ui.theme.Divider
+import androidx.compose.foundation.BorderStroke
+import com.gayadi.android.ui.theme.TextTertiary
+import com.gayadi.android.ui.theme.SurfaceLight
+import androidx.compose.material.icons.outlined.Place
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
+import coil.compose.AsyncImage
+import com.gayadi.android.domain.model.RankingItem
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.unit.IntOffset
@@ -68,7 +84,6 @@ import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -91,7 +106,6 @@ import com.gayadi.android.ui.theme.PrimaryBlue
 import com.gayadi.android.ui.theme.TextPrimary
 import com.gayadi.android.ui.theme.TextSecondary
 import com.gayadi.android.domain.model.TripStatus
-import com.gayadi.android.feature.trip.R
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.UUID
@@ -127,10 +141,12 @@ fun MyTripScreen(
     onOpenSettings: () -> Unit,
     onOpenAgent: () -> Unit = {},
     onJoinTripWithCode: (String) -> Unit = { onJoinTrip() },
+    rankingUiState: HomeRankingUiState = HomeRankingUiState(),
+    onRankingCategorySelected: (HomeRankingCategory) -> Unit = {},
+    onRankingRetry: () -> Unit = {},
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     var showJoinTripSheet by rememberSaveable { mutableStateOf(false) }
-    var selectedRecommendationCategory by rememberSaveable { mutableStateOf(homeRecommendationCategories.first()) }
     var isUsageGuideVisible by rememberSaveable { mutableStateOf(showUsageGuide) }
     var inviteButtonBounds by remember { mutableStateOf<Rect?>(null) }
     var addButtonBounds by remember { mutableStateOf<Rect?>(null) }
@@ -201,13 +217,14 @@ fun MyTripScreen(
             modifier = Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            homeRecommendationCategories.forEach { label ->
-                val selected = label == selectedRecommendationCategory
+            homeRankingCategories.forEach { category ->
+                val selected = category == rankingUiState.selected
                 Text(
-                    label,
+                    category.label,
                     modifier = Modifier
                         .clip(RoundedCornerShape(20.dp))
-                        .clickable { selectedRecommendationCategory = label }
+                        .clickable { onRankingCategorySelected(category) }
+                        .semantics { this.selected = selected }
                         .background(if (selected) TripAccentColor else Color.White)
                         .padding(horizontal = 20.dp, vertical = 6.dp),
                     fontFamily = PretendardFontFamily,
@@ -217,9 +234,7 @@ fun MyTripScreen(
             }
         }
         Spacer(modifier = Modifier.height(16.dp))
-        Box(Modifier.padding(horizontal = 20.dp)) {
-            HomeRecommendationRow(selectedRecommendationCategory)
-        }
+        HomeRankingSection(rankingUiState, onRetry = onRankingRetry)
         Spacer(modifier = Modifier.height(28.dp))
         Box(
             modifier = Modifier
@@ -415,73 +430,125 @@ private fun JoinTripBottomSheet(onDismiss: () -> Unit, onSubmit: (String) -> Uni
 }
 
 @Composable
-private fun HomeRecommendationRow(category: String) {
-    val recommendations = homeRecommendations.getValue(category)
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        recommendations.forEach { recommendation ->
-            HomeRecommendationCard(
-                modifier = Modifier.weight(1f),
-                imageRes = recommendation.imageRes,
-                title = recommendation.title,
-                subtitle = recommendation.subtitle,
-            )
+private fun HomeRankingSection(uiState: HomeRankingUiState, onRetry: () -> Unit) {
+    val rankings = uiState.rankings
+    Column(Modifier.fillMaxWidth()) {
+        Text(
+            uiState.selected.title,
+            modifier = Modifier.padding(horizontal = 20.dp),
+            style = MaterialTheme.typography.titleMedium,
+            color = TextPrimary,
+        )
+        Spacer(Modifier.height(10.dp))
+        when {
+            uiState.isLoading -> Box(
+                Modifier.fillMaxWidth().height(HomeRankingCardHeight),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator(color = TripAccentColor, modifier = Modifier.size(28.dp), strokeWidth = 2.dp)
+            }
+            uiState.errorMessage != null -> HomeRankingMessage(uiState.errorMessage, actionLabel = "다시 시도", onAction = onRetry)
+            rankings == null || rankings.items.isEmpty() -> HomeRankingMessage("아직 순위 정보가 없어요. 잠시 후 다시 확인해 주세요.")
+            else -> {
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 20.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    items(rankings.items, key = { "${it.rank}-${it.title}" }) { item ->
+                        HomeRankingCard(item)
+                    }
+                }
+                if (!rankings.providerDataAvailable) {
+                    Text(
+                        "순위 자료를 준비 중이라 추천 관광지를 먼저 보여드려요",
+                        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary,
+                    )
+                }
+            }
         }
     }
 }
 
-private data class HomeRecommendation(
-    val imageRes: Int,
-    val title: String,
-    val subtitle: String,
-)
-
-private val homeRecommendationCategories = listOf("축제·행사", "인기 관광지", "바다 여행", "도시 여행")
-
-private val homeRecommendations = mapOf(
-    "축제·행사" to listOf(
-        HomeRecommendation(R.drawable.city_pohang, "포항국제불빛축제", "이번 달 인기 축제"),
-        HomeRecommendation(R.drawable.city_busan, "부산 불꽃 여행", "밤바다와 함께 즐기는 축제"),
-    ),
-    "인기 관광지" to listOf(
-        HomeRecommendation(R.drawable.city_gyeongju, "경주 역사 여행", "인기 관광지 TOP 10"),
-        HomeRecommendation(R.drawable.city_seoul, "서울 도심 명소", "지금 많이 찾는 관광지"),
-    ),
-    "바다 여행" to listOf(
-        HomeRecommendation(R.drawable.city_jeju, "제주 바다 여행", "오름과 해안을 한 번에"),
-        HomeRecommendation(R.drawable.city_yeosu, "여수 밤바다", "낭만적인 해안 여행"),
-    ),
-    "도시 여행" to listOf(
-        HomeRecommendation(R.drawable.city_seoul, "서울 골목 여행", "문화와 맛집을 함께"),
-        HomeRecommendation(R.drawable.city_busan, "부산 도심 여행", "시장과 해변을 함께"),
-    ),
-)
-
 @Composable
-private fun HomeRecommendationCard(
-    modifier: Modifier,
-    imageRes: Int,
-    title: String,
-    subtitle: String,
-) {
+private fun HomeRankingMessage(message: String, actionLabel: String? = null, onAction: () -> Unit = {}) {
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = 20.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color.White)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(message, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+        if (actionLabel != null) {
+            TextButton(onClick = onAction, contentPadding = PaddingValues(0.dp)) {
+                Text(actionLabel, color = TripAccentColor)
+            }
+        }
+    }
+}
+
+private val HomeRankingCardHeight = 214.dp
+@Composable
+private fun HomeRankingCard(item: RankingItem) {
     Card(
-        modifier = modifier,
+        modifier = Modifier.width(160.dp).semantics(mergeDescendants = true) {},
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        // 패턴 배경 아래 흰 영역까지 카드가 걸쳐도 경계가 보이도록 테두리를 둔다.
+        border = BorderStroke(1.dp, Divider),
     ) {
         Column(Modifier.fillMaxWidth().padding(10.dp)) {
-            Image(
-                painter = painterResource(imageRes),
-                contentDescription = title,
-                modifier = Modifier.fillMaxWidth().height(142.dp).clip(RoundedCornerShape(12.dp)),
-                contentScale = ContentScale.Crop,
-            )
+            Box(
+                Modifier.fillMaxWidth().height(128.dp).clip(RoundedCornerShape(12.dp)).background(SurfaceLight),
+                contentAlignment = Alignment.Center,
+            ) {
+                // 이미지가 없거나 불러오지 못하면 다른 장소 사진 대신 중립적인 장소 아이콘을 보여준다.
+                Icon(Icons.Outlined.Place, contentDescription = null, tint = TextTertiary, modifier = Modifier.size(32.dp))
+                if (item.imageUrl.isNotBlank()) {
+                    AsyncImage(
+                        model = item.imageUrl,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                    )
+                }
+                Text(
+                    "${item.rank}",
+                    modifier = Modifier.align(Alignment.TopStart).padding(8.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(TripAccentColor)
+                        .padding(horizontal = 10.dp, vertical = 3.dp)
+                        .semantics { contentDescription = "${item.rank}위" },
+                    style = MaterialTheme.typography.labelLarge,
+                    color = Color.White,
+                )
+            }
             Spacer(Modifier.height(8.dp))
-            Text(title, fontFamily = PretendardSemiBoldFontFamily, fontSize = 14.sp, color = TextPrimary, maxLines = 1)
-            Text(subtitle, fontFamily = PretendardFontFamily, fontSize = 12.sp, color = TextSecondary)
+            Text(
+                item.title,
+                style = MaterialTheme.typography.titleSmall,
+                color = TextPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                item.subtitle.ifBlank { item.metricLabel },
+                style = MaterialTheme.typography.bodySmall,
+                color = TextSecondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (item.subtitle.isNotBlank() && item.metricLabel.isNotBlank()) {
+                Text(
+                    item.metricLabel,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = TripAccentColor,
+                    maxLines = 1,
+                )
+            }
         }
     }
 }

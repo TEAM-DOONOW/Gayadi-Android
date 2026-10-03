@@ -18,7 +18,7 @@ fun FriendshipPanel(state: FriendshipUiState, onSearch: (String) -> Unit,
     Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("친구", style = MaterialTheme.typography.titleLarge)
         if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-        OutlinedTextField(value = query, onValueChange = { query = it.take(100) },
+        OutlinedTextField(value = query, onValueChange = { query = it.take(30) },
             label = { Text("닉네임으로 친구 검색") }, singleLine = true, modifier = Modifier.fillMaxWidth())
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = { onSearch(query) }, enabled = !state.busy && query.isNotBlank(),

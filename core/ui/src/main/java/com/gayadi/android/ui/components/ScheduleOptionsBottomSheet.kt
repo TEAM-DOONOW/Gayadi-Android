@@ -252,7 +252,7 @@ fun ScheduleOptionsBottomSheet(
 }
 
 @Composable
-private fun WheelTimePickerDialog(
+fun WheelTimePickerDialog(
     initialTime: String,
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit,
