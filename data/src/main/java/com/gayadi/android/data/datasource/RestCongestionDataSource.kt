@@ -5,7 +5,7 @@ import com.gayadi.android.domain.model.CongestionHourlyPoint
 import java.net.URLEncoder
 import org.json.JSONObject
 
-/** 시간대 혼잡은 `GET /api/v1/congestion/forecast`의 points를 읽습니다. */
+/** Reads the backend hourly congestion forecast. Existing single-shot forecast callers stay untouched. */
 class RestCongestionDataSource(
     private val api: GayadiApiClient,
 ) {
@@ -65,7 +65,7 @@ class RestCongestionDataSource(
         URLEncoder.encode(this, Charsets.UTF_8.name())
 
     private companion object {
-        const val HOURLY_PATH = "/api/v1/congestion/forecast"
+        const val HOURLY_PATH = "/api/v1/congestion/forecast/hourly"
         val AREA_CODE_PATTERN = Regex("\\d{2}")
         val DISTRICT_CODE_PATTERN = Regex("\\d{3}|\\d{5}")
     }
