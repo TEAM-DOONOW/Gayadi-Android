@@ -44,6 +44,9 @@
 [TRAVEL_API.md](TRAVEL_API.md), [SOCIAL_API.md](SOCIAL_API.md),
 [PUBLIC_CONTENT_API.md](PUBLIC_CONTENT_API.md)를 기준으로 한다.
 
+혼잡 일별·시간대·날씨 API는 각각 독립된 기존 계약이다. 서버와 앱을 함께 배포하는 별도 변경 없이
+`/congestion/forecast` 응답에 시간대나 날씨를 합치지 않는다.
+
 ## 응답과 오류
 
 ### 장소찾기 이동시간순과 일정 지도
