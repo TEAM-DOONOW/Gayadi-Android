@@ -92,6 +92,11 @@ class AppContainer(
     val friendshipGateway: com.gayadi.android.domain.repository.FriendshipGateway = com.gayadi.android.data.remote.travel.ServerFriendshipGateway(api)
     val travelGateway: com.gayadi.android.domain.repository.TravelGateway = com.gayadi.android.data.remote.travel.ServerTravelGateway(api)
     val agentGateway: com.gayadi.android.domain.repository.AgentGateway = ServerAgentGateway(api)
+    val rankingGateway: com.gayadi.android.domain.repository.RankingGateway =
+        com.gayadi.android.data.remote.ranking.ServerRankingGateway(
+            // The first ranking request may combine several public data calls before the server caches it.
+            GayadiApiClient(tourApiBaseUrl, authRepository, readTimeoutSeconds = 35, callTimeoutSeconds = 40),
+        )
     val tripSupportGateway: com.gayadi.android.domain.repository.TripSupportGateway =
         com.gayadi.android.data.remote.travel.ServerTripSupportGateway(api)
     val placeCandidateGateway: com.gayadi.android.domain.repository.PlaceCandidateGateway =

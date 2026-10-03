@@ -1,5 +1,7 @@
 package com.gayadi.android.ui.screens
 
+import org.junit.Assert.assertEquals
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -13,6 +15,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.gayadi.android.domain.model.AgentRecommendation
 import com.gayadi.android.ui.theme.GayadiTheme
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -170,6 +173,75 @@ class PlaceSearchScreenTest {
             assertTrue(addedPlaceId == "42")
             assertTrue(addedTime == "10:00")
         }
+    }
+
+    @Test
+    fun agentRecommendationsStayVisibleWhilePlaceListIsLoading() {
+        composeRule.setContent {
+            GayadiTheme {
+                PlaceSearchScreen(
+                    uiState = PlaceUiState(isLoading = true),
+                    recommendationUiState = PlaceRecommendationUiState(
+                        recommendations = listOf(
+                            AgentRecommendation(
+                                placeId = "42",
+                                sourcePlaceId = "126508",
+                                name = "국립중앙박물관",
+                                category = "CULTURE",
+                                score = 0.91,
+                                reason = "실내 관람이 가능해요.",
+                            ),
+                        ),
+                    ),
+                    onBack = {},
+                    onQueryChange = {},
+                    onCategorySelected = {},
+                    onPlaceClick = {},
+                    onRetry = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("가야디 추천 장소").assertIsDisplayed()
+        composeRule.onNodeWithText("국립중앙박물관").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("실내 관람이 가능해요.").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("일정에 추가").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("이 장소로 변경").performScrollTo().assertIsNotEnabled()
+    }
+
+    @Test
+    fun linkedModeWarnsBeforeReplacingWithAnUnlinkedPlace() {
+        var replaced: String? = null
+        var linkMode = true
+        composeRule.setContent {
+            GayadiTheme {
+                PlaceSearchScreen(
+                    uiState = PlaceUiState(places = listOf(tourApiPlace("7", "먼 명소", "관광명소", "🏞️")), isLoading = false),
+                    onBack = {},
+                    onQueryChange = {},
+                    onCategorySelected = {},
+                    onPlaceClick = {},
+                    onRetry = {},
+                    replaceTargetName = "경복궁",
+                    replaceTargetOptions = listOf("s1" to "경복궁", "s2" to "광화문"),
+                    replaceTargetId = "s1",
+                    onReplaceWithPlace = { replaced = it.id },
+                    linkMode = linkMode,
+                    onLinkModeChange = { linkMode = it },
+                    isLinkedReplacement = { false },
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("여행지 연계").assertIsDisplayed()
+        composeRule.onNodeWithText("1. 경복궁").assertIsDisplayed()
+        composeRule.onNodeWithText("이 장소로 변경").performScrollTo().performClick()
+        composeRule.onNodeWithText("기존 여행지와 연계되지 않아요").assertIsDisplayed()
+        composeRule.onNodeWithText("그래도 변경").performClick()
+        composeRule.runOnIdle { assertEquals("7", replaced) }
+
+        composeRule.onNodeWithText("여행지 연계").performClick()
+        composeRule.runOnIdle { assertEquals(false, linkMode) }
     }
 
     @Test

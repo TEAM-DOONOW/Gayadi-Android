@@ -59,6 +59,9 @@ val devProperties = loadEnvironmentProperties("dev")
 val prodProperties = loadEnvironmentProperties("prod")
 val prodApiBaseUrl = configuredString(providers.gradleProperty("API_BASE_URL").orNull)
     ?: prodProperties.requiredString("API_BASE_URL")
+// 로컬 서버 검증용: -PDEV_API_BASE_URL=http://10.0.2.2:8080
+val devApiBaseUrl = configuredString(providers.gradleProperty("DEV_API_BASE_URL").orNull)
+    ?: devProperties.requiredString("API_BASE_URL")
 val googleWebClientIdOverride = configuredString(
     providers.gradleProperty("GOOGLE_WEB_CLIENT_ID").orNull,
 )
@@ -132,7 +135,7 @@ android {
             buildConfigField(
                 "String",
                 "API_BASE_URL",
-                devProperties.requiredString("API_BASE_URL")
+                devApiBaseUrl
                     .replace("localhost", "10.0.2.2")
                     .replace("127.0.0.1", "10.0.2.2")
                     .asBuildConfigString(),
