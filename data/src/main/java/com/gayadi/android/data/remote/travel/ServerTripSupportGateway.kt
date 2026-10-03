@@ -1,9 +1,6 @@
 package com.gayadi.android.data.remote.travel
 
 import com.gayadi.android.data.mapper.toWeatherResult
-import com.gayadi.android.domain.model.CongestionHourlyForecast
-import com.gayadi.android.domain.model.CongestionHourlyPoint
-import com.gayadi.android.domain.model.PlaceCongestionContext
 import com.gayadi.android.domain.model.RouteTransportMode
 
 import com.gayadi.android.data.datasource.GayadiApiClient
@@ -222,50 +219,6 @@ class ServerTripSupportGateway(private val http: TravelJsonTransport) : TripSupp
         http.getObject("/api/v1/congestion/places/${placeId.serverId("placeId")}")
             .optJSONObject("weather")?.toWeatherResult()
 
-    override suspend fun getPlaceContext(placeId: String): PlaceCongestionContext {
-        val response = http.getObject("/api/v1/congestion/places/${placeId.serverId("placeId")}")
-        val congestion = response.optJSONObject("congestion")
-        val points = congestion?.optJSONArray("hourly")?.objects().orEmpty().mapNotNull { point ->
-            val score = point.optIntOrNull("score") ?: return@mapNotNull null
-            CongestionHourlyPoint(
-                hour = point.getInt("hour"),
-                concentrationScore = score,
-                level = point.optCleanString("level"),
-            )
-        }
-        val hourly = congestion?.takeIf { points.isNotEmpty() }?.let {
-            CongestionHourlyForecast(
-                placeName = response.optJSONObject("place")?.optCleanString("name").orEmpty(),
-                targetDate = it.optCleanString("targetDate"),
-                baseLevel = it.optCleanString("currentLevel"),
-                baseScore = it.optIntOrNull("currentScore"),
-                source = it.optCleanString("hourlySource"),
-                estimated = true,
-                providerDataAvailable = true,
-                message = it.optCleanString("message"),
-                points = points,
-            )
-        }
-        val daily = congestion?.let {
-            val score = it.optIntOrNull("currentScore") ?: return@let null
-            CongestionResult(
-                level = it.optCleanString("currentLevel"),
-                score = score,
-                estimated = it.optCleanString("dataType") != "REALTIME",
-                providerDataAvailable = it.optCleanString("source") != "CALENDAR_HEURISTIC",
-                source = it.optCleanString("source"),
-                targetDate = it.optCleanString("targetDate"),
-                message = it.optCleanString("message"),
-                points = points,
-            )
-        }
-        return PlaceCongestionContext(
-            weather = response.optJSONObject("weather")?.toWeatherResult(),
-            hourly = hourly,
-            daily = daily,
-        )
-    }
-
     override suspend fun getUltraForecast(latitude: Double, longitude: Double): WeatherResult =
         weather(http.getObject("/api/v1/weather/ultra-forecast", coordinates(latitude, longitude)))
 
@@ -281,30 +234,16 @@ class ServerTripSupportGateway(private val http: TravelJsonTransport) : TripSupp
     }
 
     override suspend fun getCongestion(command: CongestionCommand): CongestionResult {
-        val query = buildMap {
-            put("areaCode", command.areaCode)
-            put("districtCode", command.districtCode)
-            put("areaName", command.areaName)
-            put("placeName", command.placeName)
-            put("targetAt", command.targetAt)
-            command.latitude?.let { put("lat", it.toString()) }
-            command.longitude?.let { put("lon", it.toString()) }
-            if (command.hours.isNotEmpty()) put("hours", command.hours.joinToString(","))
-        }
-        val response = http.getObject("/api/v1/congestion/forecast", query)
-        val points = buildList {
-            val items = response.optJSONArray("points") ?: return@buildList
-            repeat(items.length()) { index ->
-                val item = items.getJSONObject(index)
-                add(
-                    CongestionHourlyPoint(
-                        hour = item.optInt("hour"),
-                        concentrationScore = item.optInt("concentrationScore"),
-                        level = item.optString("level"),
-                    ),
-                )
-            }
-        }
+        val response = http.getObject(
+            "/api/v1/congestion/forecast",
+            mapOf(
+                "areaCode" to command.areaCode,
+                "districtCode" to command.districtCode,
+                "areaName" to command.areaName,
+                "placeName" to command.placeName,
+                "targetAt" to command.targetAt,
+            ),
+        )
         return CongestionResult(
             level = response.getString("level"),
             score = response.getInt("concentrationScore"),
@@ -314,8 +253,6 @@ class ServerTripSupportGateway(private val http: TravelJsonTransport) : TripSupp
             targetDate = response.optString("targetDate"),
             confidence = response.optString("confidence"),
             message = response.optString("message"),
-            points = points,
-            weather = response.optJSONObject("weather")?.toWeatherResult(),
         )
     }
 
@@ -488,6 +425,8 @@ class ServerTripSupportGateway(private val http: TravelJsonTransport) : TripSupp
         lclsSystm1 = item.optString("lclsSystm1"),
         lclsSystm2 = item.optString("lclsSystm2"),
         lclsSystm3 = item.optString("lclsSystm3"),
+        regionCode = item.optCleanString("lDongRegnCd"),
+        districtCode = item.optCleanString("lDongSignguCd"),
         distanceMeters = item.optString("dist").toDoubleOrNull()?.toInt(),
     )
 

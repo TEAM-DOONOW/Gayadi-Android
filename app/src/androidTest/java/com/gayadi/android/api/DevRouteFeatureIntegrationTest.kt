@@ -16,7 +16,6 @@ import com.gayadi.android.domain.model.RankingType
 import com.gayadi.android.domain.model.RouteTransportMode
 import com.gayadi.android.domain.model.ScheduleType
 import com.gayadi.android.domain.repository.AuthRepository
-import com.gayadi.android.domain.repository.CongestionCommand
 import com.gayadi.android.domain.repository.CreateTripCommand
 import java.io.File
 import java.time.LocalDate
@@ -32,7 +31,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * 홈 순위, 장소 혼잡·날씨, 여행루트를 앱 데이터 계층 그대로 서버에 붙여 확인합니다.
+ * 홈 순위와 여행루트를 앱 데이터 계층 그대로 서버에 붙여 확인합니다.
  * `liveApi=true`일 때만 실행하며 임시 계정과 여행은 끝나면 지웁니다.
  * `seedSession=true`는 로컬 서버 UI 확인용으로 로그인 세션과 여행을 남깁니다.
  */
@@ -43,7 +42,7 @@ class DevRouteFeatureIntegrationTest {
     private val dates = DateTimeFormatter.ofPattern("yyyy.MM.dd")
 
     @Test
-    fun homeRankingsPlaceContextAndItineraryRoundTrip() = runBlocking {
+    fun homeRankingsAndItineraryRoundTrip() = runBlocking {
         assumeTrue(InstrumentationRegistry.getArguments().getString("liveApi") == "true")
         check(BuildConfig.FLAVOR == "dev")
         val (auth, _) = register("루트연동")
@@ -58,13 +57,6 @@ class DevRouteFeatureIntegrationTest {
                 assertEquals(type, list.type)
                 assertTrue(list.items.all { it.title.isNotBlank() && it.imageUrl != "null" })
             }
-
-            val congestion = support.getCongestion(CongestionCommand(
-                areaCode = "11", districtCode = "110", placeName = "경복궁",
-                latitude = 37.5796, longitude = 126.9770, hours = listOf(9, 13, 18),
-            ))
-            assertEquals(listOf(9, 13, 18), congestion.points.map { it.hour })
-            assertTrue("weather must be attached when coordinates are sent", congestion.weather != null)
 
             val start = LocalDate.now().plusDays(2)
             val trip = travel.createTrip(CreateTripCommand(
@@ -82,9 +74,6 @@ class DevRouteFeatureIntegrationTest {
                 assertTrue(after.arrivalTime >= before.departureTime)
             }
             assertTrue(preview.stops.last().departureTime <= "18:00")
-
-            val context = support.getPlaceContext(preview.stops.first().placeId)
-            assertTrue(context.weather != null)
 
             val other = support.recommendItinerary(
                 trip.id, date, "10:00", "18:00", RouteTransportMode.PUBLIC_TRANSIT, 1,
