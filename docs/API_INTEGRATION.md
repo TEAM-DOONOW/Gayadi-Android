@@ -37,12 +37,15 @@
 | 여행별 성향 | `POST .../survey-responses`, `GET .../personality-profile` |
 | 현장 상황 | `POST .../event-observations`, `GET/PATCH .../change-proposals` |
 | Agent | `POST /api/v1/recommendations/places`, `POST .../situation-responses` |
-| 날씨·혼잡 | 장소 화면은 `GET /api/v1/congestion/forecast`에 지역 코드, `hours`, `lat`, `lon`을 한 번 보냅니다. 시간대는 응답 `points`입니다. `weather`가 없으면 저장된 장소 번호로 `GET /api/v1/congestion/places/{placeId}`를 보완합니다. `GET /api/v1/weather/*`는 기상청 원본입니다. |
+| 날씨·혼잡 | `GET /api/v1/weather/*`, `GET /api/v1/congestion/forecast`, `GET /api/v1/congestion/forecast/hourly`, `GET /api/v1/congestion/places/{placeId}` |
 | 관광정보 | `GET /api/v1/tour/areas`, `/locations`, `/keywords`, `/festivals`, `/stays` |
 
 `...`는 `/api/v1/trips/{tripId}`를 뜻한다. 상세 요청·응답은 서버 Swagger와
 [TRAVEL_API.md](TRAVEL_API.md), [SOCIAL_API.md](SOCIAL_API.md),
 [PUBLIC_CONTENT_API.md](PUBLIC_CONTENT_API.md)를 기준으로 한다.
+
+혼잡 일별·시간대·날씨 API는 각각 독립된 기존 계약이다. 서버와 앱을 함께 배포하는 별도 변경 없이
+`/congestion/forecast` 응답에 시간대나 날씨를 합치지 않는다.
 
 ## 응답과 오류
 
