@@ -1,5 +1,7 @@
 package com.gayadi.android.domain.repository
 
+import com.gayadi.android.domain.model.CongestionHourlyPoint
+import com.gayadi.android.domain.model.PlaceCongestionContext
 import com.gayadi.android.domain.model.TourPlace
 import com.gayadi.android.domain.model.RouteTransportMode
 
@@ -25,6 +27,24 @@ interface TripSupportGateway {
     ): RecommendedRoute
     suspend fun clearSelectedRoute(tripId: String, type: String)
 
+    suspend fun recommendItinerary(
+        tripId: String,
+        date: String,
+        startTime: String,
+        endTime: String,
+        transportMode: RouteTransportMode,
+        variation: Int = 0,
+    ): RecommendedItinerary
+    suspend fun applyItinerary(
+        tripId: String,
+        date: String,
+        startTime: String,
+        endTime: String,
+        transportMode: RouteTransportMode,
+        variation: Int,
+        expectedPlaceIds: List<String>,
+    ): RecommendedItinerary
+
     suspend fun submitTripSurvey(tripId: String, answers: List<SurveyAnswer>): TripSurveyResult
     suspend fun getTripPersonality(tripId: String): TripPersonality
 
@@ -43,6 +63,9 @@ interface TripSupportGateway {
 
     suspend fun getWeatherNow(latitude: Double, longitude: Double): WeatherResult
     suspend fun getPlaceWeather(placeId: String): WeatherResult?
+    /** 지역 코드가 없는 저장 장소도 서버 장소 번호로 날씨와 시간대 혼잡을 한 번에 받습니다. */
+    suspend fun getPlaceContext(placeId: String): PlaceCongestionContext =
+        PlaceCongestionContext(weather = getPlaceWeather(placeId))
     suspend fun getUltraForecast(latitude: Double, longitude: Double): WeatherResult
     suspend fun getForecast(latitude: Double, longitude: Double): WeatherResult
     suspend fun getForecastVersion(fileType: String, baseDateTime: String): ForecastVersion
@@ -79,6 +102,34 @@ data class RecommendedRoute(
     val summary: String,
     val stops: List<String>,
     val selected: Boolean,
+)
+
+data class RecommendedItinerary(
+    val date: String,
+    val startTime: String,
+    val endTime: String,
+    val transportMode: RouteTransportMode,
+    val variation: Int,
+    val estimated: Boolean,
+    val totalTravelMinutes: Int,
+    val totalStayMinutes: Int,
+    val summary: String,
+    val stops: List<RecommendedItineraryStop>,
+)
+
+data class RecommendedItineraryStop(
+    val order: Int,
+    val placeId: String,
+    val name: String,
+    val category: String,
+    val imageUrl: String,
+    val latitude: Double?,
+    val longitude: Double?,
+    val arrivalTime: String,
+    val departureTime: String,
+    val stayMinutes: Int,
+    val travelMinutesFromPrevious: Int,
+    val distanceMetersFromPrevious: Int,
 )
 
 data class SurveyAnswer(val questionId: String, val optionId: String)
@@ -164,6 +215,9 @@ data class CongestionCommand(
     val areaName: String = "",
     val placeName: String = "",
     val targetAt: String = "",
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val hours: List<Int> = emptyList(),
 )
 data class CongestionResult(
     val level: String,
@@ -174,5 +228,7 @@ data class CongestionResult(
     val targetDate: String = "",
     val confidence: String = "",
     val message: String = "",
+    val points: List<CongestionHourlyPoint> = emptyList(),
+    val weather: WeatherResult? = null,
 )
 data class TourPage(val places: List<TourPlace>, val totalCount: Int, val nextCursor: String?)

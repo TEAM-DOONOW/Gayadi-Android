@@ -1,6 +1,7 @@
 package com.gayadi.android.ui.screens
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -25,6 +26,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -41,6 +44,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -90,6 +95,7 @@ fun RealtimeHomeScreen(
     onNavigateNotifications: () -> Unit = {},
     onNavigatePlaceDetail: (String, String) -> Unit = { _, _ -> },
     onNavigatePlaceSearch: (String) -> Unit,
+    onNavigateItineraryRoute: (String) -> Unit = {},
     onNavigateParticipants: () -> Unit,
     onUpdateSchedule: (scheduleId: String, time: String, memo: String) -> Unit,
     onAddScheduleExpense: (scheduleId: String, time: String, memo: String) -> Unit,
@@ -206,14 +212,21 @@ fun RealtimeHomeScreen(
                         .background(Color(0xFFE6E6EA)),
                 )
                 Spacer(modifier = Modifier.height(18.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Image(
-                        painter = painterResource(R.drawable.calendar),
-                        contentDescription = null,
-                        modifier = Modifier.size(28.dp),
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("여행 계획", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Image(
+                            painter = painterResource(R.drawable.calendar),
+                            contentDescription = null,
+                            modifier = Modifier.size(28.dp),
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("여행 계획", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                    }
+                    ItineraryRouteGuideButton()
                 }
                 Spacer(modifier = Modifier.height(14.dp))
                 tripDays.forEachIndexed { dayIndex, day ->
@@ -221,6 +234,7 @@ fun RealtimeHomeScreen(
                         day = day,
                         plans = travelPlans.filter { it.date == day.date },
                         onAddPlace = { onNavigatePlaceSearch(day.date) },
+                        onRecommendRoute = { onNavigateItineraryRoute(day.date) },
                         onPlanClick = { selectedPlan = it },
                         onAddPlaceBoundsChanged = if (dayIndex == 0) ({ addPlaceBounds = it }) else null,
                         highlightedPlanId = firstPlanId,
@@ -303,7 +317,7 @@ fun RealtimeHomeScreen(
                             target = addTarget,
                             text = buildAnnotatedString {
                                 withStyle(SpanStyle(color = PrimaryBlue, fontWeight = FontWeight.SemiBold)) {
-                                    append("장소 추가")
+                                    append("하나씩 고르기")
                                 }
                                 append("를 눌러 일정을 채워보세요")
                             },

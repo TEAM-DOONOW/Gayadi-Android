@@ -28,6 +28,7 @@ import com.gayadi.android.ui.screens.MyTripScreen
 import com.gayadi.android.ui.screens.ParticipantsScreen
 import com.gayadi.android.ui.screens.PlaceDetailScreen
 import com.gayadi.android.ui.screens.PlaceSearchScreen
+import com.gayadi.android.ui.screens.PlaceRecommendationViewModel
 import com.gayadi.android.ui.screens.PlaceCandidateViewModel
 import com.gayadi.android.ui.screens.candidateSearchContext
 import com.gayadi.android.ui.screens.RealtimeHomeScreen
@@ -37,10 +38,55 @@ import com.gayadi.android.ui.screens.SettlementDetailsScreen
 import com.gayadi.android.ui.screens.TravelLedgerScreen
 import com.gayadi.android.ui.screens.TripCreateScreen
 import com.gayadi.android.ui.screens.AgentScreen
+import com.gayadi.android.ui.screens.HomeRankingViewModel
+import com.gayadi.android.ui.screens.ItineraryRouteScreen
+import com.gayadi.android.ui.screens.ItineraryRouteViewModel
+import com.gayadi.android.ui.screens.GeoPoint
+import com.gayadi.android.ui.screens.isLinked
+import com.gayadi.android.ui.screens.linkedOrigin
+import com.gayadi.android.ui.screens.point
+import com.gayadi.android.ui.screens.replacementNeighbors
+import com.gayadi.android.ui.screens.sameDayPlaceVisits
 import com.gayadi.android.ui.screens.AgentViewModel
 import com.gayadi.android.notification.ExpenseNotificationsBottomSheet
 
 internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(context) {
+    composable(
+        route = Routes.ITINERARY_ROUTE,
+        arguments = listOf(
+            navArgument("tripId") { type = NavType.StringType },
+            navArgument("date") {
+                type = NavType.StringType
+                defaultValue = ""
+            },
+        ),
+    ) { backStackEntry ->
+        val tripId = requireNotNull(backStackEntry.arguments?.getString("tripId"))
+        val trip = travelUiState.travelState.trip(tripId)
+        val date = backStackEntry.arguments?.getString("date")
+            ?.takeIf(String::isNotBlank)
+            ?: trip?.startDate.orEmpty()
+        val routeViewModel: ItineraryRouteViewModel = viewModel(
+            key = "itinerary-route-$tripId-$date",
+            factory = ItineraryRouteViewModel.factory(appContainer.tripSupportGateway, tripId, date),
+        )
+        val routeUiState by routeViewModel.uiState.collectAsStateWithLifecycle()
+        LaunchedEffect(Unit) { routeViewModel.recommend() }
+        ItineraryRouteScreen(
+            uiState = routeUiState,
+            onBack = { navController.popBackStack() },
+            onTransportModeSelected = routeViewModel::selectTransportMode,
+            onTimeRangeSelected = routeViewModel::selectTimeRange,
+            onNewRoute = { routeViewModel.recommend(forceNewRoute = true) },
+            onRetry = { routeViewModel.recommend() },
+            onApply = {
+                routeViewModel.apply {
+                    tripViewModel.retry()
+                    navController.popBackStack()
+                }
+            },
+        )
+    }
     composable(
         route = Routes.FRIEND_ADD_WITH_CODE,
         arguments = listOf(
@@ -132,10 +178,108 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
                 placeViewModel.uiState.value.transportMode,
             ),
         )
-        val searchContext = candidateSearchContext(tripId, selectedDate, city, scheduledPlaces, beforeId)
+        val linkContext = LocalContext.current
+        var linkMode by rememberSaveable { mutableStateOf(PlaceSearchPreferences.linkMode(linkContext)) }
+        // 사용자가 직접 고른 교체 대상. 없으면 이 화면에서 마지막으로 추가한 일정을 교체한다.
+        var replaceTargetId by rememberSaveable(tripId, selectedDate) { mutableStateOf<String?>(null) }
+        // 이 화면에서 마지막으로 일정에 넣거나 바꾼 장소. 다음 추천의 기준이자 기본 교체 대상이다.
+        var chainAnchorPlaceId by rememberSaveable(tripId, selectedDate) { mutableStateOf<String?>(null) }
+        val orderedVisits = sameDayPlaceVisits(scheduledPlaces, tripId, selectedDate)
+        val anchorSchedule = chainAnchorPlaceId?.let { anchorId -> orderedVisits.lastOrNull { it.placeId == anchorId } }
+        val replaceTarget = orderedVisits.firstOrNull { it.id == replaceTargetId } ?: anchorSchedule
+        val neighbors = replacementNeighbors(orderedVisits, replaceTarget?.id)
+        val explicitTarget = neighbors?.takeIf { replaceTargetId != null }
+        val searchContext = if (linkMode && explicitTarget != null) {
+            // 교체할 일정을 빼고 그 자리에 들어갈 후보를 찾으면 앞뒤 일정 기준 추가 이동시간순이 된다.
+            candidateSearchContext(
+                tripId, selectedDate, city, scheduledPlaces.filterNot { it.id == explicitTarget.target.id },
+                explicitTarget.next?.id,
+            )
+        } else {
+            candidateSearchContext(tripId, selectedDate, city, scheduledPlaces, beforeId)
+        }
         LaunchedEffect(searchContext) { candidateViewModel.configure(searchContext) }
         val placeUiState by candidateViewModel.uiState.collectAsStateWithLifecycle()
         LaunchedEffect(placeUiState.places) { placeViewModel.rememberCandidates(placeUiState.places) }
+        val recommendationViewModel: PlaceRecommendationViewModel = viewModel(
+            key = "place-recommendations-$tripId-$selectedDate",
+            factory = PlaceRecommendationViewModel.factory(
+                appContainer.agentGateway, appContainer.tripSupportGateway::getPlace,
+            ),
+        )
+        val recommendationUiState by recommendationViewModel.uiState.collectAsStateWithLifecycle()
+        LaunchedEffect(recommendationUiState.places) {
+            placeViewModel.rememberCandidates(recommendationUiState.places.values.toList())
+        }
+        val destination = city
+        val lastVisit = orderedVisits.lastOrNull { it.point() != null }
+        val firstCandidate = placeUiState.places.firstOrNull { it.latitude != null && it.longitude != null }
+        val initialOrigin = firstCandidate?.let {
+            RecommendationOrigin("initial", GeoPoint(it.latitude!!, it.longitude!!), "")
+        }
+        val recommendationOrigin: RecommendationOrigin? = if (!linkMode) {
+            // 비연계: 동선과 무관하게 지역 전체에서 추천한다.
+            initialOrigin
+        } else if (explicitTarget != null) {
+            explicitTarget.linkedOrigin()?.let { point ->
+                val previous = explicitTarget.previous?.title
+                val next = explicitTarget.next?.title
+                RecommendationOrigin(
+                    "target:${explicitTarget.target.id}:${explicitTarget.target.placeId}",
+                    point,
+                    when {
+                        previous != null && next != null -> "${previous}와 ${next} 사이에 가기 좋은 곳"
+                        next != null -> "${next} 전에 가기 좋은 곳"
+                        else -> "${previous} 다음으로 가기 좋은 곳"
+                    },
+                )
+            } ?: initialOrigin
+        } else {
+            val anchorPoint = anchorSchedule?.let { schedule ->
+                schedule.point() ?: schedule.placeId?.let(placeViewModel::findPlace)?.let { place ->
+                    if (place.latitude != null && place.longitude != null) GeoPoint(place.latitude!!, place.longitude!!) else null
+                }
+            }
+            when {
+                anchorSchedule != null && anchorPoint != null -> RecommendationOrigin(
+                    "anchor:${anchorSchedule.id}:${anchorSchedule.placeId}", anchorPoint,
+                    "${anchorSchedule.title} 다음으로 가기 좋은 곳",
+                )
+                lastVisit != null -> RecommendationOrigin(
+                    "visit:${lastVisit.id}", lastVisit.point()!!, "${lastVisit.title} 다음으로 가기 좋은 곳",
+                )
+                else -> initialOrigin
+            }
+        }
+        val recommendationProfile = sharedProfileUiState.profile?.let { profile ->
+            buildList {
+                profile.travelStyleName?.takeIf(String::isNotBlank)?.let(::add)
+                addAll(profile.strengths)
+                profile.introduction.takeIf(String::isNotBlank)?.let(::add)
+            }.joinToString(", ")
+        }.orEmpty().ifBlank { "새로운 장소를 발견하고 여유롭게 여행하는 것을 좋아해요." }
+        val groupSize = trip?.participantIds?.size?.coerceAtLeast(1) ?: 1
+        val requestRecommendations: () -> Unit = {
+            recommendationViewModel.recommend(
+                destination = destination,
+                profile = recommendationProfile,
+                latitude = recommendationOrigin?.point?.latitude,
+                longitude = recommendationOrigin?.point?.longitude,
+                keywords = placeUiState.query.trim().takeIf(String::isNotBlank)?.let(::listOf).orEmpty(),
+                groupSize = groupSize,
+                force = true,
+                headline = recommendationOrigin?.headline.orEmpty(),
+            )
+        }
+        // 기준 장소가 바뀔 때마다(처음 진입, 일정 추가, 장소 변경) 그 장소에서 이어갈 곳을 다시 추천한다.
+        var recommendedOriginKey by rememberSaveable(tripId, selectedDate) { mutableStateOf<String?>(null) }
+        LaunchedEffect(recommendationOrigin?.key) {
+            val key = recommendationOrigin?.key ?: return@LaunchedEffect
+            if (key != recommendedOriginKey) {
+                recommendedOriginKey = key
+                requestRecommendations()
+            }
+        }
         val androidContext = LocalContext.current
         PlaceSearchScreen(
             showUsageGuide = remember(androidContext) {
@@ -145,6 +289,7 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
                 UsageGuidePreferences.markCompleted(androidContext, UsageGuidePreferences.PlaceSearch)
             },
             uiState = placeUiState,
+            recommendationUiState = recommendationUiState,
             onBack = { navController.popBackStack() },
             onQueryChange = candidateViewModel::updateQuery,
             onCategorySelected = candidateViewModel::selectCategory,
@@ -166,6 +311,44 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
                 tripViewModel.toggleFavorite(id, placeViewModel.findPlace(id)?.name)
             },
             onFavorites = { navController.navigate(Routes.favoritePlaces(tripId)) },
+            onRequestRecommendations = requestRecommendations,
+            replaceTargetName = replaceTarget?.title,
+            onReplaceWithPlace = { place ->
+                replaceTarget?.let { schedule ->
+                    tripViewModel.upsertSchedule(
+                        schedule.copy(
+                            title = place.name,
+                            placeId = place.id,
+                            latitude = place.latitude,
+                            longitude = place.longitude,
+                        ),
+                    )
+                    // 직접 고른 교체 대상은 일정 ID가 유지되므로 선택을 그대로 두고, 바뀐 장소 기준으로 다시 추천한다.
+                    if (replaceTargetId == null) chainAnchorPlaceId = place.id
+                }
+            },
+            linkMode = linkMode,
+            onLinkModeChange = { enabled ->
+                linkMode = enabled
+                PlaceSearchPreferences.setLinkMode(linkContext, enabled)
+            },
+            replaceTargetOptions = orderedVisits.map { it.id to it.title },
+            replaceTargetId = replaceTarget?.id,
+            onReplaceTargetSelected = { replaceTargetId = it },
+            isLinkedReplacement = { place ->
+                val point = if (place.latitude != null && place.longitude != null) {
+                    GeoPoint(place.latitude!!, place.longitude!!)
+                } else null
+                neighbors?.isLinked(point) ?: true
+            },
+            onRecommendationClick = { recommendation ->
+                placeViewModel.applyAgentRecommendations(listOf(recommendation))
+                recommendation.placeId.toLongOrNull()
+                    ?.takeIf { it > 0 }
+                    ?.let {
+                        navController.navigate(Routes.placeDetail(tripId, recommendation.placeId, selectedDate, beforeId))
+                    }
+            },
             tripName = trip?.name.orEmpty(),
             tripDate = selectedDate,
             scheduledPlaceIds = scheduledPlaces.filter { it.date == selectedDate }.mapNotNull(TravelSchedule::placeId).toSet(),
@@ -174,6 +357,8 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
                 (placeUiState.places.firstOrNull { it.id == placeId } ?: placeViewModel.findPlace(placeId))?.let { place ->
                     tripViewModel.addPlaceSchedule(tripId, placeId, place.name, selectedDate, time, memo,
                         latitude = place.latitude, longitude = place.longitude, beforeScheduleId = beforeId)
+                    chainAnchorPlaceId = placeId
+                    replaceTargetId = null
                 }
             },
         )
@@ -245,8 +430,16 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
         val showFirstGuide = remember(androidContext) {
             !UsageGuidePreferences.hasCompleted(androidContext, UsageGuidePreferences.MyTrip)
         }
+        val rankingViewModel: HomeRankingViewModel = viewModel(
+            key = "home-rankings",
+            factory = HomeRankingViewModel.factory(appContainer.rankingGateway),
+        )
+        val rankingUiState by rankingViewModel.uiState.collectAsStateWithLifecycle()
         MyTripScreen(
             trips = trips,
+            rankingUiState = rankingUiState,
+            onRankingCategorySelected = rankingViewModel::select,
+            onRankingRetry = rankingViewModel::retry,
             showUsageGuide = showFirstGuide,
             onUsageGuideFinished = {
                 UsageGuidePreferences.markCompleted(androidContext, UsageGuidePreferences.MyTrip)
@@ -615,6 +808,7 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
                 navController.navigate(Routes.placeDetail(tripId, placeId, date))
             },
             onNavigatePlaceSearch = { date -> navController.navigate(Routes.placeSearch(tripId, date)) },
+            onNavigateItineraryRoute = { date -> navController.navigate(Routes.itineraryRoute(tripId, date)) },
             onNavigateParticipants = { navController.navigate(Routes.tripInviteCode(tripId)) },
             onUpdateSchedule = { scheduleId, time, memo ->
                 tripSchedules.firstOrNull { it.id == scheduleId }?.let { schedule ->
@@ -630,3 +824,10 @@ internal fun NavGraphBuilder.tripGraph(context: AppNavigationContext) = with(con
         )
     }
 }
+
+/** 추천 기준점. [key]가 바뀌면 추천을 다시 요청한다. */
+private data class RecommendationOrigin(
+    val key: String,
+    val point: GeoPoint,
+    val headline: String,
+)

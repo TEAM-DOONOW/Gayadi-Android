@@ -48,7 +48,7 @@ class CongestionApiTest {
             assertEquals(listOf(11, 13), forecast.points.map { it.hour })
             assertEquals(listOf(79, 86), forecast.points.map { it.concentrationScore })
             val request = server.takeRequest(1, TimeUnit.SECONDS)!!
-            assertTrue(request.path!!.startsWith("/api/v1/congestion/forecast/hourly"))
+            assertTrue(request.path!!.startsWith("/api/v1/congestion/forecast?"))
             assertTrue(request.path!!.contains("areaCode=11"))
             assertTrue(request.path!!.contains("districtCode=110"))
         }

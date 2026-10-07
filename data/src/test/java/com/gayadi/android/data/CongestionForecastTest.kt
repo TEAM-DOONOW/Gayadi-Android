@@ -52,4 +52,29 @@ class CongestionForecastTest {
             assertEquals("달력 기반 추정입니다.", result.message)
         }
     }
+
+    @Test fun `forecast reads hourly points and weather from one response`() = runTest {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setBody("""{
+                "level":"CROWDED","concentrationScore":75,"estimated":true,
+                "providerDataAvailable":true,"source":"KTO","targetDate":"2026-09-01",
+                "confidence":"MEDIUM","message":"공공 예측",
+                "points":[{"hour":13,"concentrationScore":86,"level":"CROWDED"}],
+                "weather":{"available":true,"condition":"맑음","temperatureCelsius":23,"precipitationProbability":10}
+            }"""))
+            val gateway = ServerTripSupportGateway(GayadiApiClient(server.url("/").toString(), TestAuthRepository()))
+            val result = gateway.getCongestion(CongestionCommand(
+                "11", "110", "서울", "경복궁", "2026-09-01T12:00+09:00",
+                latitude = 37.58, longitude = 126.98, hours = listOf(13),
+            ))
+            val request = server.takeRequest()
+            assertEquals("37.58", request.requestUrl!!.queryParameter("lat"))
+            assertEquals("126.98", request.requestUrl!!.queryParameter("lon"))
+            assertEquals("13", request.requestUrl!!.queryParameter("hours"))
+            assertEquals(13, result.points.single().hour)
+            assertEquals(86, result.points.single().concentrationScore)
+            assertEquals("맑음", result.weather?.condition)
+            assertEquals("23", result.weather?.temperature)
+        }
+    }
 }

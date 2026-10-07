@@ -20,7 +20,7 @@ class ServerFriendshipGateway(private val api: GayadiApiClient) : FriendshipGate
         } while (page.length() == 100)
     }
     override suspend fun search(query: String): List<FriendshipUser> {
-        require(query.trim().length in 1..100)
+        require(query.trim().length in 1..30) { "query must be 1..30 characters" }
         val rows = JSONArray(api.request("GET", "/api/v1/users?query=${URLEncoder.encode(query.trim(), "UTF-8")}&limit=30"))
         return (0 until rows.length()).map { user(rows.getJSONObject(it)) }
     }
